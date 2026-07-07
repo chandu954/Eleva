@@ -1,0 +1,273 @@
+{
+  "brand": {
+    "name": "Eleva",
+    "tagline": "Elevate Every Opportunity",
+    "positioning": "AI Career Operating System",
+    "archetype": "Archetype 4: Swiss & High-Contrast",
+    "theme": "Hybrid (Independent Light and Dark modes)"
+  },
+  "colors": {
+    "light": {
+      "background": "#F8FAFC",
+      "foreground": "#020617",
+      "card": "#FFFFFF",
+      "card_foreground": "#020617",
+      "popover": "#FFFFFF",
+      "popover_foreground": "#020617",
+      "primary": "#2563EB",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#7C3AED",
+      "secondary_foreground": "#FFFFFF",
+      "muted": "#F1F5F9",
+      "muted_foreground": "#64748B",
+      "accent": "#F1F5F9",
+      "accent_foreground": "#0F172A",
+      "destructive": "#EF4444",
+      "destructive_foreground": "#FFFFFF",
+      "success": "#22C55E",
+      "success_foreground": "#FFFFFF",
+      "warning": "#F59E0B",
+      "warning_foreground": "#FFFFFF",
+      "border": "#E2E8F0",
+      "input": "#E2E8F0",
+      "ring": "#2563EB",
+      "ai_gradient": "bg-gradient-to-r from-[#2563EB] to-[#7C3AED]"
+    },
+    "dark": {
+      "background": "#0F172A",
+      "foreground": "#F8FAFC",
+      "card": "#111827",
+      "card_foreground": "#F8FAFC",
+      "popover": "#111827",
+      "popover_foreground": "#F8FAFC",
+      "primary": "#3B82F6",
+      "primary_foreground": "#FFFFFF",
+      "secondary": "#8B5CF6",
+      "secondary_foreground": "#FFFFFF",
+      "muted": "#1E293B",
+      "muted_foreground": "#94A3B8",
+      "accent": "#1E293B",
+      "accent_foreground": "#F8FAFC",
+      "destructive": "#7F1D1D",
+      "destructive_foreground": "#FEF2F2",
+      "success": "#14532D",
+      "success_foreground": "#22C55E",
+      "warning": "#78350F",
+      "warning_foreground": "#F59E0B",
+      "border": "#1E293B",
+      "input": "#1E293B",
+      "ring": "#3B82F6",
+      "ai_gradient": "bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6]"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Geist, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "Geist Mono, monospace"
+    },
+    "scales": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tighter text-foreground",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-foreground",
+      "h3": "text-xl sm:text-2xl font-medium tracking-tight text-foreground",
+      "h4": "text-lg sm:text-xl font-medium tracking-tight text-foreground",
+      "body": "text-base leading-relaxed text-foreground",
+      "small": "text-sm text-muted-foreground",
+      "overline": "text-xs uppercase tracking-[0.2em] font-mono text-muted-foreground"
+    }
+  },
+  "spacing_and_layout": {
+    "grid_system": "8px base scale (Tailwind default). Generous padding to emulate Linear/Vercel density.",
+    "section_padding": "py-24 sm:py-32",
+    "container": "mx-auto max-w-7xl px-4 sm:px-6 lg:px-8",
+    "bento_gap": "gap-4 sm:gap-6",
+    "radii": {
+      "sm": "rounded-sm",
+      "base": "rounded-md",
+      "md": "rounded-lg",
+      "lg": "rounded-xl",
+      "xl": "rounded-2xl",
+      "pill": "rounded-full"
+    },
+    "shadows": {
+      "light": {
+        "card": "shadow-sm",
+        "hover": "shadow-md",
+        "glass": "shadow-[0_8px_32px_rgba(0,0,0,0.08)]"
+      },
+      "dark": {
+        "card": "shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]",
+        "hover": "shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),_0_4px_24px_rgba(0,0,0,0.4)]",
+        "glass": "shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),_0_8px_32px_rgba(0,0,0,0.8)]"
+      }
+    },
+    "borders": {
+      "light": "border border-slate-200",
+      "dark": "border border-white/10",
+      "glass": "border border-white/20 dark:border-white/10"
+    }
+  },
+  "motion": {
+    "philosophy": "Snappy, precise, hardware-accelerated. No sluggish easing.",
+    "page_transition": {
+      "initial": { "opacity": 0, "y": 10 },
+      "animate": { "opacity": 1, "y": 0 },
+      "exit": { "opacity": 0, "y": -10 },
+      "transition": { "duration": 0.2, "ease": "easeOut" }
+    },
+    "card_hover": {
+      "whileHover": { "y": -4 },
+      "transition": { "type": "spring", "stiffness": 400, "damping": 25 }
+    },
+    "list_stagger": {
+      "container": {
+        "animate": { "transition": { "staggerChildren": 0.05 } }
+      },
+      "item": {
+        "initial": { "opacity": 0, "y": 10 },
+        "animate": { "opacity": 1, "y": 0 }
+      }
+    },
+    "dialog_spring": {
+      "initial": { "opacity": 0, "scale": 0.95 },
+      "animate": { "opacity": 1, "scale": 1 },
+      "transition": { "type": "spring", "bounce": 0, "duration": 0.3 }
+    }
+  },
+  "logo_spec": {
+    "concept": "Minimal geometric 'E' where negative space forms an upward arrow.",
+    "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 40\" fill=\"none\" class=\"w-8 h-8 text-primary\"><path d=\"M10 8h24v6H18l6 6-6 6h16v6H10V8z\" fill=\"currentColor\"/><path d=\"M24 20l-6-6v12l6-6z\" fill=\"var(--background)\"/></svg>",
+    "note": "The cutout 'M24 20l-6-6v12l6-6z' creates the distinct upward-right arrow pointing out of the 'E'. Developer must ensure '--background' maps to the actual page background color so it acts as true negative space."
+  },
+  "components": {
+    "header": {
+      "style": "Sticky at top, z-50. Glassmorphism enabled.",
+      "light": "bg-white/70 backdrop-blur-xl border-b border-slate-200",
+      "dark": "bg-[#0F172A]/70 backdrop-blur-xl border-b border-white/10",
+      "layout": "Flex container. Left: Logo. Center: Cmd+K Search trigger button (pill shaped, muted bg). Right: Notifications bell, Credits pill, Avatar."
+    },
+    "sidebar": {
+      "style": "Collapsible vertical left sidebar. Thin border-r.",
+      "layout": "Top: Compact logo. Middle: Nav links with animated Phosphor/Lucide icons. Bottom: Settings, Profile.",
+      "active_state": "bg-primary/10 text-primary border-r-2 border-primary (or subtle left indicator).",
+      "inactive_state": "text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    },
+    "command_palette": {
+      "style": "Raycast/Linear style modal. Blurry backdrop.",
+      "overlay": "bg-black/40 backdrop-blur-sm",
+      "content": "bg-card border-border rounded-xl shadow-2xl overflow-hidden max-w-2xl mx-auto mt-[10vh]",
+      "input": "text-lg p-4 bg-transparent border-b border-border focus:ring-0",
+      "group_heading": "text-xs font-mono text-muted-foreground px-4 py-2"
+    },
+    "stat_card": {
+      "layout": "Bento grid item. p-6 rounded-xl border border-border bg-card relative overflow-hidden",
+      "content": "Top-left: Title & Icon. Bottom-left: Count-up number (text-4xl). Bottom-right: Sparkline chart or subtle trend badge.",
+      "motion": "Framer motion card_hover. Inner glow on hover using framer motion."
+    },
+    "quick_action_tile": {
+      "layout": "Aspect-square or wide rectangle. bg-muted/50 hover:bg-muted border border-transparent hover:border-border transition-all rounded-lg p-4 flex flex-col items-start justify-between cursor-pointer",
+      "icon": "w-8 h-8 rounded-md bg-background flex items-center justify-center text-primary shadow-sm"
+    },
+    "resume_card": {
+      "layout": "Vertical card. Top 2/3: Thumbnail preview of resume (muted bg, inner border). Bottom 1/3: Title, ATS Score Badge, Updated date.",
+      "interactions": "Hover lifts card (y:-4) and reveals absolute positioned 'Edit'/'Download' buttons over thumbnail."
+    },
+    "editor_shell": {
+      "layout": "Split pane architecture.",
+      "left_sidebar": "w-64 border-r border-border bg-card p-4 overflow-y-auto (Sections list).",
+      "middle_pane": "flex-1 flex flex-col bg-background",
+      "editor_toolbar": "h-14 border-b border-border flex items-center px-4 gap-2 (Undo, Redo, Auto-save pill, Export).",
+      "right_preview": "w-[45%] lg:w-1/2 bg-muted p-8 overflow-y-auto flex justify-center items-start shadow-inner"
+    },
+    "floating_ai_copilot": {
+      "trigger": "Bottom-right fixed. w-12 h-12 rounded-full ai_gradient text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform",
+      "panel": "Absolute bottom-16 right-0 w-80 h-[500px] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden",
+      "header": "bg-muted p-3 flex justify-between border-b border-border"
+    },
+    "empty_state": {
+      "layout": "Flex col center, py-16 px-4 text-center",
+      "visual": "Abstract subtle geometric SVG or high-end monochrome illustration (not generic vector people)",
+      "text": "text-lg font-medium text-foreground mt-6. text-sm text-muted-foreground max-w-sm mx-auto mt-2",
+      "cta": "mt-6"
+    }
+  },
+  "pages": {
+    "landing_page": {
+      "hero": {
+        "layout": "Min-h-[80vh] flex flex-col items-center justify-center text-center px-4 relative overflow-hidden",
+        "background": "Abstract radial gradient orbs (Blue & Purple) blurred heavily in background behind content.",
+        "headline": "text-5xl md:text-7xl font-bold tracking-tighter max-w-4xl mx-auto leading-tight",
+        "tagline": "Elevate Every Opportunity.",
+        "cta_group": "flex gap-4 justify-center mt-8. Primary: Get Started (bg-primary). Secondary: View Demo (outline).",
+        "visual_proof": "Animated dashboard mock-up tilting in 3D (React Three Fiber or Framer Motion perspective transform) immediately below fold."
+      },
+      "sections": [
+        "Interactive Demo: Before/After ATS comparison slider.",
+        "Features Bento Grid: Left-aligned text, asymmetrical boxes.",
+        "Testimonials: Marquee of monochrome professional portraits.",
+        "Pricing: Clear, transparent pricing cards."
+      ]
+    },
+    "home_dashboard": {
+      "hero": "Greeting 'Good evening, Ashish 👋'. Subtle day/time text.",
+      "stats": "Row of 4 stat cards (Resumes, Applications, Avg ATS, Cover Letters).",
+      "quick_actions": "Grid of 6 actions (Upload Resume, Paste JD, Optimize, Generate CL, Interview Prep, Import LinkedIn).",
+      "content_split": "Grid md:grid-cols-3 gap-6. Left span-2: Activity Timeline & Weekly Chart. Right span-1: AI Insights list (actionable alerts)."
+    },
+    "ats_analyzer": {
+      "workflow": "Stepper: Upload -> Paste JD -> Analyze -> Results",
+      "results_layout": "Top: Radar chart (Skills, Format, Keywords, Impact). Bottom: Grid of score cards. Right sidebar: Actionable one-click fix suggestions."
+    },
+    "cover_letter_studio": {
+      "layout": "3-panel. Left: Inputs (Target Role, Company, Key achievements). Middle: AI Chat & Tone Controls (sliders for Confidence, Professionalism). Right: Live Letter Preview (A4 aspect ratio, editable text area)."
+    }
+  },
+  "media": {
+    "abstract_backgrounds": [
+      {
+        "url": "https://images.unsplash.com/photo-1638864616275-9f0b291a2eb6",
+        "description": "Black and white abstract background",
+        "category": "landing_hero_bg"
+      },
+      {
+        "url": "https://images.pexels.com/photos/12623752/pexels-photo-12623752.jpeg",
+        "description": "Abstract composition showcasing modern architectural elements with dramatic lighting.",
+        "category": "landing_feature_bg"
+      }
+    ],
+    "portraits": [
+      {
+        "url": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGhlYWRzaG90fGVufDB8fHx8MTc4MzM1NTM0MXww&ixlib=rb-4.1.0&q=85",
+        "description": "man wearing white V-neck shirt",
+        "category": "testimonial_avatar_1"
+      },
+      {
+        "url": "https://images.pexels.com/photos/37148308/pexels-photo-37148308.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Confident business professional in a blue suit and tie, smiling.",
+        "category": "testimonial_avatar_2"
+      }
+    ],
+    "company_logos": [
+      {
+        "url": "https://images.pexels.com/photos/12655584/pexels-photo-12655584.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Black and white photo of a modern office building",
+        "category": "social_proof_placeholder"
+      }
+    ]
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure minimum 4.5:1 for standard text against background colors. Use APCA preferred.",
+    "testing_attributes": "All interactive elements MUST have a `data-testid` attribute (e.g., `data-testid=\"resume-edit-button\"`).",
+    "reduced_motion": "Wrap framer-motion animations with useReducedMotion hooks to disable if user prefers reduced motion."
+  },
+  "instructions_to_main_agent": [
+    "Extend Tailwind theme with the colors specified in this JSON. Define CSS variables for them in globals.css for light and dark modes.",
+    "Use standard Radix/Shadcn UI components but heavily customize borders, radii, and shadows to match this high-end, high-contrast SaaS look.",
+    "Do NOT center-align the app dashboard layouts. Maintain an asymmetric, left-aligned reading flow.",
+    "Avoid Bootstrap-style styling. Prefer pure HTML/Tailwind over rigidly abstracting everything into cards if pure wrappers provide better visual flow.",
+    "Strictly follow the Logo SVG implementation with the negative space arrow. Ensure it works on both Light and Dark backgrounds.",
+    "Embed framer motion transitions for route changes, stat card hovers, and list staggers.",
+    "Build the Editor shell using a resizable/split-pane layout if possible, or standard flex boundaries. Preview pane must simulate US Letter/A4 aspect ratio.",
+    "Implement the Floating AI Copilot as an overlaid interactive element with the ai_gradient trigger."
+  ]
+}

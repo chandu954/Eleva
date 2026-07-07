@@ -1,0 +1,8 @@
+allowBuilds:
+  '@google/genai': false
+  canvas: false
+  core-js: false
+  esbuild: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: false
