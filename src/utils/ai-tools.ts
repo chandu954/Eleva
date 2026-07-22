@@ -20,7 +20,7 @@ export function createAIClientFromResolvedRequest(
     baseURL: 'https://openrouter.ai/api/v1',
     compatibility: 'compatible',
     headers: {
-      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || 'https://eleva.app',
       'X-Title': 'Eleva',
     },
   })(resolved.modelId) as LanguageModelV1;

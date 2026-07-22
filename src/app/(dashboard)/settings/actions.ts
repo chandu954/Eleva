@@ -113,7 +113,7 @@ interface ApiTestResult {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${serverKey}`,
-            'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+            'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || 'https://eleva.app',
             'X-Title': 'Eleva',
           },
           body: JSON.stringify({
@@ -139,7 +139,7 @@ interface ApiTestResult {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey.trim()}`,
-          'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || 'https://eleva.app',
           'X-Title': 'Eleva',
         },
         body: JSON.stringify({
