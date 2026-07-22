@@ -4,7 +4,7 @@
 # ==========================================
 # Build base - includes build tools for native modules
 # ==========================================
-FROM node:22-slim AS build-base
+FROM node:26-slim AS build-base
 
 # Install build dependencies for node-gyp and canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -107,7 +107,7 @@ RUN pnpm build
 # ==========================================
 # Production stage - minimal runtime image
 # ==========================================
-FROM node:22-slim AS production
+FROM node:26-slim AS production
 
 # OCI labels for container metadata
 LABEL org.opencontainers.image.title="Eleva" \
