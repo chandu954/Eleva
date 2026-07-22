@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 export async function requireUser() {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) redirect('/eleva/login');
+  if (error || !user) redirect('/eleva/auth/login');
   return { supabase, user };
 }
 
@@ -276,5 +276,5 @@ export async function updateProfile(patch: Record<string, unknown>) {
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect('/eleva/login');
+  redirect('/eleva/auth/login');
 }

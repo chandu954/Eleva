@@ -122,9 +122,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
           <div className="mt-6 text-center text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
             {mode === 'signup' ? (
-              <>Already have an account? <Link href="/eleva/login" className="font-medium" style={{ color: 'rgb(var(--eleva-primary))' }}>Sign in</Link></>
+              <>Already have an account? <Link href="/eleva/auth/login" className="font-medium" style={{ color: 'rgb(var(--eleva-primary))' }}>Sign in</Link></>
             ) : (
-              <>New to Eleva? <Link href="/eleva/signup" className="font-medium" style={{ color: 'rgb(var(--eleva-primary))' }}>Create an account</Link></>
+              <>New to Eleva? <Link href="/eleva/auth/signup" className="font-medium" style={{ color: 'rgb(var(--eleva-primary))' }}>Create an account</Link></>
             )}
           </div>
         </div>
