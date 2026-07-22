@@ -108,14 +108,7 @@ export async function generate(input: string, config?: AIConfig) {
         system,
         prompt: input,
         experimental_telemetry: telemetry,
-        onFinish: async ({ usage }) => {
-         const { promptTokens, completionTokens, totalTokens } = usage;
-  
-         // your own logic, e.g. for saving the chat history or recording usage
-         console.log('----------Usage:----------');
-         console.log('Prompt tokens:', promptTokens);
-         console.log('Completion tokens:', completionTokens);
-         console.log('Total tokens:', totalTokens);
+         onFinish: async ({ usage }) => {
          await finishAIUsageRequest({
            usageEventId,
            status: 'succeeded',

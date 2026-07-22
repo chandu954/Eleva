@@ -43,7 +43,7 @@ export function ModelShowcase() {
               {/* Deepseek Logo */}
               <div className="relative w-48 h-12 transition-transform duration-500 hover:scale-105">
                 <Image
-                  src="/deepseek-logo-full.png"
+                  src="/deepseek.png"
                   alt="Deepseek"
                   fill
                   className="object-contain"

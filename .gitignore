@@ -82,6 +82,45 @@ agenthub/agents/youtube/db
 
 memory/test_credentials.md
 
+# Tool/agent configs
+.reticle.json
+opencode.json
+.claude/
+.cursor/
+.cursorrules
+.emergent/
+
+# Shell configs
+.zshrc
+.bashrc
+.bash_profile
+
+# Environment files
+backend/.env
+frontend/.env
+*credentials.json
+
+# Local development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Test artifacts
+test_reports/
+test_result.md
+tests.md
+
+# Local memory/docs
+memory/
+docs/superpowers/
+
+# Legacy frontend
+frontend/
+
+# Old schema files (migrations are canonical)
+schema.sql
+schema-eleva.sql
+
 # Mobile development
 android-sdk/node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
 node_modules/@next/swc-linux-arm64-gnu/next-swc.linux-arm64-gnu.node

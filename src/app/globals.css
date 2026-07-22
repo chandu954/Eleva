@@ -32,6 +32,17 @@ body {
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    --eleva-primary: 37 99 235;
+    --eleva-secondary: 99 102 241;
+    --eleva-accent: 99 102 241;
+    --eleva-fg: 15 23 42;
+    --eleva-muted-fg: 100 116 139;
+    --eleva-card: 248 250 252;
+    --eleva-border: 226 232 240;
+    --eleva-muted: 241 245 249;
+    --eleva-danger: 239 68 68;
+    --eleva-success: 16 185 129;
   }
 
   .dark {
@@ -54,6 +65,17 @@ body {
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    --eleva-primary: 99 102 241;
+    --eleva-secondary: 139 92 246;
+    --eleva-accent: 99 102 241;
+    --eleva-fg: 248 250 252;
+    --eleva-muted-fg: 148 163 184;
+    --eleva-card: 30 41 59;
+    --eleva-border: 51 65 85;
+    --eleva-muted: 30 41 59;
+    --eleva-danger: 239 68 68;
+    --eleva-success: 16 185 129;
   }
 }
 
@@ -138,122 +160,3 @@ body {
   background-color: #cbd5e1;
 }
 
-
-
-.buyButton {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  color: #ffffff;
-  background-color: #ff813f;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  padding: 0.5rem;
-  font-size: 1rem;
-  letter-spacing: 0.6px;
-  box-shadow: 0px 1px 2px rgba(190, 190, 190, 0.5);
-  font-family: cursive;
-}
-.buyButton:hover,
-.buyButton:active,
-.buyButton:focus {
-  text-decoration: underline;
-  box-shadow: 0px 1px 2px 2px rgba(190, 190, 190, 0.5);
-  opacity: 0.85;
-  color: #ffffff;
-}
-
-.coffeeImage {
-  height: 2vh;
-  box-shadow: none;
-  border: none;
-  vertical-align: middle;
-}
-
-.coffeeButtonText {
-  margin-left: 15px;
-  font-size: 0.8rem;
-  vertical-align: middle;
-}
-
-/* Buy Me Coffee Button Styles */
-#bmc-wbtn {
-  position: fixed !important;
-  bottom: 1.5rem !important;
-  right: 1.5rem !important;
-  z-index: 50 !important;
-  transition: transform 0.2s ease-in-out !important;
-}
-
-#bmc-wbtn:hover {
-  transform: translateY(-2px) !important;
-}
-
-@media (max-width: 640px) {
-  #bmc-wbtn {
-    bottom: 1rem !important;
-    right: 1rem !important;
-    transform: scale(0.9) !important;
-  }
-}
-/* 
-h1 {
-  display: block;
-  font-size: 2em;
-  margin-top: 0.67em;
-  margin-bottom: 0.67em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-}
-
-
-h2 {
-  display: block;
-  font-size: 1.5em;
-  margin-top: 0.83em;
-  margin-bottom: 0.83em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-}
-
-h3 {
-  display: block;
-  font-size: 1.17em;
-  margin-top: 1em;
-  margin-bottom: 1em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-}
-
-h4 {
-  display: block;
-  font-size: 1em;
-  margin-top: 1.33em;
-  margin-bottom: 1.33em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-}
-
-h5 {
-  display: block;
-  font-size: .83em;
-  margin-top: 1.67em;
-  margin-bottom: 1.67em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-}
-
-h6 {
-  display: block;
-  font-size: .67em;
-  margin-top: 2.33em;
-  margin-bottom: 2.33em;
-  margin-left: 0;
-  margin-right: 0;
-  font-weight: bold;
-} */

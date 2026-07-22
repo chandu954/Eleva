@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 
-const CHECKOUT_SOURCE = "resumelm_checkout";
+const CHECKOUT_SOURCE = "eleva_checkout";
 
 export interface CheckoutGuardInput {
   userId: string;

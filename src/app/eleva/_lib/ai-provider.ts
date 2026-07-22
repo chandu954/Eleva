@@ -20,11 +20,11 @@ export const ELEVA_SYSTEM = AIProvider.getSystemPrompt();
 /** @deprecated Use AIProvider options directly. Kept for backward compat. */
 export function getModel(model?: string) {
   // Return a compat object that acts like LanguageModel for existing calls
-  return model ?? 'google/gemini-2.5-flash';
+  return model ?? 'openrouter/free';
 }
 
 /** @deprecated Moved to @/lib/eleva-ai-provider */
-export const DEFAULT_MODEL = 'google/gemini-2.5-flash';
+export const DEFAULT_MODEL = 'openrouter/free';
 export const DEFAULT_MAX_TOKENS = 2048;
 
 // Re-export schemas that are specific to Eleva

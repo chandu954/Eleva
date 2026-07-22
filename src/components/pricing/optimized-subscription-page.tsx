@@ -37,7 +37,7 @@ const testimonials = [
   {
     name: "Sarah Chen",
     role: "Software Engineer at Google",
-    content: "ResumeLM helped me land 3 interviews in my first week. The AI suggestions were spot-on.",
+    content: "Eleva helped me land 3 interviews in my first week. The AI suggestions were spot-on.",
     avatar: "SC"
   },
   {
@@ -168,7 +168,7 @@ export function OptimizedSubscriptionPage({ initialProfile }: OptimizedSubscript
                 Ready to land your dream job?
               </h1>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Join thousands of professionals who&apos;ve upgraded their careers with ResumeLM Pro.
+                Join thousands of professionals who&apos;ve upgraded their careers with Eleva Pro.
               </p>
             </>
           )}
@@ -289,7 +289,7 @@ export function OptimizedSubscriptionPage({ initialProfile }: OptimizedSubscript
               
               <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-2">
-                  <h3 className="text-2xl font-bold text-gray-900">ResumeLM Pro</h3>
+                  <h3 className="text-2xl font-bold text-gray-900">Eleva Pro</h3>
                   {!hasProAccess && (
                     <Badge className="ml-3 bg-blue-100 text-blue-700">Most Popular</Badge>
                   )}

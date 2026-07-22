@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Trash2, Building2, DollarSign, Calendar, Star, Loader2, GripVertical } from 'lucide-react';
+import { Plus, X, Trash2, Building2, DollarSign, Calendar, Star, Loader2, GripVertical, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, closestCorners, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
@@ -118,8 +119,15 @@ export function ApplicationsClient({ initial }: { initial: Application[] }) {
       {apps.length === 0 && (
         <div className="eleva-card p-10 text-center mb-6">
           <div className="font-display text-xl font-semibold mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>No applications yet</div>
-          <div className="text-[13px] mb-4" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Add your first target company — or run the Studio pipeline and it auto-logs here.</div>
-          <button onClick={() => setOpen(true)} className="eleva-btn-primary inline-flex items-center gap-2"><Plus className="w-4 h-4" />Add first application</button>
+          <div className="text-[13px] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>You don&apos;t have any applications tracked.</div>
+          <div className="flex items-center justify-center gap-2 mb-4 text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            <Sparkles className="w-3 h-3" style={{ color: 'rgb(var(--eleva-primary))' }} />
+            AI Suggestion: Run the Studio pipeline. We&apos;ll automatically track applications here.
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button onClick={() => setOpen(true)} className="eleva-btn-primary inline-flex items-center gap-2"><Plus className="w-4 h-4" />Add first application</button>
+            <Link href="/eleva/studio" className="eleva-btn-ghost inline-flex items-center gap-2 text-[12px]"><Sparkles className="w-4 h-4" />Run Pipeline</Link>
+          </div>
         </div>
       )}
 

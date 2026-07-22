@@ -11,6 +11,7 @@ export type DashboardMetrics = {
   resumeGrowth: number[];
   weeklyProductivity: number[];
   atsDelta: number;
+  applicationsByStatus: Record<string, number>;
 };
 
 export type ActivityItem = {
@@ -58,6 +59,12 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   } catch {
     // Table may not exist yet — graceful fallback
   }
+
+  const applicationsByStatus: Record<string, number> = {};
+  ((applicationsRes as any).data ?? []).forEach((a: any) => {
+    const s = a.status || 'applied';
+    applicationsByStatus[s] = (applicationsByStatus[s] || 0) + 1;
+  });
 
   const days = last7Days();
 
@@ -116,6 +123,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
     resumeGrowth,
     weeklyProductivity,
     atsDelta,
+    applicationsByStatus,
   };
 }
 

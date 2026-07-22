@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BriefcaseBusiness,
+  Plus,
+  UserCircle,
 } from 'lucide-react';
 import { ElevaLogo } from './eleva-logo';
 import { useRealtimeApplicationCount } from '../_lib/use-realtime';
@@ -23,13 +25,14 @@ import { useRealtimeApplicationCount } from '../_lib/use-realtime';
 const nav = [
   { href: '/eleva/dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
   { href: '/eleva/studio', label: 'Studio', icon: Sparkles, badge: 'AI' },
-  { href: '/eleva/resumes', label: 'Resumes', icon: FileText, badge: null },
+  { href: '/eleva/career', label: 'Career Profile', icon: UserCircle, badge: null },
+  { href: '/eleva/resumes', label: 'Tailored Resumes', icon: FileText, badge: null },
   { href: '/eleva/cover-letters', label: 'Cover Letters', icon: Mail, badge: null },
   { href: '/eleva/ats', label: 'ATS Match', icon: Target, badge: null },
   { href: '/eleva/applications', label: 'Applications', icon: BriefcaseBusiness, badge: null },
   { href: '/eleva/analytics', label: 'Analytics', icon: BarChart3, badge: null },
   { href: '/eleva/templates', label: 'Templates', icon: LayoutTemplate, badge: null },
-  { href: '/eleva/prompt-studio', label: 'Prompt Studio', icon: Sparkles, badge: null },
+  { href: '/eleva/prompt-studio', label: 'AI Presets', icon: Sparkles, badge: null },
 ];
 
 export function ElevaSidebar() {
@@ -47,7 +50,7 @@ export function ElevaSidebar() {
     >
       <div className="h-16 flex items-center px-4 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
         <Link href="/eleva/dashboard" data-testid="sidebar-logo">
-          <ElevaLogo showWordmark={!collapsed} size={30} />
+          <ElevaLogo showWordmark={!collapsed} size={30} asLink={false} />
         </Link>
       </div>
 
@@ -111,26 +114,57 @@ export function ElevaSidebar() {
         </nav>
       </div>
 
-      <div className="mt-auto p-3 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+      <div className="mt-auto p-3 border-t space-y-2" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
         {!collapsed && (
-          <div
-            className="rounded-xl p-3 mb-3 relative overflow-hidden"
-            style={{
-              background:
-                'linear-gradient(135deg, rgba(37,99,235,.14), rgba(124,58,237,.14))',
-              border: '1px solid rgba(37,99,235,.2)',
-            }}
-          >
-            <div className="text-xs font-mono uppercase tracking-widest mb-1" style={{ color: 'rgb(var(--eleva-primary))' }}>
-              Eleva Pro
+          <>
+            <div
+              className="rounded-xl p-4 relative overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, rgba(37,99,235,.08), rgba(124,58,237,.08))',
+                border: '1px solid rgba(37,99,235,.15)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[10px] font-mono uppercase tracking-widest" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  Resume Health
+                </div>
+                <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-primary))' }}>
+                  83
+                </div>
+              </div>
+              <div className="h-1 rounded-full overflow-hidden mb-3" style={{ background: 'rgb(var(--eleva-bg))' }}>
+                <div className="h-full rounded-full w-[83%]" style={{ background: 'linear-gradient(90deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }} />
+              </div>
+              <Link
+                href="/eleva/ats"
+                className="flex items-center justify-between text-[11px] font-medium px-2.5 py-1.5 rounded-lg hover:bg-[rgb(var(--eleva-bg))] transition-colors"
+                style={{ color: 'rgb(var(--eleva-primary))' }}
+              >
+                Improve ATS
+                <Target className="w-3 h-3" />
+              </Link>
             </div>
-            <p className="text-[13px] font-medium mb-2" style={{ color: 'rgb(var(--eleva-fg))' }}>
-              Unlock unlimited AI credits
-            </p>
-            <button className="text-[11px] font-mono uppercase tracking-wider" style={{ color: 'rgb(var(--eleva-primary))' }}>
-              Upgrade →
-            </button>
-          </div>
+
+            <div className="rounded-xl p-3" style={{ background: 'rgb(var(--eleva-muted))' }}>
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] mb-1.5 px-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                Quick Actions
+              </p>
+              <div className="space-y-0.5">
+                <Link href="/eleva/studio" className="flex items-center gap-2 px-2.5 h-8 rounded-md text-[12px] font-medium hover:bg-[rgb(var(--eleva-card))] transition-colors" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                  <Plus className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
+                  New Resume
+                </Link>
+                <Link href="/eleva/ats" className="flex items-center gap-2 px-2.5 h-8 rounded-md text-[12px] font-medium hover:bg-[rgb(var(--eleva-card))] transition-colors" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                  <Target className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
+                  Run ATS
+                </Link>
+                <Link href="/eleva/cover-letters" className="flex items-center gap-2 px-2.5 h-8 rounded-md text-[12px] font-medium hover:bg-[rgb(var(--eleva-card))] transition-colors" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                  <Mail className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
+                  Generate Cover Letter
+                </Link>
+              </div>
+            </div>
+          </>
         )}
         <Link
           href="/eleva/settings"

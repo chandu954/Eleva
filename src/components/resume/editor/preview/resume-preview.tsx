@@ -117,8 +117,6 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
   // Convert percentage to pixels based on parent container
   const getPixelWidth = useCallback(() => {
     if (typeof window === 'undefined') return 0;
-    // console.log('debouncedWidth (INSIDE)'+containerWidth);
-    // console.log('debouncedWidth * 10 (INSIDE)'+debouncedWidth * 10);
     return ((debouncedWidth));
   }, [debouncedWidth]);
 

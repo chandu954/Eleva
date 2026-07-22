@@ -120,26 +120,12 @@ async function handleSubscriptionChange(
   subscriptionId: string
 ): Promise<Partial<Subscription>> {
   try {
-    // Enhanced initial logging
-    console.log('🔔 Subscription Status Update:', {
-      event: 'subscription_change',
-      timestamp: new Date().toISOString(),
-      customerId: stripeCustomerId,
-      subscriptionId,
-    });
-
     // Update subscription in database
     const subscriptionData = await manageSubscriptionStatusChange(
       subscriptionId,
       stripeCustomerId
     );
     
-    console.log('✨ Final Subscription State:', {
-      result: 'success',
-      updatedAt: new Date().toISOString(),
-      subscriptionId,
-    });
-
     return subscriptionData;
   } catch (error) {
     console.error('❌ Subscription Update Failed:', {
@@ -196,12 +182,6 @@ async function captureSubscriptionLifecycleEvent(input: {
 
 export async function POST(req: Request) {
   try {
-    console.log('🌐 Incoming Webhook Request:', {
-      method: req.method,
-      url: req.url,
-      timestamp: new Date().toISOString()
-    });
-
     const body = await req.text()
     const signature = (await headers()).get('stripe-signature')
 
@@ -216,16 +196,9 @@ export async function POST(req: Request) {
       )
     }
 
-    const idempotencyKey = (await headers()).get('stripe-idempotency-key');
-    if (idempotencyKey) {
-      console.log('🔑 Processing webhook with idempotency key:', idempotencyKey);
-    }
-
     let event: Stripe.Event
     try {
-      console.log('🔍 Verifying webhook signature...');
       event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
-      console.log('✅ Webhook signature verified successfully');
     } catch (err: unknown) {
       const error = err as Error
       console.error('❌ Webhook signature verification failed:', {
@@ -242,14 +215,7 @@ export async function POST(req: Request) {
       )
     }
 
-    console.log('📨 Received Stripe Event:', {
-      type: event.type,
-      id: event.id,
-      created: new Date(event.created * 1000).toISOString()
-    });
-
     if (!relevantEvents.has(event.type)) {
-      console.log('ℹ️ Skipping unhandled event type:', event.type);
       return new Response(
         JSON.stringify({ received: true, processed: false, message: `Event type ${event.type} was received but not processed` }),
         { 
@@ -262,7 +228,6 @@ export async function POST(req: Request) {
     const supabase = await createServiceClient();
     const webhookEventAction = await reserveWebhookEvent(supabase, event);
     if (webhookEventAction === 'skip') {
-      console.log('↩️ Duplicate webhook event already processed, skipping:', event.id);
       return new Response(
         JSON.stringify({ received: true, processed: false, duplicate: true }),
         {
@@ -318,37 +283,6 @@ export async function POST(req: Request) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const previousAttributes = (event.data.previous_attributes ?? {}) as Partial<Stripe.Subscription>;
-        const subscriptionItem = subscription.items.data[0];
-        const currentPeriodEnd = subscriptionItem?.current_period_end
-          ? new Date(subscriptionItem.current_period_end * 1000).toISOString()
-          : null;
-        
-        // Enhanced logging for subscription updates
-        console.log('📝 Subscription Update Details:', {
-          event: event.type,
-          customerId: subscription.customer,
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-          currentPeriodEnd,
-          changes: {
-            willCancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000).toISOString() : null,
-            previousCancelAtPeriodEnd: previousAttributes.cancel_at_period_end,
-            newCancelAtPeriodEnd: subscription.cancel_at_period_end,
-            previousStatus: previousAttributes.status,
-            newStatus: subscription.status
-          }
-        });
-
-        // Add specific cancellation notice if detected
-        if (subscription.cancel_at_period_end) {
-          console.log('🚫 Subscription Cancellation Scheduled:', {
-            message: 'Subscription will remain active until period end',
-            activeUntil: currentPeriodEnd,
-            willAutoRenew: false
-          });
-        }
         
         const subscriptionData = await handleSubscriptionChange(
           getCustomerId(subscription.customer),
@@ -364,14 +298,6 @@ export async function POST(req: Request) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         
-        console.log('🗑️ Processing subscription deletion:', {
-          subscriptionId: subscription.id,
-          customerId: subscription.customer,
-          canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
-          endedAt: subscription.ended_at ? new Date(subscription.ended_at * 1000).toISOString() : null,
-          status: subscription.status
-        });
-        
         const subscriptionData = await handleSubscriptionChange(
           getCustomerId(subscription.customer),
           subscription.id
@@ -380,7 +306,6 @@ export async function POST(req: Request) {
           eventType: event.type,
           subscriptionData,
         });
-        console.log('✅ Subscription deletion processed successfully');
         break;
       }
 
@@ -395,10 +320,6 @@ export async function POST(req: Request) {
 
           if (error) throw error;
           
-          console.log('🗑️ Deleted subscription record for customer:', {
-            customerId: customer.id,
-            supabaseUUID: customer.metadata.supabaseUUID
-          });
           await captureServerAnalyticsEvent({
             distinctId: customer.metadata.supabaseUUID,
             event: AnalyticsEvents.SubscriptionCanceled,
@@ -423,11 +344,6 @@ export async function POST(req: Request) {
     }
 
     await markWebhookEventProcessed(supabase, event.id);
-
-    console.log('✅ Webhook processed successfully:', {
-      eventType: event.type,
-      timestamp: new Date().toISOString()
-    });
 
     return new Response(
       JSON.stringify({ received: true }),

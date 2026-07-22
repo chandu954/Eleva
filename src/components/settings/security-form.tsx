@@ -8,7 +8,6 @@ import { User } from "@supabase/supabase-js"
 import { useState } from "react"
 import { updateEmail, updatePassword } from "@/app/(dashboard)/settings/actions"
 import { toast } from "sonner"
-// import { testApiKey } from "@/app/settings/page"
 
 interface SecurityFormProps {
   user: User | null;
@@ -83,7 +82,7 @@ export function SecurityForm({ user }: SecurityFormProps) {
         <div className="rounded-lg border border-teal-200 bg-teal-50/70 p-4 text-sm text-teal-900">
           <p className="font-medium">Your account uses Google sign-in.</p>
           <p className="mt-1 text-teal-800">
-            Email and password changes are managed by your Google account, so ResumeLM does not require a separate password here.
+            Email and password changes are managed by your Google account, so Eleva does not require a separate password here.
           </p>
         </div>
       )}

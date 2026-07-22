@@ -24,7 +24,7 @@ export async function GET() {
   const { data: userRes } = await supabase.auth.getUser();
   if (!userRes?.user) return Response.json({ error: 'unauthenticated' }, { status: 401 });
   const { data, error } = await supabase.from('applications').select('*').eq('user_id', userRes.user.id).order('updated_at', { ascending: false });
-  if (error) return Response.json({ error: error.message, applications: [] }, { status: 200 });
+  if (error) return Response.json({ error: error.message, applications: [] }, { status: 500 });
   return Response.json({ applications: data ?? [] });
 }
 

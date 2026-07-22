@@ -1,6 +1,5 @@
 'use server';
 
-// import { RESUME_IMPORTER_SYSTEM_MESSAGE, } from "@/lib/prompts";
 import { Resume } from "@/lib/types";
 import { textImportSchema, workExperienceBulletPointsSchema } from "@/lib/zod-schemas";
 import { generateObject, type LanguageModelUsage, type LanguageModelV1, type TelemetrySettings } from "ai";

@@ -62,7 +62,7 @@ export function ApiKeyAlert({ variant = 'upgrade' }: { variant?: ApiKeyAlertVari
                 </div>
 
                 <p className="text-xs text-gray-500">
-                  {variant === 'trial' ? 'Join 1,800+ users building with ResumeLM' : 'Join 1,800+ users building with ResumeLM'}
+                  {variant === 'trial' ? 'Join 1,800+ users building with Eleva' : 'Join 1,800+ users building with Eleva'}
                 </p>
               </div>
 

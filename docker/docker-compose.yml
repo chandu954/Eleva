@@ -1,4 +1,4 @@
-# ResumeLM Local Development Stack
+# Eleva Local Development Stack
 # This docker-compose file provides a full local development environment
 # including Supabase (PostgreSQL, Auth, Storage, etc.), Redis, and the Next.js app
 
@@ -74,8 +74,8 @@ services:
     environment:
       STUDIO_PG_META_URL: http://meta:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres-dev-password}
-      DEFAULT_ORGANIZATION_NAME: ResumeLM
-      DEFAULT_PROJECT_NAME: ResumeLM Local
+      DEFAULT_ORGANIZATION_NAME: Eleva
+      DEFAULT_PROJECT_NAME: Eleva Local
       SUPABASE_URL: http://kong:8000
       SUPABASE_PUBLIC_URL: http://localhost:54321
       SUPABASE_ANON_KEY: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
@@ -169,12 +169,12 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: true
       GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: false
       GOTRUE_MAILER_AUTOCONFIRM: true
-      GOTRUE_SMTP_ADMIN_EMAIL: admin@resumelm.local
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@eleva.local
       GOTRUE_SMTP_HOST: inbucket
       GOTRUE_SMTP_PORT: 2500
-      GOTRUE_SMTP_USER: admin@resumelm.local
+      GOTRUE_SMTP_USER: admin@eleva.local
       GOTRUE_SMTP_PASS: password
-      GOTRUE_SMTP_SENDER_NAME: ResumeLM
+      GOTRUE_SMTP_SENDER_NAME: Eleva
       GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
       GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
       GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify

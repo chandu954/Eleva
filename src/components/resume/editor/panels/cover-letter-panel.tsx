@@ -44,8 +44,8 @@ export function CoverLetterPanel({
     
     try {
       // Get model and API key from local storage
-      const MODEL_STORAGE_KEY = 'resumelm-default-model';
-      const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
+      const MODEL_STORAGE_KEY = 'eleva-default-model';
+      const LOCAL_STORAGE_KEY = 'eleva-api-keys';
 
       const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY);
       const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -90,7 +90,6 @@ export function CoverLetterPanel({
       for await (const delta of readStreamableValue(output)) {
         generatedContent += delta;
         // Update resume context directly
-        // console.log('Generated Content:', generatedContent);
         updateField('cover_letter', {
           content: generatedContent,
         });

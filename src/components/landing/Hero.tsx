@@ -11,14 +11,14 @@ export function Hero() {
         {/* Product Hunt Badge */}
         <div className="flex justify-start">
           <a 
-            href="https://www.producthunt.com/products/resumelm?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-resumelm" 
+            href="https://www.producthunt.com/products/eleva?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-eleva" 
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block transition-transform duration-300 hover:-translate-y-1"
           >
             <Image 
               src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=982199&theme=light&t=1750633039421" 
-              alt="ResumeLM - Open Source AI Resume Builder for Tech Jobs | Product Hunt" 
+              alt="Eleva - Open Source AI Resume Builder for Tech Jobs | Product Hunt" 
               width={250} 
               height={54} 
             />
@@ -51,7 +51,7 @@ export function Hero() {
             </button>
           </AuthDialog>
           <Link 
-            href="https://github.com/olyaiy/resume-lm" 
+            href="https://github.com/chandu954/app" 
             target="_blank"
             rel="noopener noreferrer"
             className="px-6 py-3 rounded-lg bg-white/40 border border-gray-200 font-medium transition-all duration-300 hover:-translate-y-1"
@@ -84,7 +84,7 @@ export function Hero() {
               <h3 className="font-semibold text-base">Join our growing community</h3>
               <p className="text-sm text-muted-foreground">Trusted by over 500 tech professionals</p>
               
-              <p className="text-xs italic mt-1 text-indigo-600">&ldquo;Landed 3 interviews in my first week using ResumeLM&rdquo; — Sarah K.</p>
+              <p className="text-xs italic mt-1 text-indigo-600">&ldquo;Landed 3 interviews in my first week using Eleva&rdquo; — Sarah K.</p>
               
               {/* Shadcn Avatar stack */}
               <div className="flex items-center mt-3">

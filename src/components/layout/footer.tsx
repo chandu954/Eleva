@@ -11,7 +11,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
       <div className="container py-4 md:py-0 flex flex-col md:flex-row h-auto md:h-14 items-center justify-between gap-4 md:gap-0">
         <div className="flex flex-col md:flex-row items-center md:items-center gap-2 md:gap-4">
           <p className="text-sm text-muted-foreground text-center md:text-left">
-            ResumeLM © 2025
+            Eleva © 2025
           </p>
           <span className="text-sm text-muted-foreground text-center">
             Made with ❤️ in Vancouver, BC
@@ -19,7 +19,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
         </div>
         <nav className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
           <Link
-            href="mailto:resumelm@pm.me"
+            href="mailto:hello@eleva.app"
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
             <Mail className="h-4 w-4" />

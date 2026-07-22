@@ -27,38 +27,43 @@ const styles = StyleSheet.create({
 });
 
 export async function POST(req: NextRequest) {
-  const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
-  const { content, title, company, role, candidateName, candidateEmail } = parsed.data;
+  try {
+    const parsed = bodySchema.safeParse(await req.json());
+    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+    const { content, title, company, role, candidateName, candidateEmail } = parsed.data;
 
-  const paragraphs = content.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const paragraphs = content.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const doc = React.createElement(
-    Document,
-    { title },
-    React.createElement(
-      Page,
-      { size: 'A4', style: styles.page },
+    const doc = React.createElement(
+      Document,
+      { title },
       React.createElement(
-        View,
-        { style: styles.header },
-        React.createElement(Text, { style: styles.name }, candidateName || 'Applicant'),
-        React.createElement(Text, { style: styles.meta }, [candidateEmail, today].filter(Boolean).join('  •  ')),
-      ),
-      React.createElement(View, { style: styles.hr }),
-      (company || role) && React.createElement(Text, { style: styles.subject }, `Re: ${role || 'The role'}${company ? ` at ${company}` : ''}`),
-      ...paragraphs.map((p, i) => React.createElement(Text, { key: i, style: styles.body }, p)),
-      React.createElement(Text, { style: styles.footer, fixed: true }, 'Generated with Eleva — elevaeveryopportunity'),
-    )
-  );
+        Page,
+        { size: 'A4', style: styles.page },
+        React.createElement(
+          View,
+          { style: styles.header },
+          React.createElement(Text, { style: styles.name }, candidateName || 'Applicant'),
+          React.createElement(Text, { style: styles.meta }, [candidateEmail, today].filter(Boolean).join('  •  ')),
+        ),
+        React.createElement(View, { style: styles.hr }),
+        (company || role) && React.createElement(Text, { style: styles.subject }, `Re: ${role || 'The role'}${company ? ` at ${company}` : ''}`),
+        ...paragraphs.map((p, i) => React.createElement(Text, { key: i, style: styles.body }, p)),
+        React.createElement(Text, { style: styles.footer, fixed: true }, 'Generated with Eleva — elevaeveryopportunity'),
+      )
+    );
 
-  const buf = await renderToBuffer(doc as any);
-  return new Response(new Uint8Array(buf), {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${title.replace(/[^a-z0-9.-]+/gi, '_')}.pdf"`,
-      'Cache-Control': 'no-store',
-    },
-  });
+    const buf = await renderToBuffer(doc as any);
+    return new Response(new Uint8Array(buf), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${title.replace(/[^a-z0-9.-]+/gi, '_')}.pdf"`,
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

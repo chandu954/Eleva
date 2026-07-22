@@ -9,7 +9,6 @@ import {
   Check,
   Zap,
   Target,
-  FileText,
   Wand2,
   BarChart3,
   ShieldCheck,
@@ -64,7 +63,6 @@ export default function ElevaLanding() {
         <div className="hidden md:flex items-center gap-8 ml-12 text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
           <a href="#features">Features</a>
           <a href="#workflow">Workflow</a>
-          <a href="#pricing">Pricing</a>
           <a href="#changelog">Changelog</a>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -376,61 +374,6 @@ export default function ElevaLanding() {
                   <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{t.role}</div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section id="pricing" className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 py-24">
-        <div className="max-w-2xl mx-auto text-center mb-12">
-          <div className="eleva-pill mb-4 inline-flex mx-auto">
-            <FileText className="w-3 h-3" />
-            <span>Pricing</span>
-          </div>
-          <h2 className="font-display text-4xl md:text-5xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>
-            Simple. Honest. Career-changing.
-          </h2>
-        </div>
-        <div className="grid md:grid-cols-3 gap-4 max-w-5xl mx-auto">
-          {[
-            { name: 'Free', price: '$0', desc: 'Try the workspace.', features: ['1 resume', '2 tailored versions', 'ATS score', 'Basic templates'], cta: 'Start free', highlight: false },
-            { name: 'Pro', price: '$16', desc: 'Everything you need to land the role.', features: ['Unlimited resumes', 'Unlimited tailoring', 'AI cover letters', 'Application tracker', 'All templates', 'Priority AI'], cta: 'Start 14-day trial', highlight: true },
-            { name: 'Teams', price: '$29', desc: 'For bootcamps & career coaches.', features: ['Everything in Pro', 'Shared workspace', 'Analytics for cohorts', 'White-label PDFs'], cta: 'Contact sales', highlight: false },
-          ].map((p) => (
-            <div
-              key={p.name}
-              className="eleva-card p-8 relative overflow-hidden"
-              style={p.highlight ? {
-                border: '1px solid rgba(37,99,235,.4)',
-                background: 'linear-gradient(135deg, rgba(37,99,235,.06), rgba(124,58,237,.06))',
-              } : undefined}
-            >
-              {p.highlight && (
-                <div className="absolute top-6 right-6 eleva-pill" style={{ background: 'rgb(var(--eleva-primary))', color: '#fff', border: 'none' }}>
-                  Most popular
-                </div>
-              )}
-              <div className="text-[11px] font-mono uppercase tracking-widest mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{p.name}</div>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="font-display text-5xl font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{p.price}</span>
-                <span className="text-sm" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>/month</span>
-              </div>
-              <p className="text-[13px] mb-6" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{p.desc}</p>
-              <button
-                className={p.highlight ? 'eleva-btn-primary w-full mb-6' : 'eleva-btn-ghost w-full mb-6'}
-                data-testid={`pricing-${p.name.toLowerCase()}`}
-              >
-                {p.cta}
-              </button>
-              <ul className="space-y-2.5">
-                {p.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-[13px]" style={{ color: 'rgb(var(--eleva-fg))' }}>
-                    <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
             </div>
           ))}
         </div>

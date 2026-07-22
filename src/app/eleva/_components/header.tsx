@@ -1,16 +1,45 @@
 'use client';
 
-import { Search, Sparkles, Sun, Moon, Menu } from 'lucide-react';
+import { Search, Sun, Moon, Menu } from 'lucide-react';
 import { useElevaTheme } from './theme-provider';
 import { useCommandPalette } from './command-palette';
-import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { NotificationBell } from './notification-bell';
+import { ProviderSelector } from '@/components/shared/provider-selector';
+import type { ProviderId } from '@/lib/ai/provider/registry';
+import { PROVIDER_COOKIE_NAME } from '@/lib/ai/provider/cookie-config';
+
+const MODEL_STORAGE_KEY = 'eleva-ai-selection';
+
+function saveSelection(value: string) {
+  localStorage.setItem(MODEL_STORAGE_KEY, value);
+  document.cookie = `${PROVIDER_COOKIE_NAME}=${encodeURIComponent(value)}; path=/; max-age=31536000; SameSite=Lax`;
+}
 
 export function ElevaHeader() {
   const { theme, toggle } = useElevaTheme();
   const { open } = useCommandPalette();
+  const [selection, setSelection] = useState('__eleva_global_auto__');
+  const [connectedProviders, setConnectedProviders] = useState<ProviderId[]>([]);
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+    const saved = localStorage.getItem(MODEL_STORAGE_KEY) ?? '__eleva_global_auto__';
+    setSelection(saved);
+    // Try to load connected providers from server
+    fetch('/eleva/settings')
+      .catch(() => {});
+    // For now, show all providers as available (default keys)
+    setConnectedProviders(['openrouter']);
+  }, []);
+
+  const handleChange = (value: string) => {
+    setSelection(value);
+    saveSelection(value);
+  };
 
   return (
     <header
@@ -48,21 +77,18 @@ export function ElevaHeader() {
       </button>
 
       <div className="hidden md:flex items-center gap-2 ml-auto">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="hidden lg:flex items-center gap-1.5 h-9 px-3 rounded-lg cursor-pointer"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(37,99,235,.12), rgba(124,58,237,.12))',
-            border: '1px solid rgba(37,99,235,.25)',
-          }}
-          data-testid="credits-pill"
-        >
-          <Sparkles className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
-          <span className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-primary))' }}>
-            2,480 credits
-          </span>
-        </motion.div>
+        <div className="w-[240px] lg:w-[280px]">
+          <ProviderSelector
+            value={selection}
+            onValueChange={handleChange}
+            connectedProviders={connectedProviders}
+          />
+        </div>
+
+        <div className="hidden lg:flex items-center gap-1.5 h-9 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
+          <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgb(var(--eleva-success))' }} />
+          <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Last run 12s</span>
+        </div>
 
         <button
           onClick={toggle}

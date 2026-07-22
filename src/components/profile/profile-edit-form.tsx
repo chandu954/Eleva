@@ -26,7 +26,6 @@ import { ProfileWorkExperienceForm } from "@/components/profile/profile-work-exp
 import { ProfileProjectsForm } from "@/components/profile/profile-projects-form";
 import { ProfileEducationForm } from "@/components/profile/profile-education-form";
 import { ProfileSkillsForm } from "@/components/profile/profile-skills-form";
-// import { ProfileEditorHeader } from "./profile-editor-header";
 import { formatProfileWithAI } from "../../utils/actions/profiles/ai";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -148,8 +147,8 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
       setIsProcessingResume(true);
       
       // Get model and API key from local storage
-      const MODEL_STORAGE_KEY = 'resumelm-default-model';
-      const LOCAL_STORAGE_KEY = 'resumelm-api-keys';
+      const MODEL_STORAGE_KEY = 'eleva-default-model';
+      const LOCAL_STORAGE_KEY = 'eleva-api-keys';
       
       const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY) || 'gpt-5.4-nano';
       const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);

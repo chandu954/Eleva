@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ResumeLM is an AI-powered resume builder using Next.js 15, React 19, TypeScript, Supabase, and multiple AI providers. The application helps users create ATS-optimized resumes with AI assistance.
+Eleva is an AI-powered resume builder using Next.js 15, React 19, TypeScript, Supabase, and multiple AI providers. The application helps users create ATS-optimized resumes with AI assistance.
 
 ## Essential Commands
 

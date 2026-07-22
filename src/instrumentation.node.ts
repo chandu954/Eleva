@@ -13,7 +13,7 @@ const posthogProjectApiKey = getPostHogProjectApiKey();
 if (posthogProjectApiKey && !isPostHogLLMAnalyticsDisabled()) {
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      "service.name": "resumelm",
+      "service.name": "eleva",
       "deployment.environment": process.env.NODE_ENV ?? "development",
     }),
     spanProcessors: [

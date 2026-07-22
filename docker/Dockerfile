@@ -1,4 +1,4 @@
-# ResumeLM Dockerfile
+# Eleva Dockerfile
 # Multi-stage build for development and production
 
 # ==========================================
@@ -110,10 +110,10 @@ RUN pnpm build
 FROM node:22-slim AS production
 
 # OCI labels for container metadata
-LABEL org.opencontainers.image.title="ResumeLM" \
+LABEL org.opencontainers.image.title="Eleva" \
       org.opencontainers.image.description="AI-powered resume builder" \
-      org.opencontainers.image.vendor="ResumeLM" \
-      org.opencontainers.image.source="https://github.com/resumelm/resumelm"
+      org.opencontainers.image.vendor="Eleva" \
+      org.opencontainers.image.source="https://github.com/chandu954/app"
 
 # Install ONLY runtime libraries for canvas (not -dev packages)
 RUN apt-get update && apt-get install -y --no-install-recommends \

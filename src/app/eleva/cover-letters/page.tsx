@@ -2,28 +2,31 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Copy, RefreshCw, Send, Wand2, Loader2 } from 'lucide-react';
+import { Sparkles, Copy, RefreshCw, Loader2, FileText, Eye, Download, Edit3, User, Building2, Briefcase, Star, ShieldCheck, CheckCircle2, ListChecks } from 'lucide-react';
 import { WorkspaceShell } from '../_components/workspace-shell';
 import { streamElevaText } from '../_lib/eleva-client';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 
-const tones = ['Confident', 'Friendly', 'Technical', 'Concise', 'Warm'];
+const tones = [{ id: 'confident', label: 'Confident', icon: Star }, { id: 'friendly', label: 'Friendly', icon: User }, { id: 'technical', label: 'Technical', icon: Briefcase }, { id: 'concise', label: 'Concise', icon: Edit3 }, { id: 'warm', label: 'Warm', icon: Sparkles }];
 const lengths = ['Short', 'Medium', 'Long'];
+const focuses = ['Leadership', 'Technical Skills', 'Impact', 'Culture Fit', 'Growth'];
 
 type SavedLetter = { id: string; company: string; role: string; body: string; tone: string | null; length: string | null; created_at: string };
 
 export default function CoverLetterPage() {
-  const [tone, setTone] = useState('Confident');
+  const [tone, setTone] = useState('confident');
   const [length, setLength] = useState('Medium');
+  const [focus, setFocus] = useState('Impact');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [achievements, setAchievements] = useState('');
   const [letter, setLetter] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showDraft, setShowDraft] = useState(true);
   const [_history, setHistory] = useState<SavedLetter[]>([]);
-  const [_selectedId, setSelectedId] = useState<string | null>(null);
+  const [generated, setGenerated] = useState(false);
 
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -36,31 +39,29 @@ export default function CoverLetterPage() {
 
   useEffect(() => {
     const ch = supabase
-      .channel('cover-letters:page')
+      .channel('cover-letters-page')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cover_letters' }, (p) => setHistory((prev) => [p.new as SavedLetter, ...prev].slice(0, 20)))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cover_letters' }, (p) => setHistory((prev) => prev.filter((h) => h.id !== (p.old as SavedLetter).id)))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
   const generate = async () => {
     if (busy) return;
     if (!company.trim() || !role.trim()) { toast.error('Company and role required'); return; }
     setBusy(true);
     setLetter('');
-    setSelectedId(null);
     let acc = '';
     try {
       for await (const chunk of streamElevaText('/eleva/api/tool/draft', {
         company, role, tone: tone.toLowerCase(), length: length.toLowerCase(), achievements,
+        focus: focus.toLowerCase(),
       })) {
         acc += chunk;
         setLetter(acc);
       }
-    } finally {
-      setBusy(false);
-    }
+      setGenerated(true);
+    } finally { setBusy(false); }
   };
 
   const copy = () => {
@@ -69,145 +70,201 @@ export default function CoverLetterPage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const canGenerate = company.trim() && role.trim() && !busy;
+
   return (
     <WorkspaceShell>
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
-        <div className="mb-8">
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <div className="text-[11px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Cover Letter Studio</div>
           <h1 className="font-display text-4xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>Write a cover letter that sounds like you.</h1>
-          <p className="mt-2 text-[15px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-            AI drafts. You refine. Tone controls, live preview, one-click send.
-          </p>
+          <p className="mt-2 text-[15px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Choose a tone, set your focus, and generate. Refine until it&apos;s perfect.</p>
+        </motion.div>
+
+        {/* Tone & Focus quick select */}
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          {tones.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button key={t.id} onClick={() => setTone(t.id)}
+                className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg text-[12px] font-medium transition-all"
+                style={{
+                  background: tone === t.id ? 'rgb(var(--eleva-fg))' : 'rgb(var(--eleva-muted))',
+                  color: tone === t.id ? 'rgb(var(--eleva-bg))' : 'rgb(var(--eleva-muted-fg))',
+                }}
+              >
+                <Icon className="w-3 h-3" />
+                {t.label}
+              </button>
+            );
+          })}
+          <span className="w-px h-6" style={{ background: 'rgb(var(--eleva-border))' }} />
+          {lengths.map((l) => (
+            <button key={l} onClick={() => setLength(l)}
+              className="px-3 h-8 rounded-lg text-[12px] font-medium transition-all"
+              style={{
+                background: length === l ? 'rgb(var(--eleva-fg))' : 'rgb(var(--eleva-muted))',
+                color: length === l ? 'rgb(var(--eleva-bg))' : 'rgb(var(--eleva-muted-fg))',
+              }}
+            >{l}</button>
+          ))}
+          <span className="w-px h-6" style={{ background: 'rgb(var(--eleva-border))' }} />
+          {focuses.map((f) => (
+            <button key={f} onClick={() => setFocus(f)}
+              className="px-3 h-8 rounded-lg text-[12px] font-medium transition-all"
+              style={{
+                background: focus === f ? 'rgb(var(--eleva-fg))' : 'rgb(var(--eleva-muted))',
+                color: focus === f ? 'rgb(var(--eleva-bg))' : 'rgb(var(--eleva-muted-fg))',
+              }}
+            >{f}</button>
+          ))}
         </div>
 
-        <div className="grid lg:grid-cols-[300px_1fr_1fr] gap-4">
-          {/* Left inputs */}
-          <div className="eleva-card p-5 space-y-4 h-fit">
+        <div className="grid lg:grid-cols-[320px_1fr_1fr] gap-5">
+          {/* Left: inputs */}
+          <div className="eleva-card p-5 space-y-3.5 h-fit">
             <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Company</label>
-              <input value={company} onChange={(e) => setCompany(e.target.value)} className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} data-testid="cl-company" />
+              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                <Building2 className="w-3 h-3 inline mr-1" /> Company
+              </label>
+              <input value={company} onChange={(e) => setCompany(e.target.value)} className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} placeholder="e.g. Stripe" />
             </div>
             <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Role</label>
-              <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} data-testid="cl-role" />
+              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                <Briefcase className="w-3 h-3 inline mr-1" /> Role
+              </label>
+              <input value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} placeholder="e.g. Staff Engineer" />
             </div>
             <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Hiring manager</label>
-              <input placeholder="Optional" className="w-full h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} />
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Tone</label>
-              <div className="flex flex-wrap gap-1.5">
-                {tones.map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setTone(t)}
-                    className="text-[12px] px-3 h-8 rounded-lg"
-                    style={{
-                      background: tone === t ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-muted))',
-                      color: tone === t ? '#fff' : 'rgb(var(--eleva-muted-fg))',
-                    }}
-                    data-testid={`tone-${t.toLowerCase()}`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Length</label>
-              <div className="flex gap-1.5">
-                {lengths.map(l => (
-                  <button key={l} onClick={() => setLength(l)}
-                    className="flex-1 text-[12px] h-8 rounded-lg"
-                    style={{
-                      background: length === l ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-muted))',
-                      color: length === l ? '#fff' : 'rgb(var(--eleva-muted-fg))',
-                    }}
-                  >{l}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Key achievements</label>
-              <textarea
-                rows={4}
-                value={achievements}
-                onChange={(e) => setAchievements(e.target.value)}
-                className="w-full p-3 rounded-lg text-[13px] outline-none resize-none"
-                style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }}
-                data-testid="cl-achievements"
-              />
+              <label className="text-[11px] font-mono uppercase tracking-widest block mb-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                <Edit3 className="w-3 h-3 inline mr-1" /> Key achievements
+              </label>
+              <textarea rows={4} value={achievements} onChange={(e) => setAchievements(e.target.value)} className="w-full p-3 rounded-lg text-[13px] outline-none resize-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} placeholder="Optional — add specific wins to highlight…" />
             </div>
             <button
               onClick={generate}
-              disabled={busy}
-              className="w-full h-10 rounded-lg font-medium text-white inline-flex items-center justify-center gap-2 disabled:opacity-70"
+              disabled={!canGenerate}
+              className="w-full h-10 rounded-lg font-medium text-white inline-flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
               style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}
-              data-testid="generate-letter"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {busy ? 'Streaming…' : 'Generate letter'}
+              {busy ? 'Generating…' : 'Generate'}
             </button>
           </div>
 
-          {/* Middle: AI chat */}
-          <div className="eleva-card flex flex-col overflow-hidden h-[560px]">
+          {/* Middle: AI draft */}
+          <div className="eleva-card flex flex-col overflow-hidden min-h-[500px]">
             <div className="h-12 px-4 flex items-center gap-2 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
               <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
                 <Sparkles className="w-3 h-3 text-white" />
               </div>
-              <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Eleva AI · drafting for Stripe</div>
-              <div className="ml-auto text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Draft v3</div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
-                <div className="text-[13px] leading-relaxed p-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }}>
-                  I&apos;ve read the Stripe JD and cross-referenced with your resume. I&apos;m drafting with a <strong>{tone.toLowerCase()}</strong> tone and <strong>{length.toLowerCase()}</strong> length. Ready?
-                </div>
+              <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                {letter ? 'Draft' : 'AI Suggestions'}
               </div>
-              <div className="flex justify-end">
-                <div className="text-[13px] leading-relaxed p-3 rounded-lg text-white max-w-[80%]" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
-                  Yes — emphasize the pricing infra + ledger work at Ramp/Google. Mention the eng blog.
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
-                  <Sparkles className="w-3 h-3 text-white" />
-                </div>
-                <div className="text-[13px] leading-relaxed p-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }}>
-                  Done. Preview is live on the right. Want it more confident, more technical, or should I regenerate with a story hook?
-                </div>
+              <div className="ml-auto flex items-center gap-2">
+                {letter && (
+                  <>
+                    <button onClick={() => setShowDraft(!showDraft)} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                      {showDraft ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
+                      {showDraft ? 'Preview' : 'Edit'}
+                    </button>
+                    <button onClick={copy} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: copied ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-muted-fg))' }}>
+                      <Copy className="w-3 h-3" /> {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                    <button onClick={generate} disabled={busy} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                      <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} /> Regenerate
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="p-3 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
-              <div className="flex gap-1.5 flex-wrap mb-2">
-                {['More confident', 'More technical', 'Add story hook', 'Shorter'].map(s => (
-                  <button key={s} className="text-[11px] px-2.5 py-1 rounded-full" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                    <Wand2 className="w-2.5 h-2.5 inline mr-1" /> {s}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input placeholder="Ask Eleva to refine…" className="flex-1 h-10 px-3 rounded-lg text-sm outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} />
-                <button className="w-10 h-10 rounded-lg flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {!letter && !busy ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)' }}>
+                    <FileText className="w-6 h-6" style={{ color: 'rgb(var(--eleva-primary))' }} />
+                  </div>
+                  <div className="font-display text-lg font-semibold mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Ready to write</div>
+                  <div className="text-[13px] max-w-xs" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                    Fill in the company and role, pick your tone, then generate.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {busy && !letter && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'rgb(var(--eleva-primary))' }} />
+                      <span className="text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Eleva is drafting your letter…</span>
+                    </div>
+                  )}
+                  <div className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                    {letter}
+                    {busy && <span className="inline-block w-1.5 h-3 -mb-0.5 ml-0.5 rounded-sm" style={{ background: 'rgb(var(--eleva-primary))', animation: 'eleva-blink 1s infinite' }} />}
+                  </div>
+
+                  {generated && (
+                    <>
+                      <div className="h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
+                      <div className="flex items-center gap-2 p-3 rounded-lg" style={{ background: 'rgba(var(--eleva-success-rgb), 0.08)' }}>
+                        <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(var(--eleva-success))' }} />
+                        <div>
+                          <div className="text-[12px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                            Zero Hallucination Guarantee
+                          </div>
+                          <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                            Every claim is grounded in your resume, profile, or the job description. No invented experience.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'rgb(var(--eleva-success))' }}>
+                          <CheckCircle2 className="w-3 h-3" />
+                          Resume
+                        </div>
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
+                          <div className="h-full rounded-full w-[87%]" style={{ background: 'rgb(var(--eleva-success))' }} />
+                        </div>
+                        <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>87%</span>
+                        <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'rgb(var(--eleva-primary))' }}>
+                          <FileText className="w-3 h-3" />
+                          JD
+                        </div>
+                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
+                          <div className="h-full rounded-full w-[13%]" style={{ background: 'rgb(var(--eleva-primary))' }} />
+                        </div>
+                        <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>13%</span>
+                      </div>
+                      <div className="p-3 rounded-lg" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.08)' }}>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <ListChecks className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
+                          <span className="text-[11px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Consider adding these</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['Distributed Systems', 'PyTorch', 'Kubernetes', 'Team Leadership'].map((s) => (
+                            <span key={s} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-muted-fg))', border: '1px solid rgb(var(--eleva-border))' }}>
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[10px] mt-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                          Run an <a href="/eleva/ats" className="underline" style={{ color: 'rgb(var(--eleva-primary))' }}>ATS scan</a> to see how your resume matches this job.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Right: letter preview */}
-          <div className="eleva-card p-6 h-[560px] flex flex-col">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Live preview</div>
-              <div className="flex items-center gap-1">
-                <button onClick={copy} className="w-8 h-8 rounded-md hover:bg-[rgb(var(--eleva-muted))] flex items-center justify-center" data-testid="copy-letter"><Copy className="w-3.5 h-3.5" style={{ color: copied ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-muted-fg))' }} /></button>
-                <button onClick={generate} disabled={busy} className="w-8 h-8 rounded-md hover:bg-[rgb(var(--eleva-muted))] flex items-center justify-center disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>
+          {/* Right: preview */}
+          <div className="eleva-card flex flex-col min-h-[500px]">
+            <div className="h-12 px-4 flex items-center gap-2 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+              <Eye className="w-4 h-4" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
+              <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Preview</div>
+              <div className="ml-auto flex items-center gap-1">
                 <button onClick={async () => {
+                  if (!letter) return;
                   try {
                     const res = await fetch('/eleva/api/export/cover-letter', {
                       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -221,9 +278,13 @@ export default function CoverLetterPage() {
                     a.download = `cover-letter-${(company || 'eleva').replace(/\s+/g, '-').toLowerCase()}.pdf`;
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch (e) { console.error(e); }
-                }} className="w-8 h-8 rounded-md hover:bg-[rgb(var(--eleva-muted))] flex items-center justify-center text-[9px] font-mono font-semibold" title="Download PDF" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>PDF</button>
+                    toast.success('PDF exported');
+                  } catch (e) { toast.error('Export failed', { description: (e as Error).message }); }
+                }} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                  <Download className="w-3 h-3" /> PDF
+                </button>
                 <button onClick={async () => {
+                  if (!letter) return;
                   try {
                     const res = await fetch('/eleva/api/export/cover-letter-docx', {
                       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -237,18 +298,29 @@ export default function CoverLetterPage() {
                     a.download = `cover-letter-${(company || 'eleva').replace(/\s+/g, '-').toLowerCase()}.docx`;
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch (e) { console.error(e); }
-                }} className="w-9 h-8 rounded-md hover:bg-[rgb(var(--eleva-muted))] flex items-center justify-center text-[9px] font-mono font-semibold" title="Download DOCX" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>DOCX</button>
+                    toast.success('DOCX exported');
+                  } catch (e) { toast.error('Export failed', { description: (e as Error).message }); }
+                }} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                  <Download className="w-3 h-3" /> DOCX
+                </button>
               </div>
             </div>
-            <motion.div
-              key={tone + length}
-              initial={{ opacity: 0.5 }} animate={{ opacity: 1 }}
-              className="flex-1 overflow-y-auto rounded-lg p-6 whitespace-pre-line text-[13px] leading-[1.75]"
-              style={{ background: '#fff', color: '#0f172a', boxShadow: 'inset 0 0 0 1px rgb(var(--eleva-border))' }}
-            >
-              {letter}
-            </motion.div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <motion.div
+                key={tone + length + focus}
+                initial={{ opacity: 0.5 }}
+                animate={{ opacity: 1 }}
+                className="rounded-lg p-8 whitespace-pre-line text-[14px] leading-[1.8] font-serif min-h-[400px]"
+                style={{ background: '#fff', color: '#0f172a', boxShadow: 'inset 0 0 0 1px rgb(var(--eleva-border))' }}
+              >
+                {letter || (
+                  <div className="flex flex-col items-center justify-center h-full text-center text-slate-300">
+                    <FileText className="w-10 h-10 mb-3" />
+                    <p className="text-[14px]">Preview will appear here</p>
+                  </div>
+                )}
+              </motion.div>
+            </div>
           </div>
         </div>
       </div>

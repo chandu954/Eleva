@@ -2,7 +2,6 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import OpenAI from "openai";
 import { MODEL_DESIGNATIONS } from '@/lib/ai-models';
 
 interface SecurityResult {
@@ -96,34 +95,68 @@ interface ApiTestResult {
       // Get the API key from vault
       const { data: apiKey, error: keyError } = await supabase
         .rpc('get_api_key', {
-          p_service_name: 'openai'
+          p_service_name: 'openrouter'
         })
   
       if (keyError || !apiKey) {
-        return { 
-          success: false, 
-          error: 'No API key found for OpenAI' 
+        // Fallback to server env key
+        const serverKey = process.env.OPENROUTER_API_KEY
+        if (!serverKey) {
+          return { 
+            success: false, 
+            error: 'No OpenRouter API key found' 
+          }
+        }
+  
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serverKey}`,
+            'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+            'X-Title': 'Eleva',
+          },
+          body: JSON.stringify({
+            model: MODEL_DESIGNATIONS.FAST_CHEAP_FREE,
+            messages: [{ role: 'user', content: 'Say this is a test!' }],
+            max_tokens: 100,
+          }),
+        })
+  
+        const data = await response.json()
+        if (!response.ok) {
+          return { success: false, error: data.error?.message || 'API test failed' }
+        }
+  
+        return {
+          success: true,
+          message: data.choices?.[0]?.message?.content || 'API connection successful'
         }
       }
   
-      const openai = new OpenAI({
-        apiKey: apiKey.trim(),
-      });
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`,
+          'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+          'X-Title': 'Eleva',
+        },
+        body: JSON.stringify({
+          model: MODEL_DESIGNATIONS.FAST_CHEAP_FREE,
+          messages: [{ role: 'user', content: 'Say this is a test!' }],
+          max_tokens: 100,
+        }),
+      })
   
-      const response = await openai.chat.completions.create({
-        model: MODEL_DESIGNATIONS.FAST_CHEAP_FREE,
-        messages: [{ role: 'user', content: 'Say this is a test!' }],
-        response_format: { type: "text" },
-        temperature: 1,
-        max_tokens: 8000,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0
-      });
+      const data = await response.json()
+      if (!response.ok) {
+        return { success: false, error: data.error?.message || 'API test failed' }
+      }
   
       return {
         success: true,
-        message: response.choices[0]?.message?.content || 'API connection successful'
+        message: data.choices?.[0]?.message?.content || 'API connection successful'
       }
   
     } catch (error) {

@@ -57,7 +57,7 @@ export function VideoShowcase() {
         {/* Section header */}
         <div className="text-center mb-12 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-teal-600">
-            See ResumeLM in Action
+            See Eleva in Action
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Watch how our AI-powered platform transforms your resume in minutes
@@ -76,7 +76,7 @@ export function VideoShowcase() {
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover rounded-2xl"
-                src={withBasePath("/ResumeLM.mp4")}
+                src={withBasePath("/demo.mp4")}
                 poster={withBasePath("/thumbnail.png")}
                 onEnded={() => setIsPlaying(false)}
               />
@@ -103,7 +103,7 @@ export function VideoShowcase() {
               {/* Controls overlay - bottom */}
               <div className="absolute bottom-0 left-0 right-0 p-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <div className="text-sm bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full border border-indigo-200">
-                  ResumeLM Demo
+                  Eleva Demo
                 </div>
                 <button
                   onClick={(e) => {

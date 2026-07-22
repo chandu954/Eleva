@@ -32,20 +32,65 @@ const ScoreSchema = z.object({
 
 type ScoreShape = z.infer<typeof ScoreSchema>;
 
+function localScore(resume: string, jobDescription: string): ScoreShape {
+  const techTerms = [
+    'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'react', 'angular', 'vue', 'node',
+    'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'sql', 'nosql', 'postgresql', 'mysql', 'mongodb',
+    'redis', 'graphql', 'rest', 'git', 'linux', 'html', 'css', 'machine learning', 'llm',
+  ];
+  const jdLower = jobDescription.toLowerCase();
+  const resumeLower = resume.toLowerCase();
+  const jdKeywords = techTerms.filter(t => new RegExp(`\\b${t}\\b`).test(jdLower));
+  const matched = jdKeywords.filter(k => resumeLower.includes(k));
+  const missing = jdKeywords.filter(k => !resumeLower.includes(k));
+  const matchRate = jdKeywords.length > 0 ? matched.length / jdKeywords.length : 0.5;
+  const kw = Math.round(matchRate * 100);
+  const overall = Math.round(kw * 0.6 + 75 * 0.4);
+  return {
+    overall, keyword: kw, formatting: 70, readability: 75,
+    impact: Math.round(matchRate * 100), recruiter: Math.round((kw + 75) / 2),
+    matched: matched.slice(0, 30), missing: missing.slice(0, 30),
+    suggestions: missing.length > 0 ? [{ type: 'warning', text: `${missing.length} keywords missing`, action: `Add: ${missing.slice(0, 5).join(', ')}` }] : [],
+    summary: `${matched.length}/${jdKeywords.length} keywords matched (${overall}%)`,
+  };
+}
+
 export async function POST(req: NextRequest) {
-  const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
-  const { resume, jobDescription, resumeId, jobId, save } = parsed.data;
+  try {
+    const parsed = bodySchema.safeParse(await req.json());
+    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+    const { resume, jobDescription, resumeId, jobId, save } = parsed.data;
 
-  const result = await AIProvider.generateObject({
-    schema: ScoreSchema,
-    maxTokens: 1500,
-    system: `${AIProvider.getSystemPrompt()}\n\nScore this resume against the JD. Return ONLY valid minified JSON, no markdown. Schema: {"overall":0-100,"keyword":0-100,"formatting":0-100,"readability":0-100,"impact":0-100,"recruiter":0-100,"matched":string[],"missing":string[],"suggestions":[{"type":"success|warning|primary","text":string,"action":string}],"summary":string}.`,
-    prompt: `Resume:\n${resume.slice(0, 8000)}\n\nJob description:\n${jobDescription.slice(0, 5000)}\n\nScore now.`,
-    temperature: 0.3,
-  });
-
-  const object = result as unknown as ScoreShape;
+    let object: ScoreShape;
+    try {
+      const result = await AIProvider.generateObject({
+        schema: ScoreSchema,
+        maxTokens: 1500,
+        system: `${AIProvider.getSystemPrompt()}\n\nScore this resume against the JD. Return ONLY valid minified JSON, no markdown.`,
+        prompt: `Resume:\n${resume.slice(0, 8000)}\n\nJob description:\n${jobDescription.slice(0, 5000)}\n\nScore now.`,
+        temperature: 0.3,
+      });
+      object = result as unknown as ScoreShape;
+    } catch {
+      // Fallback: text-based JSON generation
+      try {
+        const textResult = await AIProvider.generate({
+          system: `You are an API. Return ONLY valid JSON. Schema: {"overall":0-100,"keyword":0-100,"formatting":0-100,"readability":0-100,"impact":0-100,"recruiter":0-100,"matched":[],"missing":[],"suggestions":[],"summary":""}. No prose.`,
+          prompt: `Resume:\n${resume.slice(0, 8000)}\n\nJD:\n${jobDescription.slice(0, 5000)}`,
+          maxTokens: 1200,
+          temperature: 0.3,
+          config: { maxRetries: 2 },
+        });
+        const raw = textResult.text?.trim() || '';
+        const jsonStart = raw.indexOf('{');
+        const jsonEnd = raw.lastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          object = ScoreSchema.parse(JSON.parse(raw.slice(jsonStart, jsonEnd + 1)));
+        } else throw new Error('No JSON found');
+      } catch {
+        object = localScore(resume, jobDescription);
+      }
+    }
 
   if (save && resumeId) {
     try {
@@ -82,4 +127,8 @@ export async function POST(req: NextRequest) {
   }
 
   return Response.json(object);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

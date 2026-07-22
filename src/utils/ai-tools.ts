@@ -21,7 +21,7 @@ export function createAIClientFromResolvedRequest(
     compatibility: 'compatible',
     headers: {
       'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
-      'X-Title': 'ResumeLM',
+      'X-Title': 'Eleva',
     },
   })(resolved.modelId) as LanguageModelV1;
 }

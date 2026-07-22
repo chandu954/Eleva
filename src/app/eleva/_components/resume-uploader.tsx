@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, Loader2, FileText, X, Check } from 'lucide-react';
+import { Upload, Loader2, FileText, X, Check, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createBrowserClient } from '@supabase/ssr';
 import pdfToText from 'react-pdftotext';
@@ -17,38 +17,78 @@ export function ResumeUploader({ onImported }: { onImported?: (resumeId: string)
   const [setAsBase, setSetAsBase] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const resetState = useCallback(() => {
+    setStep('idle');
+    setFile(null);
+    setPreview('');
+    setError(null);
+    setSetAsBase(false);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setOpen(false);
+    resetState();
+  }, [resetState]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeModal();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, closeModal]);
 
   async function run(f: File) {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setFile(f);
     setStep('reading');
     setError(null);
     try {
       const text = await pdfToText(f);
+      if (controller.signal.aborted || !mountedRef.current) return;
       if (!text || text.length < 50) throw new Error('Could not extract text — PDF may be scanned/image-only.');
       setPreview(text.slice(0, 800));
 
-      // Upload PDF to Supabase Storage (private bucket)
       setStep('uploading');
       const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: userRes } = await supabase.auth.getUser();
+      if (controller.signal.aborted || !mountedRef.current) return;
       if (!userRes.user) throw new Error('Not signed in');
       const path = `${userRes.user.id}/${Date.now()}-${f.name.replace(/[^a-z0-9.-]+/gi, '_')}`;
       const { error: upErr } = await supabase.storage.from('resumes').upload(path, f, { upsert: false, contentType: f.type });
+      if (controller.signal.aborted || !mountedRef.current) return;
       if (upErr) throw upErr;
 
-      // Call AI-fill endpoint
       setStep('extracting');
       const res = await fetch('/eleva/api/resumes/import', {
+        signal: controller.signal,
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, fileName: f.name, storagePath: path, setAsBase }),
       });
+      if (controller.signal.aborted || !mountedRef.current) return;
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Import failed');
+      if (controller.signal.aborted || !mountedRef.current) return;
       setStep('done');
       toast.success('Resume imported', { description: `${j.resume.name} — open the editor to review.` });
       onImported?.(j.resume.id);
-      setTimeout(() => { setOpen(false); setStep('idle'); setFile(null); setPreview(''); }, 1500);
+      setTimeout(() => { if (mountedRef.current) closeModal(); }, 800);
     } catch (e) {
+      if (controller.signal.aborted || !mountedRef.current) return;
       const msg = (e as Error).message ?? 'Failed';
       setError(msg);
       setStep('error');
@@ -58,20 +98,20 @@ export function ResumeUploader({ onImported }: { onImported?: (resumeId: string)
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="eleva-btn-ghost inline-flex items-center gap-2 text-[13px]" data-testid="upload-resume">
+      <button onClick={() => { resetState(); setOpen(true); }} className="eleva-btn-ghost inline-flex items-center gap-2 text-[13px]" data-testid="upload-resume">
         <Upload className="w-4 h-4" />Upload PDF
       </button>
 
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => step === 'idle' && setOpen(false)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={closeModal}>
             <motion.div initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: 'rgb(var(--eleva-card))', border: '1px solid rgb(var(--eleva-border))' }}>
               <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
                 <div>
                   <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Import</div>
                   <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Upload a resume</div>
                 </div>
-                {step === 'idle' && <button onClick={() => setOpen(false)} className="p-2"><X className="w-4 h-4" style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>}
+                <button onClick={closeModal} className="p-2"><X className="w-4 h-4" style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>
               </div>
 
               <div className="p-5">
@@ -105,9 +145,24 @@ export function ResumeUploader({ onImported }: { onImported?: (resumeId: string)
                         {preview && <div className="text-[10px] leading-relaxed font-mono line-clamp-4" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{preview}…</div>}
                       </div>
                     )}
-                    {step === 'error' && <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-warning))' }}>Error: {error}</div>}
-                    {step === 'done' && <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-success))' }}>Imported! Opening resumes list…</div>}
+                    {step === 'error' && (
+                      <div className="p-3 rounded-lg text-[12px]" style={{ background: 'rgba(239,68,68,0.1)', color: 'rgb(239,68,68)' }}>
+                        {error}
+                      </div>
+                    )}
+                    {step === 'done' && <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-success))' }}>Imported! Redirecting…</div>}
                   </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 p-4 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+                <button onClick={closeModal} className="eleva-btn-ghost text-[12px] px-3 py-1.5 rounded-lg" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  Close
+                </button>
+                {step === 'error' && (
+                  <button onClick={() => file && run(file)} className="eleva-btn-primary text-[12px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg">
+                    <RotateCw className="w-3.5 h-3.5" />Retry Upload
+                  </button>
                 )}
               </div>
             </motion.div>

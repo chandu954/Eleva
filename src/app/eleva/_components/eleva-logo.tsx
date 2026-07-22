@@ -1,60 +1,60 @@
-'use client';
-
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface ElevaLogoProps {
   className?: string;
   showWordmark?: boolean;
   size?: number;
+  asLink?: boolean;
 }
 
-/**
- * Eleva logo — geometric "E" with hidden upward arrow in negative space
- * (FedEx-style aha). Uses currentColor for the E and background for cutout.
- */
-export function ElevaLogo({ className, showWordmark = true, size = 32 }: ElevaLogoProps) {
+function ElevaMark({ size = 28 }: { size?: number }) {
   return (
+    <svg
+      viewBox="0 0 32 32"
+      width={size}
+      height={size}
+      fill="none"
+      aria-hidden
+    >
+      <g fill="currentColor">
+        <rect x="5" y="5" width="4" height="22" rx="1" />
+        <rect x="9" y="21" width="10" height="4" rx="1" />
+        <rect x="9" y="14" width="16" height="4" rx="1" />
+        <rect x="9" y="7" width="22" height="4" rx="1" />
+      </g>
+    </svg>
+  );
+}
+
+export function ElevaLogo({ className, showWordmark = true, size = 28, asLink = true }: ElevaLogoProps) {
+  const logoContent = (
     <div className={cn('flex items-center gap-2.5 select-none', className)}>
       <div
-        className="relative flex items-center justify-center rounded-[10px]"
+        className="flex items-center justify-center rounded-[10px]"
         style={{
-          width: size,
-          height: size,
-          background:
-            'linear-gradient(135deg, rgb(var(--eleva-primary)) 0%, rgb(var(--eleva-secondary)) 100%)',
-          boxShadow:
-            '0 6px 20px -6px rgba(37,99,235,.55), inset 0 1px 0 rgba(255,255,255,.25)',
+          width: size * 1.15,
+          height: size * 1.15,
+          backgroundColor: '#111827',
         }}
         aria-label="Eleva logo"
       >
-        <svg
-          viewBox="0 0 40 40"
-          width={size * 0.62}
-          height={size * 0.62}
-          fill="none"
-          aria-hidden
-        >
-          {/* Main E shape */}
-          <path
-            d="M8 6h24v6H14v6h14v6H14v6h18v6H8V6z"
-            fill="#ffffff"
-          />
-          {/* Upward-pointing arrow in negative space (subtle) */}
-          <path
-            d="M25.5 22 L21 17.5 V26.5 Z"
-            fill="rgb(var(--eleva-primary))"
-            opacity="0.9"
-          />
-        </svg>
+        <ElevaMark size={size * 0.62} />
       </div>
       {showWordmark && (
         <span
-          className="font-display text-[18px] font-semibold tracking-[-0.02em]"
-          style={{ color: 'rgb(var(--eleva-fg))' }}
+          className="font-semibold tracking-tight shrink-0 whitespace-nowrap"
+          style={{ fontSize: size * 0.625, color: '#0F172A' }}
         >
           Eleva
         </span>
       )}
     </div>
   );
+
+  if (asLink) {
+    return <Link href="/eleva/dashboard">{logoContent}</Link>;
+  }
+
+  return logoContent;
 }

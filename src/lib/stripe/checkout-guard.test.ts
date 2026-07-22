@@ -35,7 +35,7 @@ describe("buildCheckoutSessionMetadata", () => {
       supabaseUUID: "user_123",
       price_id: "price_pro",
       include_trial: "true",
-      source: "resumelm_checkout",
+      source: "eleva_checkout",
     });
   });
 });
@@ -51,7 +51,7 @@ describe("buildSubscriptionMetadata", () => {
     assert.equal(metadata.supabaseUUID, "user_123");
     assert.equal(metadata.price_id, "price_pro");
     assert.equal(metadata.include_trial, "false");
-    assert.equal(metadata.source, "resumelm_checkout");
+    assert.equal(metadata.source, "eleva_checkout");
   });
 });
 

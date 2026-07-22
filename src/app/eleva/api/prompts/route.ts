@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   if (key) {
     const { data, error } = await base.eq('key', key).single();
-    if (error) return NextResponse.json(null);
+    if (error) return NextResponse.json({ error: error.message }, { status: 404 });
     return NextResponse.json(data);
   }
 

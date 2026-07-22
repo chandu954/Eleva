@@ -36,6 +36,7 @@ import { ApiKeyErrorAlert } from '@/components/ui/api-key-error-alert';
 import { Textarea } from '@/components/ui/textarea';
 import { useApiKeys, useDefaultModel } from '@/hooks/use-api-keys';
 import { useCustomPrompts } from '@/hooks/use-custom-prompts';
+import type { RewriteMode } from '@/app/eleva/api/tool/rewrite/rewrite-utils';
 
 interface ChatBotProps {
   resume: Resume;
@@ -135,7 +136,6 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
             }), {});
         
         addToolResult({ toolCallId: toolCall.toolCallId, result });
-        console.log('Tool call READ RESUME result:', result);
         return result;
       }
 
@@ -225,6 +225,34 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
     
     setAccordionValue("chat");
   }, [append]);
+
+  const handleModeRewrite = useCallback((toolName: string, args: unknown, mode: RewriteMode) => {
+    const instruction = (() => {
+      if (toolName === 'suggest_work_experience_improvement') {
+        const payload = args as { index?: number; improved_experience?: WorkExperience };
+        return `Rewrite the current work experience suggestion in ${mode} mode.\n\nTool: suggest_work_experience_improvement\nIndex: ${payload.index ?? 0}\nCurrent suggestion:\n${JSON.stringify(payload.improved_experience ?? {}, null, 2)}\n\nKeep company, position, and date unchanged. Improve the description bullets according to the mode.`;
+      }
+
+      if (toolName === 'suggest_project_improvement') {
+        const payload = args as { index?: number; improved_project?: Project };
+        return `Rewrite the current project suggestion in ${mode} mode.\n\nTool: suggest_project_improvement\nIndex: ${payload.index ?? 0}\nCurrent suggestion:\n${JSON.stringify(payload.improved_project ?? {}, null, 2)}\n\nKeep the project name unchanged unless the mode needs a lighter wording change. Improve the description bullets according to the mode.`;
+      }
+
+      if (toolName === 'suggest_skill_improvement') {
+        const payload = args as { index?: number; improved_skill?: Skill };
+        return `Rewrite the current skill suggestion in ${mode} mode.\n\nTool: suggest_skill_improvement\nIndex: ${payload.index ?? 0}\nCurrent suggestion:\n${JSON.stringify(payload.improved_skill ?? {}, null, 2)}\n\nKeep the skill category structure stable and adjust ordering or wording according to the mode.`;
+      }
+
+      if (toolName === 'suggest_education_improvement') {
+        const payload = args as { index?: number; improved_education?: Education };
+        return `Rewrite the current education suggestion in ${mode} mode.\n\nTool: suggest_education_improvement\nIndex: ${payload.index ?? 0}\nCurrent suggestion:\n${JSON.stringify(payload.improved_education ?? {}, null, 2)}\n\nKeep the school, degree, field, and date truthful. Improve phrasing according to the mode.`;
+      }
+
+      return `Rewrite this suggestion in ${mode} mode while preserving the original facts.`;
+    })();
+
+    handleSubmit(instruction);
+  }, [handleSubmit]);
 
   // Add delete handler
   const handleDelete = (id: string) => {
@@ -576,6 +604,7 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
                                       type={config.type}
                                       content={args[config.content]}
                                       currentContent={resume[config.field][args.index]}
+                                      onModeRewrite={(mode) => handleModeRewrite(toolName, args, mode as RewriteMode)}
                                       onAccept={() => onResumeChange(config.field, 
                                         resume[config.field].map((item: WorkExperience | Education | Project | Skill, i: number) => 
                                           i === args.index ? args[config.content] : item

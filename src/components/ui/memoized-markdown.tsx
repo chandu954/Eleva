@@ -2,7 +2,6 @@ import { marked } from 'marked';
 import { memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm'
-import remarkBreaks from 'remark-breaks'
 
 
 function parseMarkdownIntoBlocks(markdown: string): string[] {
@@ -44,7 +43,7 @@ const MemoizedMarkdownBlock = memo(
     return (
       <div className="">
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkBreaks]}
+          remarkPlugins={[remarkGfm]}
           components={{
             // Ensure lists are properly styled
             ul: ({ children }) => <ul className="list-disc ml-3 mb-0">{children}</ul>,

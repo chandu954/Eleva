@@ -10,36 +10,6 @@ interface ApiKeyErrorAlertProps {
 }
 
 export function ApiKeyErrorAlert({ error, router }: ApiKeyErrorAlertProps) {
-  // Detailed console debugging
-  console.group('🔍 ApiKeyErrorAlert Debug');
-  console.log('Raw error:', error);
-  console.log('Error type:', typeof error);
-  console.log('Error constructor:', error?.constructor?.name);
-  
-  if (error instanceof Error) {
-    console.log('Error message:', error.message);
-    console.log('Error stack:', error.stack);
-    console.log('Error name:', error.name);
-  }
-  
-  try {
-    console.log('Error stringified:', JSON.stringify(error, null, 2));
-  } catch (e) {
-    console.log('Error cannot be stringified:', e);
-  }
-  
-  // Check specific conditions
-  const errorString = typeof error === 'string' ? error : (error as Error)?.message || '';
-  const errorJson = JSON.stringify(error);
-  
-  console.log('Error string for checking:', errorString);
-  console.log('Error JSON for checking:', errorJson);
-  console.log('Contains OpenAI API key not found:', errorString.includes('OpenAI API key not found') || errorJson.includes('OpenAI API key not found'));
-  console.log('Contains invalid x-api-key:', errorString.includes('invalid x-api-key') || errorJson.includes('authentication_error'));
-  console.log('Contains Incorrect API key:', errorString.includes('Incorrect API key provided') || errorJson.includes('invalid_api_key'));
-  console.log('Contains Rate limit:', errorString.includes('Rate limit exceeded') || errorJson.includes('Rate limit exceeded'));
-  console.groupEnd();
-
   return (
     <div className={cn(
       "mt-2 text-sm px-4",

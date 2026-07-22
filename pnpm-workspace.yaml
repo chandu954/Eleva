@@ -1,3 +1,5 @@
+# pnpm configuration — single-package repo
+# allowBuilds prevents native module compilation in CI
 allowBuilds:
   '@google/genai': false
   canvas: false

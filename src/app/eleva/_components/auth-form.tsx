@@ -71,7 +71,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm relative z-10"
       >
-        <Link href="/eleva" className="flex justify-center mb-8"><ElevaLogo /></Link>
+        <Link href="/eleva" className="flex justify-center mb-8"><ElevaLogo asLink={false} /></Link>
         <div className="eleva-card p-8">
           <h1 className="font-display text-2xl font-semibold text-center mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>
             {mode === 'signup' ? 'Create your workspace' : 'Welcome back'}

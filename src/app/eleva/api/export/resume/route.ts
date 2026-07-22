@@ -55,12 +55,13 @@ const styles = StyleSheet.create({
 });
 
 export async function POST(req: NextRequest) {
-  const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+  try {
+    const parsed = bodySchema.safeParse(await req.json());
+    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
 
-  const supabase = await createClient();
-  const { data: userRes } = await supabase.auth.getUser();
-  if (!userRes?.user) return Response.json({ error: 'unauthenticated' }, { status: 401 });
+    const supabase = await createClient();
+    const { data: userRes } = await supabase.auth.getUser();
+    if (!userRes?.user) return Response.json({ error: 'unauthenticated' }, { status: 401 });
 
   const { data: r, error } = await supabase.from('resumes').select('*').eq('id', parsed.data.resumeId).eq('user_id', userRes.user.id).maybeSingle();
   if (error || !r) return Response.json({ error: error?.message ?? 'resume_not_found' }, { status: 404 });
@@ -203,4 +204,8 @@ export async function POST(req: NextRequest) {
       'Cache-Control': 'no-store',
     },
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

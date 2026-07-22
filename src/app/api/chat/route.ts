@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       `;
 
 
-    const result = AIProvider.stream({
+    const result = await AIProvider.stream({
       system: systemPrompt,
       messages,
       config: aiConfig,

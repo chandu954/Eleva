@@ -75,14 +75,6 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
         );
 
         if (blockingSubscription) {
-            console.log('🛑 Existing Stripe subscription found before checkout', {
-                userId: user.id,
-                customerId,
-                subscriptionId: blockingSubscription.id,
-                status: blockingSubscription.status,
-                priceId,
-            });
-
             const portalSession = await createBillingPortalSession(customerId);
             return {
                 kind: "portal",
@@ -108,14 +100,6 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
         );
 
         if (reusableSession?.client_secret) {
-            console.log('♻️ Reusing existing open checkout session', {
-                userId: user.id,
-                customerId,
-                sessionId: reusableSession.id,
-                priceId,
-                includeTrial,
-            });
-
             return {
                 kind: "checkout",
                 clientSecret: reusableSession.client_secret,
@@ -123,13 +107,6 @@ export const postStripeSession = async ({ priceId, includeTrial = false }: NewSe
         }
 
         const returnUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/subscription/checkout-return?session_id={CHECKOUT_SESSION_ID}`;
-
-        console.log('🧾 Creating checkout session', {
-            userId: user.id,
-            priceId,
-            includeTrial,
-            returnUrl
-        });
 
         const session = await stripe.checkout.sessions.create({
             customer: customerId,

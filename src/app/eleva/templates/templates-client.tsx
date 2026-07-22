@@ -97,13 +97,15 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
                 <Star className="w-4 h-4" fill={favs.has(t.id) ? 'rgb(var(--eleva-warning))' : 'none'} style={{ color: favs.has(t.id) ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-muted-fg))' }} />
               </button>
             </div>
-            <div className="px-4 pb-4 flex items-center gap-3 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-              <span className="font-mono">ATS {t.atsScore}%</span>
-              <span>·</span>
-              <span className="font-mono uppercase">{t.category}</span>
-              <span>·</span>
-              <span className="truncate">{t.layout}</span>
-            </div>
+<div className="px-4 pb-4 flex items-center gap-3 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                <span className="font-mono">ATS {t.atsScore}%</span>
+                <span>·</span>
+                <span className="font-mono uppercase">{t.category}</span>
+                <span>·</span>
+                <span className="truncate">{t.layout}</span>
+                <span>·</span>
+                <span className={`font-mono text-[10px] ${t.atsScore >= 90 ? 'text-green-600' : t.atsScore >= 75 ? 'text-amber-600' : 'text-red-500'}`}>{t.atsScore >= 90 ? 'Recommended' : t.atsScore >= 75 ? 'Good' : 'Low ATS'}</span>
+              </div>
           </motion.div>
         ))}
       </div>
@@ -133,6 +135,15 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
                     <Row k="Font pair" v={preview.fontPair} />
                     <Row k="ATS score" v={`${preview.atsScore}%`} />
                     <Row k="Tier" v={preview.tier.toUpperCase()} />
+                  </div>
+                  <div className="text-[11px] font-mono uppercase mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Compare with others</div>
+                  <div className="space-y-1.5 mb-5">
+                    {templates.filter((t) => t.id !== preview.id && t.category === preview.category).slice(0, 3).map((t) => (
+                      <div key={t.id} className="flex items-center justify-between px-2 py-1 rounded-md" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                        <span className="text-[12px]" style={{ color: 'rgb(var(--eleva-fg))' }}>{t.name}</span>
+                        <span className="font-mono text-[11px]" style={{ color: t.atsScore >= 90 ? 'rgb(var(--eleva-success))' : t.atsScore >= 75 ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-warning))' }}>ATS {t.atsScore}%</span>
+                      </div>
+                    ))}
                   </div>
                   <div className="text-[11px] font-mono uppercase mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Apply to resume</div>
                   {resumes.length === 0 ? (

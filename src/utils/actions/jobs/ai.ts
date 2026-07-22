@@ -84,9 +84,6 @@ export async function tailorResumeToJob(
     let start = Date.now();
     try {
       start = Date.now();
-      console.log(
-        `[TAILOR][TRY] ${candidate.model} | STEP: Tailoring resume content | Subscription: ${isPro ? 'PRO' : 'FREE'}`
-      );
       const { object } = await runTrackedAIRequest({
         route: 'actions.jobs.tailorResumeToJob',
         userId: id,
@@ -102,7 +99,7 @@ export async function tailorResumeToJob(
         maxRetries: 2, // retry on failure
         system: `
 
-You are ResumeLM, an advanced AI resume transformer. Rewrite the resume so it is ATS-friendly and tightly aligned to the job description—without adding new facts or inventing experience.
+You are Eleva, an advanced AI resume transformer. Rewrite the resume so it is ATS-friendly and tightly aligned to the job description—without adding new facts or inventing experience.
 
 Guidelines:
 - Integrate job-specific terminology and reorder content to surface the most relevant experience first. Mirror the job's vocabulary when it is factual.
@@ -124,9 +121,6 @@ Your task: produce a polished, tailored resume that meets the schema exactly and
     `,
       }));
 
-      console.log(
-        `[TAILOR][SUCCESS ✅] ${candidate.model} | Duration: ${Date.now() - start}ms | STEP: Tailoring resume content`
-      );
       return object.content satisfies z.infer<typeof simplifiedResumeSchema>;
     } catch (error) {
       lastError = error;
@@ -157,11 +151,6 @@ export async function formatJobListing(jobListing: string, config?: AIConfig) {
     let start = Date.now();
     try {
       start = Date.now();
-      console.log(
-        `[FORMAT][TRY] ${candidate.model} | STEP: Analyzing job description → Formatting requirements | Subscription: ${
-          isPro ? 'PRO' : 'FREE'
-        }`
-      );
       const { object } = await runTrackedAIRequest({
         route: 'actions.jobs.formatJobListing',
         userId: id,
@@ -218,9 +207,6 @@ export async function formatJobListing(jobListing: string, config?: AIConfig) {
                 - FORMAT THE FOLLOWING JOB LISTING AS A JSON OBJECT: ${jobListing}`,
       }));
 
-      console.log(
-        `[FORMAT][SUCCESS ✅] ${candidate.model} | Duration: ${Date.now() - start}ms | STEP: Analyzing job description → Formatting requirements`
-      );
       return object.content satisfies Partial<Job>;
     } catch (error) {
       lastError = error;

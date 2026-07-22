@@ -92,12 +92,6 @@ export async function manageSubscriptionStatusChange(
   subscriptionId: string,
   customerId: string
 ): Promise<Partial<Subscription>> {
-  console.log('🔄 Starting subscription status change:', {
-    subscriptionId,
-    customerId,
-    timestamp: new Date().toISOString()
-  });
-
   const supabase = await createServiceClient();
   const proPriceId = process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID;
 
@@ -105,7 +99,6 @@ export async function manageSubscriptionStatusChange(
     throw new Error('NEXT_PUBLIC_STRIPE_PRO_PRICE_ID is not configured');
   }
 
-  console.log('📦 Retrieving subscription details from Stripe...');
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId, {
     expand: ['default_payment_method', 'items.data.price']
   });
@@ -114,15 +107,6 @@ export async function manageSubscriptionStatusChange(
     throw new Error(`Stripe subscription ${subscription.id} has no subscription items`);
   }
 
-  console.log('✅ Retrieved subscription details:', {
-    id: subscription.id,
-    status: subscription.status,
-    currentPeriodEnd: subscriptionItem.current_period_end
-      ? new Date(subscriptionItem.current_period_end * 1000).toISOString()
-      : null
-  });
-
-  console.log('🔍 Retrieving customer data from Stripe...');
   const customerData = await getStripe().customers.retrieve(customerId);
   let uuid: string | null = null;
 
@@ -187,8 +171,6 @@ export async function manageSubscriptionStatusChange(
     };
   }
 
-  console.log('✅ Resolved customer UUID:', uuid);
-
   // Prepare subscription data
   const subscriptionData: Partial<Subscription> = mapStripeSubscriptionToAppSubscription({
     userId: uuid,
@@ -205,8 +187,6 @@ export async function manageSubscriptionStatusChange(
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
     proPriceId,
   });
-
-  console.log('\n📋 Prepared subscription data:', subscriptionData);
 
   try {
     const { data: currentSubscription, error: currentSubscriptionError } = await supabase
@@ -244,7 +224,6 @@ export async function manageSubscriptionStatusChange(
       };
     }
 
-    console.log('🔄 Upserting subscription in database...');
     const { error } = await supabase
       .from('subscriptions')
       .upsert(subscriptionData, {
@@ -256,9 +235,7 @@ export async function manageSubscriptionStatusChange(
       console.error('❌ Error upserting subscription:', error);
       throw error;
     }
-    console.log('✅ Subscription upserted successfully');
 
-    console.log('🎉 Subscription management completed successfully!');
     return subscriptionData;
   } catch (error) {
     console.error('💥 Error managing subscription:', {
@@ -312,8 +289,6 @@ export async function getSubscriptionStatus() {
   if (userError || !user) {
     throw new Error('User not authenticated');
   }
-
-  console.log(' looking for user ', user.id);
 
   const { data: subscription, error: subscriptionError } = await supabase
     .from('subscriptions')
@@ -371,18 +346,6 @@ export async function checkSubscriptionPlan() {
   const subscriptionState = getSubscriptionAccessState(data);
   const effectivePlan = data ? subscriptionState.effectivePlan : '';
 
-  console.log('🧮 checkSubscriptionPlan', {
-    userId: user.id,
-    subscription_plan: data?.subscription_plan,
-    subscription_status: data?.subscription_status,
-    stripe_subscription_id: data?.stripe_subscription_id,
-    current_period_end: data?.current_period_end,
-    trial_end: data?.trial_end,
-    isTrialing: subscriptionState.isTrialing,
-    hasProAccess: subscriptionState.hasProAccess,
-    effectivePlan,
-  });
-  
   return {
     plan: effectivePlan,
     status: data?.subscription_status || '',

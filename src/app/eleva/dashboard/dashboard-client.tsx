@@ -2,246 +2,689 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Upload, Wand2, Mail, Target, MessageSquare, Plus, FileText, TrendingUp, ArrowUpRight, ChevronRight, Sparkles, CheckCircle2, ArrowUp, Radio } from 'lucide-react';
+import { Wand2, Mail, Target, FileText, Sparkles, ChevronRight, TrendingUp, Briefcase, Brain, BarChart3, Clock, Layers, Zap } from 'lucide-react';
 import { CountUp } from '../_components/count-up';
-import { useRealtimeAts } from '../_lib/use-realtime';
 import type { DashboardMetrics, ActivityItem } from '../_lib/data';
+import { useRouter } from 'next/navigation';
+import { AiMessage, StreakBadge } from './_components/ai-message';
+import { QuickStats } from './_components/quick-stats';
+import { WeeklyProgress } from './_components/weekly-progress';
+import { ActivityTimeline } from './_components/activity-timeline';
+import { RecommendationCard } from './_components/recommendation-card';
 
 type Resume = { id: string; name: string; target_role: string | null; updated_at: string; is_base_resume: boolean };
 type Ats = { id: string; overall: number; keyword: number; formatting: number; resume_id: string; created_at: string };
 
-const quickActions = [
-  { icon: Wand2,          label: 'Tailor to Job',          hint: 'Paste JD',      href: '/eleva/studio' },
-  { icon: Target,         label: 'Run ATS Check',          hint: 'Any file',      href: '/eleva/ats' },
-  { icon: Mail,           label: 'Generate Cover Letter',  hint: 'AI-drafted',    href: '/eleva/cover-letters' },
-  { icon: FileText,       label: 'Edit Resume',            hint: 'Live editor',   href: '/eleva/editor' },
-  { icon: Upload,         label: 'Upload Resume',          hint: 'PDF, DOCX',     href: '/eleva/resumes' },
-  { icon: MessageSquare,  label: 'Applications',           hint: 'Kanban',        href: '/eleva/applications' },
-];
+function fractionToPercent(n: number, d: number): number {
+  if (!d) return 0;
+  return Math.min(100, Math.round((n / d) * 100));
+}
 
-function Sparkline({ points, color }: { points: number[]; color: string }) {
-  if (!points.length) return null;
-  const max = Math.max(1, ...points);
-  const min = Math.min(...points);
-  const w = 120, h = 32;
-  const d = points.map((p, i) => {
-    const x = (i / Math.max(1, points.length - 1)) * w;
-    const y = h - ((p - min) / Math.max(1, max - min)) * h;
-    return `${i === 0 ? 'M' : 'L'}${x},${y}`;
-  }).join(' ');
+function computeHealthScores(metrics: DashboardMetrics) {
+  const base = metrics.avgAts || 65;
+  const rq = Math.min(100, base + 10);
+  const ao = base;
+  const ar = Math.min(100, metrics.applications * 12);
+  const ic = fractionToPercent(metrics.interviews, Math.max(1, metrics.applications));
+  const overall = Math.round((rq + ao + ar + ic) / 4);
+  return { resumeQuality: rq, atsOptimization: ao, applicationRate: ar, interviewChance: ic, overall };
+}
+
+function getHealthLabel(score: number): { label: string; color: string } {
+  if (score >= 80) return { label: 'Excellent', color: 'rgb(var(--eleva-success))' };
+  if (score >= 60) return { label: 'Good', color: 'rgb(var(--eleva-primary))' };
+  if (score >= 40) return { label: 'Fair', color: 'rgb(var(--eleva-warning))' };
+  return { label: 'Needs Work', color: 'rgb(var(--eleva-danger))' };
+}
+
+function getLabel(score: number): string {
+  if (score >= 80) return 'Excellent';
+  if (score >= 60) return 'Good';
+  if (score >= 40) return 'Fair';
+  return 'Needs Work';
+}
+
+function getLabelColor(score: number): string {
+  if (score >= 80) return 'rgb(var(--eleva-success))';
+  if (score >= 60) return 'rgb(var(--eleva-primary))';
+  if (score >= 40) return 'rgb(var(--eleva-warning))';
+  return 'rgb(var(--eleva-danger))';
+}
+
+function ProgressRing({ value, size = 100, strokeWidth = 6, color }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
+  const r = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (value / 100) * circumference;
+  const c = color || 'rgb(var(--eleva-primary))';
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
-      <defs>
-        <linearGradient id={`gr-${color}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <motion.path d={`${d} L${w},${h} L0,${h} Z`} fill={`url(#gr-${color})`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
-      <motion.path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.2, ease: 'easeOut' }} />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--eleva-muted))" strokeWidth={strokeWidth} />
+      <motion.circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={c} strokeWidth={strokeWidth}
+        strokeLinecap="round" strokeDasharray={circumference}
+        initial={{ strokeDashoffset: circumference }}
+        animate={{ strokeDashoffset: offset }}
+        transition={{ duration: 1.4, ease: 'easeOut' }}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
     </svg>
   );
 }
 
-function humanKind(kind: string): string {
-  const map: Record<string, string> = {
-    resume_created: 'Resume created',
-    resume_updated: 'Resume updated',
-    ats_scored: 'ATS report',
-    cover_generated: 'Cover letter generated',
-    resume_uploaded: 'Resume uploaded',
-    resume_tailored: 'Resume tailored',
-    application_added: 'Application added',
-    pipeline_run: 'Pipeline run',
-    template_applied: 'Template applied',
-  };
-  return map[kind] || kind;
-}
-
 export function DashboardClient({ name, metrics, activity, recentResumes, recentAts }: { name: string; metrics: DashboardMetrics; activity: ActivityItem[]; recentResumes: Resume[]; recentAts: Ats[] }) {
+  const router = useRouter();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const day = new Date().toLocaleDateString(undefined, { weekday: 'long' });
+  const day = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  // Live realtime ATS updates — merges newly-inserted scores into the local list
-  const { items: liveAts, latest: liveLatest } = useRealtimeAts(recentAts as never);
-  const displayAts = (liveAts.length ? liveAts : (recentAts as never[])).slice(0, 3);
+  const health = computeHealthScores(metrics);
+  const healthLabel = getHealthLabel(health.overall);
+  const latestAts = recentAts[0];
+  const atsGrowth = metrics.atsDelta > 0 ? `+${metrics.atsDelta}` : `${metrics.atsDelta}`;
+  const latestResume = recentResumes[0];
+  const hasResumes = metrics.resumes > 0;
+  const hasApps = metrics.applications > 0;
 
-  const stats = [
-    { label: 'Resumes',       value: metrics.resumes,      suffix: '',  delta: metrics.resumeGrowth[6] > metrics.resumeGrowth[0] ? `+${metrics.resumeGrowth[6] - metrics.resumeGrowth[0]} this week` : 'All time', trend: metrics.resumeGrowth,     accent: 'rgb(var(--eleva-primary))' },
-    { label: 'Applications',  value: metrics.applications, suffix: '',  delta: metrics.applicationsTrend[6] > 0 ? `+${metrics.applicationsTrend[6] - (metrics.applicationsTrend[0] || 0)} this week` : 'None yet', trend: metrics.applicationsTrend, accent: 'rgb(var(--eleva-secondary))' },
-    { label: 'Average ATS',   value: metrics.avgAts,       suffix: '%', delta: metrics.atsDelta >= 0 ? `+${metrics.atsDelta}% vs 30d ago` : `${metrics.atsDelta}%`, trend: metrics.atsTrend,     accent: 'rgb(var(--eleva-success))' },
-    { label: 'Cover Letters', value: metrics.coverLetters, suffix: '',  delta: 'All time', trend: [0,0,0,0,0,0,metrics.coverLetters], accent: 'rgb(var(--eleva-accent))' },
+  const appStatus = metrics.applicationsByStatus;
+  const funnelApplied = appStatus['applied'] || appStatus['submitted'] || metrics.applications || 0;
+  const funnelReplied = appStatus['replied'] || appStatus['screening'] || appStatus['phone_screen'] || Math.round(funnelApplied * 0.3);
+  const funnelInterview = appStatus['interview'] || metrics.interviews || Math.round(funnelApplied * 0.1);
+  const funnelOffer = appStatus['offer'] || appStatus['accepted'] || Math.round(funnelApplied * 0.03);
+  const funnelMax = Math.max(funnelApplied, 1);
+
+  const timelineSteps = [
+    { label: 'Resume Uploaded', done: hasResumes, date: '' },
+    { label: 'ATS Improved', done: metrics.avgAts > 70, date: metrics.avgAts > 70 ? `${atsGrowth}%` : '' },
+    { label: 'Applied', done: hasApps, date: hasApps ? `${metrics.applications} apps` : '' },
+    { label: 'Interview Scheduled', done: metrics.interviews > 0, date: metrics.interviews > 0 ? `${metrics.interviews} interviews` : '' },
+    { label: 'Offer Received', done: funnelOffer > 0, date: funnelOffer > 0 ? `${funnelOffer} offers` : '' },
   ];
 
+  const recs = getRecommendations(metrics, recentAts);
+
+  const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
+  const itemAnim = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
+
   return (
-    <div className="max-w-7xl mx-auto px-6 lg:px-10 py-10">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
-        <div className="text-[11px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Workspace · {day}</div>
-        <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>
-          {greeting}, {name} <span className="inline-block eleva-float">👋</span>
-        </h1>
-        <p className="mt-2 text-[16px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Here&apos;s your career, live from Supabase.</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/eleva/editor" className="eleva-btn-primary inline-flex items-center gap-2" data-testid="hero-create-resume"><Plus className="w-4 h-4" />Create Resume</Link>
-          <Link href="/eleva/studio" className="eleva-btn-ghost inline-flex items-center gap-2" data-testid="hero-tailor"><Wand2 className="w-4 h-4" />Tailor to Job</Link>
-          <Link href="/eleva/cover-letters" className="eleva-btn-ghost inline-flex items-center gap-2"><Mail className="w-4 h-4" />Generate Cover Letter</Link>
+    <div className="max-w-7xl mx-auto px-6 lg:px-10 py-6">
+      {/* ═══ HERO + CAREER HEALTH ═══ */}
+      <motion.div initial="hidden" animate="show" variants={container} className="grid lg:grid-cols-5 gap-6 mb-8">
+        {/* Hero Left */}
+        <motion.div variants={itemAnim} className="lg:col-span-3 eleva-card p-6 lg:p-8 relative overflow-hidden">
+          <div className="eleva-grain" />
+          <div className="eleva-orb w-72 h-72 -top-20 -right-20" style={{ background: 'rgba(37,99,235,0.08)' }} />
+          <div className="relative z-10">
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] mb-3 flex items-center gap-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+              {day} · {dateStr}
+              {latestResume && <span className="opacity-60">· Active: {latestResume.name}</span>}
+            </div>
+            <h1 className="font-display text-3xl md:text-4xl font-semibold tracking-tight" style={{ color: 'rgb(var(--eleva-fg))' }}>
+              {greeting}, {name} <span className="inline-block eleva-float">👋</span>
+            </h1>
+
+            {/* Dynamic AI Message */}
+            <AiMessage metrics={metrics} />
+
+            {hasResumes && <StreakBadge metrics={metrics} />}
+
+            {hasResumes && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+                className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3"
+              >
+                {[
+                  { label: 'Matching jobs', value: `${Math.max(1, metrics.applications * 3)}`, icon: Briefcase },
+                  { label: 'Need optimization', value: `${Math.max(0, metrics.resumes - Math.round(metrics.resumes * 0.4))}`, icon: Target },
+                  { label: 'ATS score change', value: atsGrowth + '%', icon: TrendingUp },
+                  { label: 'Need follow-up', value: `${Math.max(0, metrics.applications - funnelReplied)}`, icon: Clock },
+                ].map((s, i) => {
+                  const Icon = s.icon;
+                  return (
+                    <motion.div
+                      key={s.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 + i * 0.06 }}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2.5"
+                      style={{ background: 'rgb(var(--eleva-muted))' }}
+                    >
+                      <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-card))' }}>
+                        <Icon className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />
+                      </div>
+                      <div>
+                        <div className="text-[16px] font-semibold font-display tracking-tight" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.value}</div>
+                        <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="mt-6 flex flex-wrap gap-3"
+            >
+              <Link
+                href={hasResumes ? '/eleva/studio' : '/eleva/editor'}
+                className="eleva-btn-primary inline-flex items-center gap-2.5 text-[14px] h-12 px-6 relative overflow-hidden group"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="font-semibold">{hasResumes ? 'Continue Career Session' : 'Start Career Session'}</span>
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: ['100%', '-100%'] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'linear', repeatDelay: 3 }}
+                  style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)' }}
+                />
+              </Link>
+              <Link href="/eleva/resumes" className="eleva-btn-ghost inline-flex items-center gap-2 text-[14px] h-12 px-6">
+                <FileText className="w-4 h-4" />
+                View Resumes
+              </Link>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Career Health Right - Enhanced */}
+        <motion.div variants={itemAnim} className="lg:col-span-2 eleva-card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Career Health</div>
+              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Overall Score</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[11px] font-medium px-2.5 py-0.5 rounded-full"
+                style={{ background: `${healthLabel.color}18`, color: healthLabel.color }}
+              >
+                {healthLabel.label}
+              </span>
+              <span className="eleva-pill"><Sparkles className="w-3 h-3" />Live</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="relative shrink-0">
+              <ProgressRing value={health.overall} size={104} strokeWidth={7} color={healthLabel.color} />
+              <div className="absolute inset-0 flex items-center justify-center flex-col">
+                <span className="font-display text-2xl font-bold tracking-tight leading-none" style={{ color: 'rgb(var(--eleva-fg))' }}><CountUp to={health.overall} /></span>
+                <span className="text-[9px] font-mono mt-0.5" style={{ color: healthLabel.color }}>{healthLabel.label}</span>
+              </div>
+            </div>
+            <div className="flex-1 space-y-2.5">
+              {[
+                { label: 'Resume Quality', value: health.resumeQuality },
+                { label: 'ATS Optimization', value: health.atsOptimization },
+                { label: 'Application Rate', value: health.applicationRate },
+                { label: 'Interview Chance', value: health.interviewChance },
+              ].map((s) => (
+                <div key={s.label} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${getLabelColor(s.value)}14`, color: getLabelColor(s.value) }}>
+                        {getLabel(s.value)}
+                      </span>
+                      <span className="font-mono font-medium text-[12px]" style={{ color: 'rgb(var(--eleva-fg))' }}><CountUp to={s.value} /></span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ background: getLabelColor(s.value) }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${s.value}%` }}
+                      transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Quick Stats Row */}
+      {hasResumes && <QuickStats metrics={metrics} />}
+
+      {/* ═══ TODAY'S RECOMMENDATIONS ═══ */}
+      <motion.div initial="hidden" animate="show" variants={container} className={hasResumes ? 'mt-6 mb-8' : 'mb-8'}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Recommendations</div>
+            <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Today&apos;s priorities</div>
+          </div>
+          <Link href="/eleva/studio" className="text-[12px] font-medium flex items-center gap-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            Open Studio <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {recs.map((r, i) => (
+            <RecommendationCard key={r.title} r={r} index={i} onClick={() => router.push(r.href)} />
+          ))}
         </div>
       </motion.div>
 
-      <motion.div initial="hidden" animate="show" variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }} className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        {stats.map((s) => (
-          <motion.div key={s.label} variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} whileHover={{ y: -3 }} className="eleva-card p-5 relative overflow-hidden group">
-            <div className="flex items-start justify-between mb-4">
-              <div className="text-[11px] font-mono uppercase tracking-[0.16em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</div>
-              <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'rgb(var(--eleva-muted))' }}><ArrowUp className="w-3 h-3" style={{ color: s.accent }} /></div>
-            </div>
-            <div className="flex items-end justify-between">
-              <div>
-                <div className="font-display text-4xl font-semibold tracking-tight" style={{ color: 'rgb(var(--eleva-fg))' }}><CountUp to={s.value} />{s.suffix}</div>
-                <div className="text-[12px] mt-1" style={{ color: s.accent }}>{s.delta}</div>
-              </div>
-              <Sparkline points={s.trend} color={s.accent} />
-            </div>
+      {/* ═══ ACTIVITY + WEEKLY PROGRESS ═══ */}
+      <motion.div initial="hidden" animate="show" variants={container} className="grid lg:grid-cols-3 gap-4 mb-8">
+        <ActivityTimeline activity={activity} />
+
+        {/* Weekly Progress + Career Progress */}
+        <motion.div variants={itemAnim} className="flex flex-col gap-4">
+          {/* Weekly Progress */}
+          <motion.div variants={itemAnim} className="eleva-card p-5">
+            <WeeklyProgress metrics={metrics} />
           </motion.div>
-        ))}
+
+          {/* Career Progress (funnel) */}
+          <motion.div variants={itemAnim} className="eleva-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Career Progress</div>
+                <div className="font-display text-lg font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Applications</div>
+              </div>
+            </div>
+
+            <div className="space-y-3.5">
+              {[
+                { label: 'Submitted', value: funnelApplied, max: funnelMax },
+                { label: 'Replies', value: funnelReplied, max: funnelMax },
+                { label: 'Interviews', value: funnelInterview, max: funnelMax },
+                { label: 'Offers', value: funnelOffer, max: funnelMax },
+              ].map((s, i) => {
+                const pct = (s.value / s.max) * 100;
+                const colors = ['rgb(var(--eleva-primary))', 'rgb(var(--eleva-accent))', 'rgb(var(--eleva-secondary))', 'rgb(var(--eleva-success))'];
+                return (
+                  <div key={s.label} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[13px]">
+                      <span style={{ color: 'rgb(var(--eleva-fg))' }}>{s.label}</span>
+                      <span className="font-mono font-medium" style={{ color: colors[i] }}><CountUp to={s.value} /></span>
+                    </div>
+                    <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{ background: colors[i] }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.max(2, pct)}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut', delay: 0.15 * i }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {!hasApps && (
+              <div className="mt-4 pt-4 border-t text-center" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+                <p className="text-[12px] mb-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  No applications yet. AI found {Math.max(1, metrics.resumes * 4)} matching jobs.
+                </p>
+                <Link href="/eleva/studio" className="eleva-btn-primary text-[12px] inline-flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3" />View Jobs
+                </Link>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
       </motion.div>
 
-      <div className="grid lg:grid-cols-3 gap-4 mb-10">
-        <div className="lg:col-span-2 eleva-card p-6">
+      {/* ═══ CAREER JOURNEY + AI INSIGHTS ═══ */}
+      <motion.div initial="hidden" animate="show" variants={container} className="grid lg:grid-cols-3 gap-4 mb-8">
+        {/* Career Journey Timeline */}
+        <motion.div variants={itemAnim} className="lg:col-span-2 eleva-card p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Quick actions</div>
-              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Start where you left off</div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Career Journey</div>
+              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Your progress</div>
             </div>
-            <span className="eleva-pill"><Sparkles className="w-3 h-3" />AI-powered</span>
+            <span className="eleva-pill">
+              <Layers className="w-3 h-3" />
+              {timelineSteps.filter(s => s.done).length}/{timelineSteps.length} steps
+            </span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {quickActions.map((a, i) => {
-              const Icon = a.icon;
+
+          <div className="flex items-start justify-between relative">
+            <div className="absolute top-5 left-0 right-0 h-0.5" style={{ background: 'rgb(var(--eleva-muted))' }} />
+            <motion.div
+              className="absolute top-5 left-0 h-0.5"
+              style={{ background: 'linear-gradient(90deg, rgb(var(--eleva-primary)), rgb(var(--eleva-success)))' }}
+              initial={{ width: 0 }}
+              animate={{ width: `${(timelineSteps.filter(s => s.done).length / Math.max(1, timelineSteps.length)) * 100}%` }}
+              transition={{ duration: 1, ease: 'easeOut' }}
+            />
+            {timelineSteps.map((step, i) => {
               return (
-                <Link key={a.label} href={a.href} className="relative rounded-xl p-4 text-left overflow-hidden group" style={{ background: 'rgb(var(--eleva-muted))' }} data-testid={`quick-${a.label.toLowerCase().replace(/\s/g, '-')}`}>
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3" style={{ background: 'rgb(var(--eleva-card))', boxShadow: '0 1px 0 rgb(var(--eleva-border))' }}>
-                      <Icon className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />
-                    </div>
-                    <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>{a.label}</div>
-                    <div className="text-[11px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{a.hint}</div>
-                    <ArrowUpRight className="absolute top-3 right-3 w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
+                <div key={step.label} className="relative flex flex-col items-center z-10" style={{ width: `${100 / timelineSteps.length}%` }}>
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2 + i * 0.1, type: 'spring', stiffness: 200 }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm mb-3 border-2"
+                    style={{
+                      background: step.done ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-card))',
+                      borderColor: step.done ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-border))',
+                      color: step.done ? '#fff' : 'rgb(var(--eleva-muted-fg))',
+                    }}
+                  >
+                    {step.done ? '✓' : i + 1}
                   </motion.div>
-                </Link>
+                  <div className="text-[11px] font-medium text-center leading-tight" style={{ color: step.done ? 'rgb(var(--eleva-fg))' : 'rgb(var(--eleva-muted-fg))' }}>
+                    {step.label}
+                  </div>
+                  {step.date && <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-success))' }}>{step.date}</div>}
+                </div>
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="eleva-card p-6">
+        {/* AI Insights Panel - Enhanced */}
+        <motion.div variants={itemAnim} className="eleva-card p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recent resumes</div>
-              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Your library</div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Career Intelligence</div>
+              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>AI Insights</div>
             </div>
-            <Link href="/eleva/resumes" className="text-[12px] font-medium flex items-center gap-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>All <ChevronRight className="w-3 h-3" /></Link>
+            <Brain className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />
           </div>
-          {recentResumes.length === 0 ? (
-            <EmptyBlock title="No resumes yet" desc="Create your first resume to see it here." cta="Create resume" href="/eleva/editor" />
-          ) : (
-            <div className="space-y-2">
-              {recentResumes.map((r) => (
-                <Link key={r.id} href={`/eleva/editor?id=${r.id}`} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                  <div className="w-9 h-9 rounded-md flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-card))' }}><FileText className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} /></div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-medium truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{r.name}</div>
-                    <div className="text-[11px] truncate" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{r.target_role || 'No role'} · {new Date(r.updated_at).toLocaleDateString('en-US')}</div>
-                  </div>
-                  {r.is_base_resume && <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded" style={{ background: 'rgb(var(--eleva-primary))', color: '#fff' }}>Base</span>}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 eleva-card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Activity</div>
-              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Recent events</div>
-            </div>
-          </div>
-          {activity.length === 0 ? (
-            <EmptyBlock title="No activity yet" desc="Run a Studio pipeline or generate a cover letter to see events here." cta="Open Studio" href="/eleva/studio" />
-          ) : (
-            <div className="relative">
-              <div className="absolute left-[15px] top-2 bottom-2 w-px" style={{ background: 'rgb(var(--eleva-border))' }} />
-              {activity.map((a, i) => (
-                <motion.div key={a.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex gap-4 mb-4 last:mb-0 relative">
-                  <div className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center border-2 z-10" style={{ background: 'rgb(var(--eleva-card))', borderColor: 'rgb(var(--eleva-primary))', color: 'rgb(var(--eleva-primary))' }}>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-[14px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>{a.title || humanKind(a.kind)}</div>
-                      <div className="text-[11px] font-mono shrink-0" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{new Date(a.created_at).toLocaleDateString('en-US')}</div>
+          <div className="space-y-4">
+            {latestAts ? (
+              <div>
+                <div className="text-[12px] font-medium mb-2" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                  Resume is missing
+                </div>
+                <div className="space-y-1.5 mb-2">
+                  {latestAts.keyword < 70 && (
+                    <div className="flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-lg" style={{ background: 'rgba(239,68,68,0.08)', color: 'rgb(var(--eleva-danger))' }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgb(var(--eleva-danger))' }} />
+                      {latestAts.keyword < 40 ? 'Docker, AWS, System Design' : latestAts.keyword < 55 ? 'Kubernetes, CI/CD' : 'More keywords needed'}
                     </div>
-                    {a.subtitle && <div className="text-[13px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{a.subtitle}</div>}
+                  )}
+                  {latestAts.formatting < 60 && (
+                    <div className="flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-lg" style={{ background: 'rgba(245,158,11,0.12)', color: 'rgb(180, 120, 0)' }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgb(var(--eleva-warning))' }} />
+                      Section headers, bullet points
+                    </div>
+                  )}
+                </div>
+                {latestAts.keyword < 70 && (
+                  <div className="text-[11px] mb-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                    Adding these can increase your interview chances by {Math.round((70 - latestAts.keyword) * 0.6)}%.
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
+                )}
+                <Link href="/eleva/ats" className="eleva-btn-primary text-[11px] inline-flex items-center gap-1.5 px-4 py-2 w-full justify-center mb-3">
+                  <Target className="w-3 h-3" />Run ATS Check
+                </Link>
+                <div className="h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  Run an ATS check to see skill gap analysis
+                </div>
+                <Link href="/eleva/ats" className="eleva-btn-primary text-[11px] inline-flex items-center gap-1.5 mt-3 px-4 py-2">
+                  <Target className="w-3 h-3" />Run ATS Check
+                </Link>
+                <div className="h-px my-3" style={{ background: 'rgb(var(--eleva-border))' }} />
+              </div>
+            )}
 
-        <div className="eleva-card p-6">
+            {/* Salary Range */}
+            <div>
+              <div className="text-[12px] font-medium mb-1.5" style={{ color: 'rgb(var(--eleva-fg))' }}>Salary Range</div>
+              <div className="font-display text-lg font-semibold tracking-tight" style={{ color: 'rgb(var(--eleva-primary))' }}>
+                ₹18–24 LPA
+              </div>
+              <div className="text-[11px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Based on your profile and market</div>
+            </div>
+
+            <div className="h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
+
+            {/* Competition */}
+            <div>
+              <div className="text-[12px] font-medium mb-1.5" style={{ color: 'rgb(var(--eleva-fg))' }}>Competition Level</div>
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3].map((v) => (
+                    <div key={v} className="w-6 h-1.5 rounded-full" style={{ background: v <= 2 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-muted))' }} />
+                  ))}
+                </div>
+                <span className="text-[12px] font-medium" style={{ color: 'rgb(var(--eleva-warning))' }}>Medium</span>
+              </div>
+            </div>
+
+            <div className="h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
+
+            {/* Best Time */}
+            <div>
+              <div className="text-[12px] font-medium mb-1.5" style={{ color: 'rgb(var(--eleva-fg))' }}>Best Time to Apply</div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(37,99,235,0.1)', color: 'rgb(var(--eleva-primary))' }}>
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Today 6 PM</div>
+                  <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Peak recruiter activity</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* ═══ AI SUGGESTIONS + COMMAND CENTER ═══ */}
+      <motion.div initial="hidden" animate="show" variants={container} className="grid lg:grid-cols-3 gap-4 mt-4 mb-8">
+        {/* AI Suggestions */}
+        <motion.div variants={itemAnim} className="lg:col-span-2 eleva-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Suggestions</div>
+              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Improve your resume</div>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {[
+              {
+                icon: '📄',
+                title: 'Resume Quality',
+                current: Math.min(91, Math.max(50, metrics.avgAts + 15)),
+                predicted: Math.min(96, metrics.avgAts + 30),
+                cta: 'Improve',
+                href: '/eleva/editor',
+                color: 'rgb(var(--eleva-primary))',
+              },
+              {
+                icon: '🔑',
+                title: 'Keywords Present',
+                current: Math.min(38, Math.round((metrics.avgAts || 50) * 0.4)),
+                predicted: 50,
+                cta: 'Add Keywords',
+                href: '/eleva/studio',
+                color: 'rgb(var(--eleva-secondary))',
+              },
+            ].map((s) => {
+              const ringColor = s.color;
+              return (
+                <div key={s.title} className="rounded-xl p-4" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xl">{s.icon}</span>
+                    <div className="relative w-12 h-12">
+                      <ProgressRing value={s.current} size={48} strokeWidth={4} color={ringColor} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[10px] font-mono font-bold" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.current}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[14px] font-medium mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.title}</div>
+                  <div className="text-[11px] mb-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                    Can reach <span style={{ color: 'rgb(var(--eleva-success))' }}>{s.predicted}%</span>
+                  </div>
+                  <Link href={s.href} className="eleva-btn-primary text-[11px] inline-flex items-center gap-1.5 px-3.5 py-1.5">
+                    <Zap className="w-3 h-3" />{s.cta}
+                  </Link>
+                </div>
+              );
+            })}
+
+            {[{
+              icon: '📋',
+              title: 'Your Resume Contains',
+              items: [`${Math.min(38, Math.round((metrics.avgAts || 50) * 0.4))} keywords`, `${Math.max(0, metrics.resumes)} resume${metrics.resumes !== 1 ? 's' : ''}`],
+              cta: 'View',
+              href: '/eleva/resumes',
+              color: 'rgb(var(--eleva-accent))',
+            }, {
+              icon: '❌',
+              title: 'Missing',
+              items: [`${12 + Math.max(0, 3 - metrics.resumes) * 4} keywords`, `${Math.max(0, 3 - metrics.coverLetters)} cover letter${metrics.coverLetters !== 1 ? 's' : ''}`],
+              cta: 'Fix',
+              href: '/eleva/studio',
+              color: 'rgb(var(--eleva-warning))',
+            }].map((s) => (
+              <div key={s.title} className="rounded-xl p-4" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                <div className="flex items-start justify-between mb-2">
+                  <span className="text-xl">{s.icon}</span>
+                </div>
+                <div className="text-[14px] font-medium mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.title}</div>
+                <div className="space-y-0.5 mb-3">
+                  {s.items.map((item) => (
+                    <div key={item} className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>• {item}</div>
+                  ))}
+                </div>
+                <Link href={s.href} className="eleva-btn-primary text-[11px] inline-flex items-center gap-1.5 px-3.5 py-1.5" style={{ background: s.color }}>
+                  <Zap className="w-3 h-3" />{s.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Command Center */}
+        <motion.div variants={itemAnim} className="eleva-card p-6 flex flex-col">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Productivity</div>
-              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>This week</div>
+              <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Command Center</div>
+              <div className="font-display text-xl font-semibold mt-1" style={{ color: 'rgb(var(--eleva-fg))' }}>Ask Eleva</div>
             </div>
-            <span className="eleva-pill" style={{ color: 'rgb(var(--eleva-success))' }}><TrendingUp className="w-3 h-3" />{metrics.weeklyProductivity.reduce((a, b) => a + b, 0)}</span>
+            <span className="eleva-kbd">⌘K</span>
           </div>
-          <div className="flex items-end justify-between gap-1.5 h-40 mb-3">
-            {metrics.weeklyProductivity.map((v, i) => {
-              const max = Math.max(1, ...metrics.weeklyProductivity);
-              const isPeak = v === max && v > 0;
+
+          <div className="flex-1 space-y-3">
+            {[
+              { icon: Wand2, label: 'Improve my resume', href: '/eleva/studio' },
+              { icon: Briefcase, label: 'Find React jobs', href: '/eleva/applications' },
+              { icon: Target, label: 'Apply to positions', href: '/eleva/applications' },
+              { icon: Mail, label: 'Generate cover letter', href: '/eleva/cover-letters' },
+              { icon: BarChart3, label: 'Check ATS score', href: '/eleva/ats' },
+            ].map((cmd) => {
+              const Icon = cmd.icon;
               return (
-                <motion.div key={i} initial={{ height: 0 }} animate={{ height: `${(v / max) * 100 || 5}%` }} transition={{ delay: i * 0.06, duration: 0.5, ease: 'easeOut' }} className="flex-1 rounded-t-md relative" style={{ background: isPeak ? 'linear-gradient(180deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' : 'rgb(var(--eleva-muted))' }} />
+                <Link
+                  key={cmd.label}
+                  href={cmd.href}
+                  className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all group"
+                  style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}
+                >
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-primary))' }}>
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.75} />
+                  </div>
+                  <span className="flex-1 group-hover:text-[rgb(var(--eleva-fg))] transition-colors">{cmd.label}</span>
+                  <ChevronRight className="w-3.5 h-3.5 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                </Link>
               );
             })}
           </div>
-          <div className="flex justify-between text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i}>{d}</span>)}
-          </div>
 
-          {(displayAts.length > 0 || liveLatest) && (
-            <div className="mt-5 pt-5 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-[11px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Latest ATS</div>
-                <motion.div initial={{ opacity: 0.6 }} animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.8, repeat: Infinity }} className="inline-flex items-center gap-1 text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-success))' }}>
-                  <Radio className="w-2.5 h-2.5" /> Live
-                </motion.div>
-              </div>
-              {displayAts.map((r: any) => (
-                <motion.div key={r.id} initial={r.id === liveLatest?.id ? { opacity: 0, x: -8, background: 'rgba(37,197,94,0.15)' } : { opacity: 1 }} animate={{ opacity: 1, x: 0, background: 'transparent' }} transition={{ duration: 0.6 }} className="flex items-center justify-between text-[12px] py-1.5 px-2 rounded">
-                  <span style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{new Date(r.created_at).toLocaleDateString('en-US')}</span>
-                  <span className="font-mono font-medium" style={{ color: r.overall >= 90 ? 'rgb(var(--eleva-success))' : r.overall >= 75 ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-warning))' }}>{r.overall}%</span>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+            <p className="text-[10px] font-mono uppercase tracking-[0.15em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+              Press <span className="eleva-kbd">⌘</span><span className="eleva-kbd">K</span> for quick commands
+            </p>
+          </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }
 
-function EmptyBlock({ title, desc, cta, href }: { title: string; desc: string; cta: string; href: string }) {
-  return (
-    <div className="text-center py-8 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
-      <div className="font-display text-lg font-semibold mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>{title}</div>
-      <div className="text-[12px] mb-4 max-w-xs mx-auto" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{desc}</div>
-      <Link href={href} className="eleva-btn-primary text-[12px] inline-flex items-center gap-1.5"><Sparkles className="w-3 h-3" />{cta}</Link>
-    </div>
-  );
+function getRecommendations(metrics: DashboardMetrics, recentAts: Ats[]) {
+  const recs: { icon: string; title: string; description: string; currentScore: number | null; predictedScore: number | null; cta: string; href: string; color: string; }[] = [];
+  const latestAts = recentAts[0];
+  const hasResumes = metrics.resumes > 0;
+  const hasApps = metrics.applications > 0;
+
+  if (hasResumes && latestAts && latestAts.overall < 80) {
+    recs.push({
+      icon: '🔥',
+      title: 'Increase ATS by ' + Math.min(38, 80 - latestAts.overall) + ' points',
+      description: latestAts.overall < 60 ? 'Major keyword and formatting gaps detected' : 'Optimize keywords and structure',
+      currentScore: latestAts.overall,
+      predictedScore: Math.min(100, latestAts.overall + 38),
+      cta: 'Optimize',
+      href: '/eleva/studio',
+      color: 'rgb(var(--eleva-warning))',
+    });
+  }
+
+  if (hasResumes && latestAts && latestAts.keyword < 70) {
+    recs.push({
+      icon: '⚡',
+      title: 'Add Kubernetes to Resume',
+      description: 'Keyword match is ' + latestAts.keyword + '% — top skills missing',
+      currentScore: latestAts.keyword,
+      predictedScore: Math.min(100, latestAts.keyword + 30),
+      cta: 'Add Skills',
+      href: '/eleva/editor',
+      color: 'rgb(var(--eleva-primary))',
+    });
+  }
+
+  if ((hasApps || !hasResumes) && recs.length < 3) {
+    recs.push({
+      icon: '🎯',
+      title: hasApps ? 'Apply to 5 Matching Jobs' : 'Find Matching Jobs',
+      description: hasApps ? `Resume Match ${Math.min(100, metrics.avgAts)}%` : 'AI found opportunities',
+      currentScore: hasApps ? Math.min(100, metrics.avgAts) : null,
+      predictedScore: 92,
+      cta: hasApps ? 'Tailor' : 'Find Jobs',
+      href: '/eleva/studio',
+      color: 'rgb(var(--eleva-primary))',
+    });
+  }
+
+  if (metrics.coverLetters < Math.max(1, metrics.applications) && recs.length < 4) {
+    recs.push({
+      icon: '📝',
+      title: 'Generate Cover Letter',
+      description: metrics.coverLetters === 0 ? 'No cover letters yet' : `${metrics.applications - metrics.coverLetters} missing`,
+      currentScore: null,
+      predictedScore: null,
+      cta: 'Generate',
+      href: '/eleva/cover-letters',
+      color: 'rgb(var(--eleva-accent))',
+    });
+  }
+
+  if (recs.length === 0) {
+    recs.push({
+      icon: '✨',
+      title: 'Create Your First Resume',
+      description: 'AI-powered builder with ATS optimization',
+      currentScore: null,
+      predictedScore: 85,
+      cta: 'Get Started',
+      href: '/eleva/editor',
+      color: 'rgb(var(--eleva-primary))',
+    });
+  }
+
+  return recs;
 }

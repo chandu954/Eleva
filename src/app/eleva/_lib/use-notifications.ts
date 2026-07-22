@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 
 export type Notification = {
@@ -14,16 +14,42 @@ export type Notification = {
   created_at: string;
 };
 
+function useSupabaseBrowser() {
+  const ref = useRef<ReturnType<typeof createBrowserClient> | null>(null);
+  if (!ref.current) {
+    ref.current = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+  return ref.current;
+}
+
 export function useNotifications() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabaseBrowser();
+
+  async function getUserId(): Promise<string | null> {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      return user?.user?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
 
   const fetchNotifs = useCallback(async () => {
-    const { data: user } = await supabase.auth.getUser();
-    if (!user.user) { setLoading(false); return; }
-    const { data } = await supabase.from('notifications').select('*').eq('user_id', user.user.id).order('created_at', { ascending: false }).limit(30);
+    let userId: string | null = null;
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      userId = user?.user?.id ?? null;
+    } catch {
+      userId = null;
+    }
+    if (!userId) { setLoading(false); return; }
+    const { data } = await supabase.from('notifications').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30);
     setItems((data ?? []) as Notification[]);
     setLoading(false);
   }, [supabase]);
@@ -32,17 +58,17 @@ export function useNotifications() {
     let sub: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
     (async () => {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) { setLoading(false); return; }
+      const userId = await getUserId();
+      if (!userId) { setLoading(false); return; }
       await fetchNotifs();
       if (cancelled) return;
       sub = supabase
-        .channel(`notif:${user.user.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.user.id}` }, (payload) => {
+        .channel(`notif:${userId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload: { new: Record<string, unknown> }) => {
           const n = payload.new as Notification;
           setItems((prev) => [n, ...prev].slice(0, 30));
         })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.user.id}` }, (payload) => {
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload: { new: Record<string, unknown> }) => {
           const u = payload.new as Notification;
           setItems((prev) => prev.map((p) => (p.id === u.id ? u : p)));
         })

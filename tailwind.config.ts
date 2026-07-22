@@ -51,6 +51,18 @@ const config = {
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
+  			},
+  			eleva: {
+  				primary: 'rgb(var(--eleva-primary))',
+  				secondary: 'rgb(var(--eleva-secondary))',
+  				accent: 'rgb(var(--eleva-accent))',
+  				fg: 'rgb(var(--eleva-fg))',
+  				'muted-fg': 'rgb(var(--eleva-muted-fg))',
+  				card: 'rgb(var(--eleva-card))',
+  				border: 'rgb(var(--eleva-border))',
+  				muted: 'rgb(var(--eleva-muted))',
+  				danger: 'rgb(var(--eleva-danger))',
+  				success: 'rgb(var(--eleva-success))',
   			}
   		},
   		borderRadius: {

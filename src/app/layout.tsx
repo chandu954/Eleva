@@ -4,8 +4,7 @@ import { Toaster } from "sonner";
 import { Footer } from "@/components/layout/footer";
 import { AppHeader } from "@/components/layout/app-header";
 import { createClient } from "@/utils/supabase/server";
-import { Metadata } from "next";
-import { Analytics } from "@vercel/analytics/react";
+import { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { PostHogProvider } from "@/components/analytics/posthog-provider";
@@ -17,52 +16,70 @@ import {
 import { getSubscriptionAccessState } from "@/lib/subscription-access";
 import { Suspense } from "react";
 
-// Only enable Vercel Analytics when running on Vercel platform
-const isVercel = process.env.VERCEL === '1';
+export const viewport: Viewport = {
+  themeColor: "#6366F1",
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://resumelm.com"),
+  metadataBase: new URL("https://eleva.app"),
   title: {
-    default: "ResumeLM - AI-Powered Resume Builder",
-    template: "%s | ResumeLM"
+    default: "Eleva - AI-Powered Resume Builder",
+    template: "%s | Eleva",
   },
-  description: "Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
-  applicationName: "ResumeLM",
-  keywords: ["resume builder", "AI resume", "ATS optimization", "tech jobs", "career tools", "job application"],
-  authors: [{ name: "ResumeLM" }],
-  creator: "ResumeLM",
-  publisher: "ResumeLM",
+  description:
+    "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
+  applicationName: "Eleva",
+  keywords: [
+    "resume builder",
+    "AI resume",
+    "ATS optimization",
+    "tech jobs",
+    "career tools",
+    "job application",
+    "eleva",
+  ],
+  authors: [{ name: "Eleva" }],
+  creator: "Eleva",
+  publisher: "Eleva",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon.svg", sizes: "any", type: "image/svg+xml" },
+    ],
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
+    other: [{ rel: "mask-icon", url: "/icon.svg", color: "#6366F1" }],
   },
-
+  manifest: "/site.webmanifest",
   openGraph: {
     type: "website",
-    siteName: "ResumeLM",
-    title: "ResumeLM - AI-Powered Resume Builder",
-    description: "Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
+    siteName: "Eleva",
+    title: "Eleva - AI-Powered Resume Builder",
+    description:
+      "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
     images: [
       {
         url: "/og.webp",
         width: 1200,
         height: 630,
-        alt: "ResumeLM - AI Resume Builder",
+        alt: "Eleva - AI Resume Builder",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ResumeLM - AI-Powered Resume Builder",
-    description: "Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
+    title: "Eleva - AI-Powered Resume Builder",
+    description:
+      "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
     images: ["/og.webp"],
-    creator: "@resumelm",
+    creator: "@eleva",
   },
   robots: {
     index: true,
@@ -75,9 +92,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  // verification: {
-  //   google: "google-site-verification-code", // Replace with actual verification code
-  // },
 };
 
 export default async function RootLayout({
@@ -86,31 +100,38 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const hdr = await headers();
-  const pathname = hdr.get('x-pathname') || hdr.get('x-invoke-path') || hdr.get('next-url') || '';
-  const isEleva = pathname.startsWith('/eleva');
+  const pathname =
+    hdr.get("x-pathname") ||
+    hdr.get("x-invoke-path") ||
+    hdr.get("next-url") ||
+    "";
+  const isEleva = pathname.startsWith("/eleva");
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Detect impersonation via signed cookie set during /admin/impersonate flow
   const cookieStore = await cookies();
   const impersonationState = parseImpersonationStateCookieValue(
     cookieStore.get(IMPERSONATION_STATE_COOKIE_NAME)?.value
   );
   const isImpersonating = Boolean(impersonationState);
 
-  
   let showUpgradeButton = false;
   let isProPlan = false;
   let subscriptionPlan = "free";
   let subscriptionStatus: string | null = null;
-  let upgradeButtonVariant: 'trial' | 'upgrade' = 'upgrade';
+  let upgradeButtonVariant: "trial" | "upgrade" = "upgrade";
+
   if (user) {
     try {
       const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('subscription_plan, subscription_status, current_period_end, trial_end, stripe_subscription_id')
-        .eq('user_id', user.id)
+        .from("subscriptions")
+        .select(
+          "subscription_plan, subscription_status, current_period_end, trial_end, stripe_subscription_id"
+        )
+        .eq("user_id", user.id)
         .maybeSingle();
 
       const subscriptionState = getSubscriptionAccessState(subscription);
@@ -118,17 +139,19 @@ export default async function RootLayout({
       const needsTrial = subscriptionState.needsTrial;
 
       isProPlan = hasProAccess;
-      subscriptionPlan = subscriptionState.effectivePlan || subscription?.subscription_plan || "free";
+      subscriptionPlan =
+        subscriptionState.effectivePlan ||
+        subscription?.subscription_plan ||
+        "free";
       subscriptionStatus = subscription?.subscription_status ?? null;
       showUpgradeButton = !hasProAccess;
-      upgradeButtonVariant = needsTrial ? 'trial' : 'upgrade';
+      upgradeButtonVariant = needsTrial ? "trial" : "upgrade";
     } catch {
-      // If there's an error, we'll show the upgrade button by default
       showUpgradeButton = true;
       isProPlan = false;
       subscriptionPlan = "free";
       subscriptionStatus = null;
-      upgradeButtonVariant = 'upgrade';
+      upgradeButtonVariant = "upgrade";
     }
   }
 
@@ -136,24 +159,37 @@ export default async function RootLayout({
     <html lang="en">
       <body className="font-sans">
         <PostHogProvider
-          user={user ? {
-            id: user.id,
-            subscriptionPlan,
-            subscriptionStatus,
-            isPro: isProPlan,
-          } : null}
+          user={
+            user
+              ? {
+                  id: user.id,
+                  subscriptionPlan,
+                  subscriptionStatus,
+                  isPro: isProPlan,
+                }
+              : null
+          }
         >
           <Suspense fallback={null}>
             <PostHogPageView />
           </Suspense>
+
           {isImpersonating && user && (
             <div className="bg-amber-500 text-white text-center text-sm py-2">
-              Impersonating&nbsp;<span className="font-semibold">{user.email ?? user.id}</span>.&nbsp;
-              <Link href="/stop-impersonation" className="underline font-medium">
+              Impersonating{" "}
+              <span className="font-semibold">
+                {user.email ?? user.id}
+              </span>
+              .{" "}
+              <Link
+                href="/stop-impersonation"
+                className="underline font-medium"
+              >
                 Stop impersonating
               </Link>
             </div>
           )}
+
           <div className="relative min-h-screen flex flex-col">
             {user && !isEleva && (
               <AppHeader
@@ -162,25 +198,28 @@ export default async function RootLayout({
                 upgradeButtonVariant={upgradeButtonVariant}
               />
             )}
+
             <main className="flex-1">
               {children}
-              {isVercel && <Analytics />}
             </main>
-            {user && !isEleva && <Footer /> }
+
+            {user && !isEleva && <Footer />}
           </div>
+
           <Toaster
             richColors
             position="top-right"
             closeButton
             toastOptions={{
               style: {
-                fontSize: '1rem',
-                padding: '16px',
-                minWidth: '400px',
-                maxWidth: '500px'
-              }
+                fontSize: "1rem",
+                padding: "16px",
+                minWidth: "400px",
+                maxWidth: "500px",
+              },
             }}
           />
+
         </PostHogProvider>
       </body>
     </html>

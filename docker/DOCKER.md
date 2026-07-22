@@ -1,6 +1,6 @@
-# ResumeLM Docker Development
+# Eleva Docker Development
 
-Run the complete ResumeLM stack locally using Docker Compose.
+Run the complete Eleva stack locally using Docker Compose.
 
 ## Quick Start
 

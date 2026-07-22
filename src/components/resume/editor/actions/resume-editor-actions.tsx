@@ -128,36 +128,32 @@ export function ResumeEditorActions({
 
                     // Download Cover Letter if selected and exists
                     if (downloadOptions.coverLetter && resume.has_cover_letter) {
-                      // Dynamically import html2pdf only when needed
-                      const html2pdf = (await import('html2pdf.js')).default;
-                      
                       const coverLetterElement = document.getElementById('cover-letter-content');
-                      if (!coverLetterElement) {
-                        throw new Error('Cover letter content not found');
-                      }
+                      if (!coverLetterElement) throw new Error('Cover letter content not found');
 
-                      const opt = {
-                        margin: [0, 0, -0.5, 0],
-                        filename: `${resume.first_name}_${resume.last_name}_Cover_Letter.pdf`,
-                        image: { type: 'jpeg', quality: 0.98 },
-                        html2canvas: {
-                          backgroundColor: 'red',
-                          useCORS: true,
-                          letterRendering: true,
-                          // width: 700,
-                          // height: 1000,
-                          // windowWidth: 700,
-                          logging: true,
-                          // windowHeight: 2000
-                        },
-                        jsPDF: { 
-                          unit: 'in', 
-                          format: 'letter', 
-                          orientation: 'portrait' 
-                        }
-                      };
+                      const coverLetterContent = coverLetterElement.textContent || '';
+                      const response = await fetch('/eleva/api/export/cover-letter/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          content: coverLetterContent,
+                          title: `${resume.first_name}_${resume.last_name}_Cover_Letter`,
+                          candidateName: `${resume.first_name} ${resume.last_name}`,
+                          role: resume.target_role,
+                        }),
+                      });
 
-                      await html2pdf().set(opt).from(coverLetterElement).save();
+                      if (!response.ok) throw new Error('Failed to generate cover letter PDF');
+
+                      const blob = await response.blob();
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `${resume.first_name}_${resume.last_name}_Cover_Letter.pdf`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
                     }
 
                     toast({

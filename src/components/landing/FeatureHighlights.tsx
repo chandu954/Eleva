@@ -273,7 +273,7 @@ const FeatureHighlights = () => {
             </span>
           </h2>
           <p className="text-lg text-muted-foreground mb-8">
-            Join 50,000+ professionals who are getting more interviews with ResumeLM
+            Join 50,000+ professionals who are getting more interviews with Eleva
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -285,7 +285,7 @@ const FeatureHighlights = () => {
               </button>
             </AuthDialog>
             <Link 
-              href="https://github.com/olyaiy/resume-lm" 
+              href="https://github.com/chandu954/app" 
               target="_blank"
               rel="noopener noreferrer"
               className="px-8 py-4 rounded-lg bg-white/80 border border-purple-200/40 text-lg font-medium transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"

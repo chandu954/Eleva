@@ -50,6 +50,22 @@ export async function* streamElevaChat(
   }
 }
 
+/** Non-streaming rewrite call returning JSON { success, original, rewritten } */
+export async function rewriteBullet(payload: {
+  bullet: string;
+  role?: string;
+  jobDescription?: string;
+  mode?: string;
+}): Promise<{ success: boolean; original?: string; rewritten?: string; error?: string; attempts?: Array<{ attempt: number; model: string; status: string; latencyMs: number; empty?: boolean; finishReason?: string; error?: string }> }> {
+  const res = await fetch('/eleva/api/tool/rewrite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  return data;
+}
+
 /** Simple text stream reader for /api/eleva/tool/{rewrite,draft} */
 export async function* streamElevaText(
   path: '/eleva/api/tool/rewrite' | '/eleva/api/tool/draft',

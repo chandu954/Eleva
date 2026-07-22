@@ -78,7 +78,7 @@ export default function StartTrialPage() {
           </h1>
           
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Try ResumeLM Pro free for 7 days. Cancel anytime before your trial ends and you won&apos;t be charged.
+            Try Eleva Pro free for 7 days. Cancel anytime before your trial ends and you won&apos;t be charged.
           </p>
         </motion.div>
 
@@ -152,7 +152,7 @@ export default function StartTrialPage() {
                   <span className="text-sm font-medium text-purple-700">7-day free trial</span>
                 </div>
                 
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">ResumeLM Pro</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Eleva Pro</h3>
                 
                 <div className="flex items-baseline justify-center gap-1 mb-2">
                   <span className="text-4xl font-bold text-gray-900">$0</span>

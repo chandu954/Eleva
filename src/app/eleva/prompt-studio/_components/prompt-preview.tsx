@@ -131,11 +131,10 @@ export function PromptPreview({ prompt }: { prompt: AIPrompt }) {
             <div>
               <label className="text-[10px] font-mono uppercase tracking-wider block mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Model</label>
               <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="w-full px-3 py-2 rounded-md text-[12px] outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }}>
-                <option value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                <option value="anthropic/claude-opus-4.0">Claude Opus 4.0</option>
-                <option value="openai/gpt-5.2">GPT-5.2</option>
-                <option value="openai/gpt-4.1">GPT-4.1</option>
-                <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="openrouter/free">OpenRouter Free (auto)</option>
+                <option value="nvidia/nemotron-3-super-120b-a12b:free">Nemotron 3 Super 120B (Free)</option>
+                <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</option>
+                <option value="google/gemma-4-31b-it:free">Gemma 4 31B (Free)</option>
               </select>
             </div>
             <div>

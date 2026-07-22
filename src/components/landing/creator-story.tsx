@@ -23,7 +23,7 @@ export function CreatorStory() {
             transition={{ delay: 0.3, duration: 0.6 }}
             className="px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-200 text-sm text-indigo-700 inline-block mb-4"
           >
-            The Story Behind ResumeLM
+            The Story Behind Eleva
           </motion.span>
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-violet-600">
             Meet the Creator
@@ -46,7 +46,7 @@ export function CreatorStory() {
             <div className="relative aspect-square w-64 md:w-96 rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-md transform transition-all duration-300 hover:-translate-y-2">
               <Image
                 src="/alex.webp"
-                alt="Alex, creator of ResumeLM"
+                alt="Alex, creator of Eleva"
                 fill
                 sizes="(max-width: 768px) 256px, 384px"
                 className="object-cover"
@@ -64,7 +64,7 @@ export function CreatorStory() {
           >
             <div className="space-y-6">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl text-violet-800">
-                Why I Built ResumeLM
+                Why I Built Eleva
               </h2>
               
               <div className="space-y-4 text-lg text-slate-800 leading-relaxed">
@@ -74,7 +74,7 @@ export function CreatorStory() {
                 </p>
                 
                 <p>
-                  ResumeLM is my passion project - a free, open-source resume builder designed to help students and developers 
+                  Eleva is my passion project - a free, open-source resume builder designed to help students and developers 
                   create ATS-optimized resumes without the hefty subscription costs. Because everyone deserves access to great tools.
                 </p>
 

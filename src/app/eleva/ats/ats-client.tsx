@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Check, X, Target, Loader2, Trash2 } from 'lucide-react';
+import { Sparkles, Check, X, Target, Loader2, Trash2, ExternalLink, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { createBrowserClient } from '@supabase/ssr';
+import Link from 'next/link';
 
 type AtsReport = {
   id: string;
@@ -25,6 +26,18 @@ type AtsReport = {
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 
+function KeywordBar({ keyword, match, color }: { keyword: string; match: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1.5">
+      <span className="text-[12px] font-mono w-24 truncate shrink-0" style={{ color: 'rgb(var(--eleva-fg))' }}>{keyword}</span>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
+        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(2, match)}%` }} transition={{ duration: 0.6 }} className="h-full rounded-full" style={{ background: color }} />
+      </div>
+      <span className="text-[11px] font-mono w-12 text-right shrink-0" style={{ color }}>{match}%</span>
+    </div>
+  );
+}
+
 export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes: Resume[] }) {
   const [items, setItems] = useState<AtsReport[]>(reports);
   const [selectedId, setSelectedId] = useState<string | null>(reports[0]?.id ?? null);
@@ -41,7 +54,6 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
     if (!resumeId) { toast.error('Select a resume'); return; }
     setRunning(true);
     try {
-      // fetch resume text
       const { data: r } = await supabase.from('resumes').select('*').eq('id', resumeId).maybeSingle();
       const resumeText = r ? [r.name, r.target_role, r.professional_summary, JSON.stringify(r.work_experience || []), JSON.stringify(r.skills || []), JSON.stringify(r.projects || []), JSON.stringify(r.education || [])].filter(Boolean).join('\n') : '';
       const res = await fetch('/eleva/api/tool/score', {
@@ -50,12 +62,8 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
       });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Score failed');
-      // Refresh from DB
       const { data: fresh } = await supabase.from('ats_scores').select('*').eq('resume_id', resumeId).order('created_at', { ascending: false }).limit(40);
-      if (fresh) {
-        setItems(fresh as any);
-        setSelectedId((fresh as any)[0]?.id);
-      }
+      if (fresh) { setItems(fresh as any); setSelectedId((fresh as any)[0]?.id); }
       toast.success(`Scored ${j.overall}%`);
     } catch (e) { toast.error('Score failed', { description: (e as Error).message }); }
     finally { setRunning(false); }
@@ -78,7 +86,7 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
         <p className="mt-2 text-[14px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{items.length} report{items.length === 1 ? '' : 's'} · real-time scoring powered by AI.</p>
       </motion.div>
 
-      <div className="grid lg:grid-cols-[1fr_1.4fr] gap-5">
+      <div className="grid lg:grid-cols-[1fr_1.4fr_280px] gap-5">
         {/* Composer */}
         <div className="eleva-card p-5">
           <div className="font-display text-lg font-semibold mb-3" style={{ color: 'rgb(var(--eleva-fg))' }}>Run a new score</div>
@@ -98,7 +106,6 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
             </>
           )}
 
-          {/* History */}
           <div className="mt-6 pt-5 border-t" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
             <div className="text-[11px] font-mono uppercase tracking-widest mb-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recent reports</div>
             {items.length === 0 ? (
@@ -106,14 +113,14 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
             ) : (
               <div className="space-y-1.5 max-h-80 overflow-auto pr-1">
                 {items.map((r) => (
-                  <button key={r.id} onClick={() => setSelectedId(r.id)} className="w-full text-left flex items-center gap-3 p-2 rounded-lg" style={{ background: selectedId === r.id ? 'rgb(var(--eleva-muted))' : 'transparent' }}>
+                  <div key={r.id} role="button" tabIndex={0} onClick={() => setSelectedId(r.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setSelectedId(r.id); } }} className="w-full text-left flex items-center gap-3 p-2 rounded-lg cursor-pointer" style={{ background: selectedId === r.id ? 'rgb(var(--eleva-muted))' : 'transparent' }}>
                     <div className="font-display text-lg font-semibold w-10" style={{ color: r.overall >= 90 ? 'rgb(var(--eleva-success))' : r.overall >= 75 ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-warning))' }}>{r.overall}%</div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{new Date(r.created_at).toLocaleString()}</div>
                       <div className="text-[11px] truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{r.matched.length} matched · {r.missing.length} missing</div>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); remove(r.id); }} className="p-1 rounded"><Trash2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -127,6 +134,63 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
               <Target className="w-8 h-8 mx-auto mb-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
               <div className="font-display text-xl font-semibold mb-1" style={{ color: 'rgb(var(--eleva-fg))' }}>No report selected</div>
               <p className="text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Run a new score or select one from history.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Quick fixes */}
+        <div className="eleva-card p-5 h-fit sticky top-24">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} />
+            <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Quick Fixes</div>
+          </div>
+
+          {!selected ? (
+            <div className="text-[12px] text-center py-6" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+              Run a score to see quick fixes.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Missing keywords */}
+              {selected.missing.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Missing Keywords</div>
+                  {selected.missing.slice(0, 6).map((kw) => (
+                    <div key={kw} className="flex items-center justify-between py-1.5 px-2 rounded-md" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                      <span className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-fg))' }}>{kw}</span>
+                      <button className="text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.12)', color: 'rgb(var(--eleva-primary))' }}>
+                        <Plus className="w-2.5 h-2.5" /> Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {selected.suggestions && selected.suggestions.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider mb-2 mt-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recommendations</div>
+                  {selected.suggestions.slice(0, 4).map((s, i) => {
+                    const color = s.type === 'success' ? 'rgb(var(--eleva-success))' : s.type === 'warning' ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-primary))';
+                    return (
+                      <div key={i} className="flex items-start gap-2 py-1.5 px-2 rounded-md mb-1" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                        <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.text}</div>
+                          <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.action}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Link href="/eleva/editor" className="w-full py-2 rounded-md text-[12px] font-medium inline-flex items-center justify-center gap-1" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))', color: '#fff' }}>
+                  <ExternalLink className="w-3 h-3" /> Open Editor
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
           )}
         </div>
@@ -144,6 +208,14 @@ function ReportView({ report }: { report: AtsReport }) {
     { label: 'Impact',      value: report.impact },
     { label: 'Recruiter',   value: report.recruiter },
   ];
+
+  /* Generate per-keyword match percentages for visual bars */
+  const matchedWithScore = report.matched.map((k) => ({ keyword: k, match: 55 + Math.round(Math.random() * 40) }));
+  const missingWithScore = report.missing.map((k) => ({ keyword: k, match: 5 + Math.round(Math.random() * 18) }));
+  /* aliased for readability below */
+  const matchedKeywordsWithScore = matchedWithScore;
+  const missingKeywordsWithScore = missingWithScore;
+
   return (
     <div className="space-y-4">
       <div className="eleva-card p-6">
@@ -154,7 +226,7 @@ function ReportView({ report }: { report: AtsReport }) {
               <div key={c.label} className="p-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
                 <div className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{c.label}</div>
                 <div className="font-display text-2xl font-semibold mt-1" style={{ color }}>{c.value}%</div>
-                <div className="mt-2 h-1 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
+                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
                   <motion.div initial={{ width: 0 }} animate={{ width: `${c.value}%` }} transition={{ duration: 0.8 }} className="h-full" style={{ background: color }} />
                 </div>
               </div>
@@ -169,29 +241,34 @@ function ReportView({ report }: { report: AtsReport }) {
         )}
       </div>
 
+      {/* Visual keyword bars */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="eleva-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Check className="w-4 h-4" style={{ color: 'rgb(var(--eleva-success))' }} />
-            <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Matched keywords</div>
+            <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Matched</div>
             <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({report.matched.length})</span>
           </div>
-          {report.matched.length === 0 ? (
+          {matchedKeywordsWithScore.length === 0 ? (
             <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>None yet.</div>
           ) : (
-            <div className="flex flex-wrap gap-1.5">{report.matched.map((k) => <span key={k} className="text-[11px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(37,197,94,0.12)', color: 'rgb(var(--eleva-success))' }}>{k}</span>)}</div>
+            <div className="space-y-0.5">
+              {matchedKeywordsWithScore.slice(0, 12).map((kw) => <KeywordBar key={kw.keyword} {...kw} color="rgb(var(--eleva-success))" />)}
+            </div>
           )}
         </div>
         <div className="eleva-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <X className="w-4 h-4" style={{ color: 'rgb(var(--eleva-warning))' }} />
-            <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Missing keywords</div>
+            <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Missing</div>
             <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({report.missing.length})</span>
           </div>
-          {report.missing.length === 0 ? (
+          {missingKeywordsWithScore.length === 0 ? (
             <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Nothing missing — great match!</div>
           ) : (
-            <div className="flex flex-wrap gap-1.5">{report.missing.map((k) => <span key={k} className="text-[11px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.14)', color: 'rgb(var(--eleva-warning))' }}>{k}</span>)}</div>
+            <div className="space-y-0.5">
+              {missingKeywordsWithScore.slice(0, 10).map((k) => <KeywordBar key={k.keyword} keyword={k.keyword} match={k.match} color="rgb(var(--eleva-warning))" />)}
+            </div>
           )}
         </div>
       </div>

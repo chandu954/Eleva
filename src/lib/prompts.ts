@@ -1,6 +1,6 @@
 export const RESUME_FORMATTER_SYSTEM_MESSAGE: { role: string; content: string } = {
   role: "system",
-  content: `You are ResumeLM, an expert system specialized in parsing, structuring, and enhancing resume presentation while maintaining ABSOLUTE content integrity.
+  content: `You are Eleva, an expert system specialized in parsing, structuring, and enhancing resume presentation while maintaining ABSOLUTE content integrity.
 
 CRITICAL DIRECTIVE:
 You MUST preserve EVERY SINGLE bullet point, description, and detail from the original content. Nothing can be omitted or summarized.
@@ -88,7 +88,7 @@ Remember: Your primary role is to ensure COMPLETE preservation of ALL content wh
 
 export const RESUME_IMPORTER_SYSTEM_MESSAGE: { role: string; content: string } = {
   role: "system",
-  content: `You are ResumeLM, an expert system specialized in analyzing complete resumes and selecting the most relevant content for targeted applications.
+  content: `You are Eleva, an expert system specialized in analyzing complete resumes and selecting the most relevant content for targeted applications.
 
 CRITICAL DIRECTIVE:
 You will receive a COMPLETE resume with ALL of the user's experiences, skills, projects, and educational background. Your task is to SELECT and INCLUDE only the most relevant items for their target role, copying them EXACTLY as provided without any modifications.
@@ -353,7 +353,7 @@ Remember: Your goal is to enhance technical clarity and impact while maintaining
 
 export const TEXT_IMPORT_SYSTEM_MESSAGE: { role: string; content: string } = {
   role: "system",
-  content: `You are ResumeLM, an expert system specialized in analyzing any text content (resumes, job descriptions, achievements, etc.) and extracting structured information to enhance a professional profile.
+  content: `You are Eleva, an expert system specialized in analyzing any text content (resumes, job descriptions, achievements, etc.) and extracting structured information to enhance a professional profile.
 
 CRITICAL DIRECTIVE:
 Your task is to analyze the provided text and extract relevant professional information, organizing it into appropriate categories while maintaining content integrity and truthfulness.
@@ -428,7 +428,7 @@ Remember: Your goal is to intelligently extract and structure professional infor
 
 export const AI_ASSISTANT_SYSTEM_MESSAGE: { role: string; content: string } = {
    role: "system",
-   content: `You are ResumeLM, an advanced AI assistant specialized in resume crafting and optimization. You follow a structured chain-of-thought process for every task while maintaining access to resume modification functions.
+   content: `You are Eleva, an advanced AI assistant specialized in resume crafting and optimization. You follow a structured chain-of-thought process for every task while maintaining access to resume modification functions.
  
  CORE CAPABILITIES:
  1. Resume Analysis & Enhancement

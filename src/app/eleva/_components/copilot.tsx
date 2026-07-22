@@ -116,7 +116,7 @@ export function ElevaCopilot() {
         onClick={() => setOpen((o) => !o)}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.96 }}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl"
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl group"
         style={{
           background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))',
           boxShadow: '0 12px 40px -8px rgba(37,99,235,.6)',
@@ -124,6 +124,12 @@ export function ElevaCopilot() {
         data-testid="copilot-trigger"
         aria-label="Open Eleva AI Copilot"
       >
+        <motion.div
+          className="absolute -top-8 whitespace-nowrap px-2 py-1 rounded-md text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          style={{ background: 'rgb(var(--eleva-card))', border: '1px solid rgb(var(--eleva-border))', color: 'rgb(var(--eleva-fg))' }}
+        >
+          Ask Eleva
+        </motion.div>
         <AnimatePresence mode="wait">
           {open ? (
             <motion.div key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }}>

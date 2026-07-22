@@ -103,7 +103,6 @@ export default async function Home({
   // Check if user has Pro access (paid, canceling-but-active, or trialing)
   const isProPlan = subscription.hasProAccess;
 
-  // console.log(subscription);
   
   // Free plan limits
   const canCreateBase = isProPlan || baseResumesCount < FREE_PLAN_RESUME_LIMITS.base;

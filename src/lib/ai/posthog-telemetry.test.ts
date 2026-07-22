@@ -12,7 +12,7 @@ const ORIGINAL_ENV = {
 
 const resolved: ResolvedAIRequest = {
   providerId: "openrouter",
-  modelId: "google/gemini-2.5-flash",
+  modelId: "openrouter/free",
   apiKey: "provider-secret",
   usedServerKey: true,
   requiresRateLimit: true,
@@ -74,7 +74,7 @@ describe("buildPostHogAITelemetry", () => {
     );
   });
 
-  it("enables full input and output capture with ResumeLM metadata", () => {
+  it("enables full input and output capture with Eleva metadata", () => {
     process.env.NEXT_PUBLIC_POSTHOG_KEY = "phc_test";
     delete process.env.POSTHOG_LLM_ANALYTICS_DISABLED;
 
@@ -93,14 +93,14 @@ describe("buildPostHogAITelemetry", () => {
     assert.equal(telemetry.functionId, "actions.resumes.generateResumeScore");
     assert.deepEqual(telemetry.metadata, {
       posthog_distinct_id: "user_123",
-      resumelm_usage_event_id: "usage_123",
-      resumelm_route: "actions.resumes.generateResumeScore",
-      resumelm_provider: "openai",
-      resumelm_model: "gpt-5.4-mini",
-      resumelm_is_pro: true,
-      resumelm_used_server_key: true,
-      resumelm_requires_rate_limit: true,
-      resumelm_environment: "test",
+      eleva_usage_event_id: "usage_123",
+      eleva_route: "actions.resumes.generateResumeScore",
+      eleva_provider: "openrouter",
+      eleva_model: "openrouter/free",
+      eleva_is_pro: true,
+      eleva_used_server_key: true,
+      eleva_requires_rate_limit: true,
+      eleva_environment: "test",
     });
   });
 

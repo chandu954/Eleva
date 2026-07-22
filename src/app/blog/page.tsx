@@ -4,8 +4,8 @@ import { Metadata } from "next";
 import { Calendar, ArrowRight, Sparkles } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "ResumeLM Blog",
-  description: "Latest updates, tips, and articles from the ResumeLM team.",
+  title: "Eleva Blog",
+  description: "Latest updates, tips, and articles from the Eleva team.",
 };
 
 export default async function BlogPage() {
@@ -31,10 +31,10 @@ export default async function BlogPage() {
             Latest insights and updates
           </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-teal-600 via-cyan-600 to-purple-600 bg-clip-text text-transparent leading-tight">
-            ResumeLM Blog
+            Eleva Blog
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Discover the latest tips, product updates, and insights from our team as we revolutionize resume building with AI.
+            Discover the latest tips, product updates, and insights from our team as we help you elevate your career with AI.
           </p>
         </div>
 
@@ -110,7 +110,7 @@ export default async function BlogPage() {
               href="/"
               className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-semibold rounded-lg hover:shadow-lg transition-all duration-300"
             >
-              Try ResumeLM
+              Try Eleva
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

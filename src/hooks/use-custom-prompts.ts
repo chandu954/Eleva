@@ -13,7 +13,7 @@ import {
 } from '@/lib/prompts'
 
 // Storage key for custom prompts
-const CUSTOM_PROMPTS_STORAGE_KEY = 'resumelm-custom-prompts'
+const CUSTOM_PROMPTS_STORAGE_KEY = 'eleva-custom-prompts'
 
 // Listener set for the store
 const customPromptsListeners = new Set<() => void>()

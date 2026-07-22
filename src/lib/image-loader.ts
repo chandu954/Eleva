@@ -2,7 +2,7 @@
  * Custom image loader for Next.js that handles runtime basePath
  *
  * This loader prepends the basePath to local image URLs, ensuring images
- * work correctly when the app is served at a path prefix (e.g., /resumelm).
+ * work correctly when the app is served at a path prefix (e.g., /eleva).
  *
  * For Docker deployments with runtime basePath injection, the placeholder
  * /__NEXT_BASEPATH_PLACEHOLDER__ is replaced at container startup.

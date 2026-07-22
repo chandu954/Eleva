@@ -20,6 +20,7 @@ import {
 } from '../dynamic-components';
 import { ResumeEditorTabs } from "../header/resume-editor-tabs";
 import ResumeScorePanel from "./resume-score-panel";
+import { EditorPanelHeader } from "./editor-panel-header";
 
 
 
@@ -45,13 +46,14 @@ export function EditorPanel({
       <div className="flex-1 flex flex-col overflow-scroll">
         <ScrollArea className="flex-1 sm:pr-2" ref={scrollAreaRef}>
           <div className="relative pb-12">
-            <div className={cn(
-              "sticky top-0 z-20 backdrop-blur-sm",
-              resume.is_base_resume
-                ? "bg-purple-50/80"
-                : "bg-pink-100/90 shadow-sm shadow-pink-200/50"
-            )}>
-              <div className="flex flex-col gap-4">
+            <div className="sticky top-0 z-20">
+              <EditorPanelHeader />
+              <div className={cn(
+                "px-1",
+                resume.is_base_resume
+                  ? "bg-purple-50/80"
+                  : "bg-pink-100/90"
+              )}>
                 <ResumeEditorActions
                   onResumeChange={onResumeChange}
                 />

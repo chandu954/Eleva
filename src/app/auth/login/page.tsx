@@ -15,24 +15,22 @@ import { NavLinks } from "@/components/layout/nav-links";
 import { ModelShowcase } from "@/components/landing/model-showcase";
 import { AuthDialogProvider } from "@/components/auth/auth-dialog-provider";
 
-// import { WaitlistSection } from "@/components/waitlist/waitlist-section";
-
 export const metadata: Metadata = {
-  title: "Login | ResumeLM - AI-Powered Resume Builder",
-  description: "Create tailored, ATS-optimized resumes powered by AI. ResumeLM helps you land your dream tech job with personalized resume optimization.",
+  title: "Login | Eleva - AI-Powered Resume Builder",
+  description: "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI.",
   keywords: ["resume builder", "AI resume", "ATS optimization", "tech jobs", "career tools", "job application"],
-  authors: [{ name: "ResumeLM" }],
+  authors: [{ name: "Eleva" }],
   openGraph: {
-    title: "ResumeLM - AI-Powered Resume Builder",
-    description: "Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
-    url: "https://resumelm.com//",
-    siteName: "ResumeLM",
+    title: "Eleva - AI-Powered Resume Builder",
+    description: "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI.",
+    url: "https://eleva.app/",
+    siteName: "Eleva",
     images: [
       {
         url: "/og.webp",
         width: 1200,
         height: 630,
-        alt: "ResumeLM - AI Resume Builder",
+        alt: "Eleva - AI Resume Builder",
       },
     ],
     locale: "en_US",
@@ -40,10 +38,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ResumeLM - AI-Powered Resume Builder",
-    description: "Create tailored, ATS-optimized resumes powered by AI. Land your dream tech job with personalized resume optimization.",
+    title: "Eleva - AI-Powered Resume Builder",
+    description: "Elevate every opportunity. Create tailored, ATS-optimized resumes powered by AI.",
     images: ["/og.webp"],
-    creator: "@resumelm",
+    creator: "@eleva",
   },
   robots: {
     index: true,
@@ -56,9 +54,6 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  // verification: {
-  //   google: "google-site-verification-code", // Replace with actual verification code
-  // },
 };
 
 export default async function LoginPage({

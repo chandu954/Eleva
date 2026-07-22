@@ -184,8 +184,6 @@ export async function getUsersWithProfilesAndSubscriptions(): Promise<UserWithDe
   }
   const userIds = users.map(user => user.id);
 
-  console.log(`Fetching profiles, subscriptions, and resume counts for ${userIds.length} users via RPC.`);
-
   const BATCH_SIZE = 1000;
   // Utility to split array into chunks
   function chunkArray<T>(arr: T[], size: number): T[][] {
@@ -216,8 +214,6 @@ export async function getUsersWithProfilesAndSubscriptions(): Promise<UserWithDe
 
   // 2. Fetch subscriptions using RPC (batched)
   const subscriptionsData = await fetchRpcInBatches<Subscription>('get_subscriptions_for_users', 'user_ids_array', userIds);
-
-  console.log('DEBUG | Subscriptions fetched total:', subscriptionsData.length);
 
   const subscriptionsMap = new Map(subscriptionsData.map(s => [s.user_id, s]));
 
