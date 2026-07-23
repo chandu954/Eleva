@@ -90,7 +90,7 @@
     "remark-gfm": "^4.0.1",
     "replace-special-characters": "^1.2.7",
     "sonner": "^1.7.1",
-    "stripe": "^18.1.0",
+    "stripe": "^22.3.2",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "use-stick-to-bottom": "1.0.30",
