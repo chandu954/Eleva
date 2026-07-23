@@ -2,6 +2,7 @@
 # allowBuilds prevents native module compilation in CI
 allowBuilds:
   '@google/genai': false
+  '@sentry/cli': true
   canvas: false
   core-js: false
   esbuild: false
