@@ -120,7 +120,7 @@
     "next-mdx-remote": "^6.0.0",
     "postcss": "^8.4.49",
     "sharp": "^0.35.3",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.23.1",
     "typescript": "^5.7.2",
     "vitest": "2.1.9"
