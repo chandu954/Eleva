@@ -19,6 +19,8 @@ export type ActivityItem = {
   kind: string;
   title: string;
   subtitle: string | null;
+  meta?: Record<string, unknown> | null;
+  resumeName?: string | null;
   created_at: string;
 };
 
@@ -129,8 +131,18 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
 
 export async function getRecentActivity(userId: string, limit = 8): Promise<ActivityItem[]> {
   const supabase = await createClient();
-  const { data } = await supabase.from('activity_log').select('id, kind, title, subtitle, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
-  return (data ?? []) as ActivityItem[];
+  const { data } = await supabase.from('activity_log').select('id, kind, title, subtitle, meta, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
+  const items = (data ?? []) as ActivityItem[];
+  const resumeIds = Array.from(new Set(items.map((i) => (i.meta as any)?.resumeId).filter(Boolean))) as string[];
+  let nameMap: Record<string, string> = {};
+  if (resumeIds.length) {
+    const { data: resumes } = await supabase.from('resumes').select('id, name').in('id', resumeIds);
+    nameMap = Object.fromEntries((resumes ?? []).map((r: any) => [r.id, r.name]));
+  }
+  return items.map((i) => ({
+    ...i,
+    resumeName: ((i.meta as any)?.resumeId && nameMap[(i.meta as any).resumeId]) || null,
+  }));
 }
 
 export async function getRecentResumes(userId: string, limit = 5) {
@@ -141,7 +153,7 @@ export async function getRecentResumes(userId: string, limit = 5) {
 
 export async function getRecentAtsReports(userId: string, limit = 5) {
   const supabase = await createClient();
-  const { data } = await supabase.from('ats_scores').select('id, overall, keyword, formatting, resume_id, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
+  const { data } = await supabase.from('ats_scores').select('id, overall, keyword, formatting, matched, missing, resume_id, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
   return data ?? [];
 }
 

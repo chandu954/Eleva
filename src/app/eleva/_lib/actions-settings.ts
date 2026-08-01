@@ -1,7 +1,8 @@
 'use server';
 
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { deleteCustomerAndData } from '@/utils/actions/stripe/actions';
 
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient();
@@ -37,14 +38,31 @@ export async function updatePreferences(prefs: Record<string, unknown>) {
 }
 
 export async function deleteAccount() {
-  const supabase = await createClient();
-  const { data: userRes } = await supabase.auth.getUser();
-  const uid = userRes?.user?.id;
-  if (!uid) return { error: 'unauthenticated' };
-  await supabase.from('resumes').delete().eq('user_id', uid);
-  await supabase.from('ats_scores').delete().eq('user_id', uid);
-  await supabase.from('activity_log').delete().eq('user_id', uid);
-  await supabase.from('cover_letters').delete().eq('user_id', uid);
-  await supabase.auth.signOut();
-  return { ok: true };
+  const { supabase, user } = await (async () => {
+    const supabase = await createClient();
+    const { data: userRes } = await supabase.auth.getUser();
+    if (!userRes?.user) throw new Error('unauthenticated');
+    return { supabase, user: userRes.user };
+  })();
+
+  try {
+    // Delete Stripe customer + subscription record (safe no-op if no Stripe key configured)
+    await deleteCustomerAndData(user.id);
+
+    // Remove profile and resume rows explicitly before removing the auth user
+    const serviceClient = await createServiceClient();
+    await serviceClient.from('profiles').delete().eq('user_id', user.id);
+    await serviceClient.from('resumes').delete().eq('user_id', user.id);
+
+    // Removing the auth user cascades to all remaining user-owned rows
+    // (applications, cover letters, ATS reports, jobs, preferences, provider keys, usage, activity)
+    const { error: authError } = await serviceClient.auth.admin.deleteUser(user.id);
+    if (authError) throw new Error(authError.message);
+
+    await supabase.auth.signOut();
+    return { ok: true };
+  } catch (error) {
+    console.error('Account deletion failed:', error);
+    return { error: error instanceof Error ? error.message : 'Account deletion failed' };
+  }
 }

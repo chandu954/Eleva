@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- PROMPT CATEGORIES
 -- =========================
 CREATE TABLE IF NOT EXISTS public.prompt_categories (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   slug text NOT NULL UNIQUE,
   description text,
@@ -24,7 +24,7 @@ CREATE POLICY prompt_categories_policy ON public.prompt_categories FOR ALL USING
 -- AI PROMPTS
 -- =========================
 CREATE TABLE IF NOT EXISTS public.ai_prompts (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
   category_id uuid REFERENCES public.prompt_categories(id) ON DELETE SET NULL,
   key text NOT NULL,
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_prompts_active ON public.ai_prompts(is_active)
 -- PROMPT VERSIONS
 -- =========================
 CREATE TABLE IF NOT EXISTS public.prompt_versions (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt_id uuid NOT NULL REFERENCES public.ai_prompts(id) ON DELETE CASCADE,
   version integer NOT NULL,
   system_prompt text NOT NULL,
@@ -105,7 +105,7 @@ CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON public.prompt_versions(
 -- PROMPT FAVORITES
 -- =========================
 CREATE TABLE IF NOT EXISTS public.prompt_favorites (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt_id uuid NOT NULL REFERENCES public.ai_prompts(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -120,7 +120,7 @@ CREATE POLICY prompt_favorites_policy ON public.prompt_favorites FOR ALL USING (
 -- PROMPT EXECUTIONS
 -- =========================
 CREATE TABLE IF NOT EXISTS public.prompt_executions (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   prompt_id uuid NOT NULL REFERENCES public.ai_prompts(id) ON DELETE CASCADE,
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   version integer NOT NULL,
@@ -149,7 +149,7 @@ CREATE INDEX IF NOT EXISTS idx_prompt_executions_user ON public.prompt_execution
 -- PROMPT TAGS
 -- =========================
 CREATE TABLE IF NOT EXISTS public.prompt_tags (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   slug text NOT NULL UNIQUE,
   color text,
@@ -733,7 +733,7 @@ Role: {{role}}',
  '[{"name":"company","description":"Company name"},{"name":"role","description":"Target role"}]',
  ARRAY['research','company','interview'], 1)
 
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- =========================
 -- SEED DEFAULT TAGS

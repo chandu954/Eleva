@@ -2,6 +2,8 @@
  * Client helper to consume the Vercel-AI-SDK-style data stream from /api/eleva/chat.
  * Emits typed events: `text-delta`, `tool-call`, `tool-result`, `finish`, `error`.
  */
+import { reportAiRun, reportAiDone } from './ai-status';
+
 export type ElevaStreamEvent =
   | { type: 'text-delta'; delta: string }
   | { type: 'tool-call'; toolCallId: string; toolName: string; args: unknown }
@@ -57,13 +59,23 @@ export async function rewriteBullet(payload: {
   jobDescription?: string;
   mode?: string;
 }): Promise<{ success: boolean; original?: string; rewritten?: string; error?: string; attempts?: Array<{ attempt: number; model: string; status: string; latencyMs: number; empty?: boolean; finishReason?: string; error?: string }> }> {
-  const res = await fetch('/eleva/api/tool/rewrite', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const data = await res.json();
-  return data;
+  const start = Date.now();
+  reportAiRun('Rewriting', 'rewrite');
+  let failed = false;
+  try {
+    const res = await fetch('/eleva/api/tool/rewrite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    failed = true;
+    throw e;
+  } finally {
+    reportAiDone('Rewriting', Date.now() - start, 'rewrite', failed);
+  }
 }
 
 /** Simple text stream reader for /api/eleva/tool/{rewrite,draft} */

@@ -310,7 +310,7 @@ export function PromptEditor({
           </div>
 
           <div className="flex items-center gap-3 pb-8">
-            <button type="submit" disabled={loadState === 'loading'} className="eleva-btn-primary flex items-center gap-1.5">
+            <button type="submit" disabled={loadState === 'loading' || prompt.is_locked} className="eleva-btn-primary flex items-center gap-1.5" style={{ opacity: prompt.is_locked ? 0.5 : 1 }}>
               {loadState === 'loading' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {isNew ? 'Create Prompt' : 'Save Changes'}
             </button>

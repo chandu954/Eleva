@@ -6,9 +6,12 @@ interface ElevaLogoProps {
   showWordmark?: boolean;
   size?: number;
   asLink?: boolean;
+  href?: string;
+  variant?: 'brand' | 'white';
 }
 
-function ElevaMark({ size = 28 }: { size?: number }) {
+function ElevaMark({ size = 28, variant = 'brand' }: { size?: number; variant?: 'brand' | 'white' }) {
+  const gradientId = `eleva-mark-grad-${size}`;
   return (
     <svg
       viewBox="0 0 32 32"
@@ -17,34 +20,43 @@ function ElevaMark({ size = 28 }: { size?: number }) {
       fill="none"
       aria-hidden
     >
-      <g fill="currentColor">
-        <rect x="5" y="5" width="4" height="22" rx="1" />
-        <rect x="9" y="21" width="10" height="4" rx="1" />
-        <rect x="9" y="14" width="16" height="4" rx="1" />
-        <rect x="9" y="7" width="22" height="4" rx="1" />
+      {variant === 'brand' && (
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stopColor="#2563EB" />
+            <stop offset="0.55" stopColor="#4F46E5" />
+            <stop offset="1" stopColor="#7C3AED" />
+          </linearGradient>
+        </defs>
+      )}
+      <g fill={variant === 'brand' ? `url(#${gradientId})` : '#fff'}>
+        <rect x="2" y="4" width="27" height="7" rx="3.5" />
+        <rect x="6" y="12.5" width="23" height="7" rx="3.5" />
+        <rect x="10" y="21" width="19" height="7" rx="3.5" />
       </g>
     </svg>
   );
 }
 
-export function ElevaLogo({ className, showWordmark = true, size = 28, asLink = true }: ElevaLogoProps) {
+export function ElevaLogo({
+  className,
+  showWordmark = true,
+  size = 28,
+  asLink = true,
+  href = '/eleva/dashboard',
+  variant = 'brand',
+}: ElevaLogoProps) {
   const logoContent = (
     <div className={cn('flex items-center gap-2.5 select-none', className)}>
-      <div
-        className="flex items-center justify-center rounded-[10px]"
-        style={{
-          width: size * 1.15,
-          height: size * 1.15,
-          backgroundColor: '#111827',
-        }}
-        aria-label="Eleva logo"
-      >
-        <ElevaMark size={size * 0.62} />
-      </div>
+      <ElevaMark size={size} variant={variant} />
       {showWordmark && (
         <span
-          className="font-semibold tracking-tight shrink-0 whitespace-nowrap"
-          style={{ fontSize: size * 0.625, color: '#0F172A' }}
+          className="font-display font-bold tracking-tight shrink-0 whitespace-nowrap"
+          style={{
+            fontSize: size * 0.6,
+            letterSpacing: '-0.03em',
+            color: variant === 'white' ? '#fff' : 'rgb(var(--eleva-fg))',
+          }}
         >
           Eleva
         </span>
@@ -53,7 +65,7 @@ export function ElevaLogo({ className, showWordmark = true, size = 28, asLink = 
   );
 
   if (asLink) {
-    return <Link href="/eleva/dashboard">{logoContent}</Link>;
+    return <Link href={href}>{logoContent}</Link>;
   }
 
   return logoContent;

@@ -4,6 +4,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
+import { builtinToPrompt, getBuiltinPresetByKey, isBuiltinFallbackId } from './builtin-presets';
 
 export async function createPrompt(formData: FormData) {
   const supabase = await createClient();
@@ -82,7 +83,14 @@ export async function duplicatePrompt(id: string) {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return { error: 'Not authenticated' };
 
-  const { data: original } = await supabase.from('ai_prompts').select('*').eq('id', id).single();
+  let original: any = null;
+  if (isBuiltinFallbackId(id)) {
+    const preset = getBuiltinPresetByKey(id.slice('builtin:'.length));
+    original = preset ? builtinToPrompt(preset) : null;
+  } else {
+    const { data } = await supabase.from('ai_prompts').select('*').eq('id', id).single();
+    original = data;
+  }
   if (!original) return { error: 'Prompt not found' };
 
   const { data, error } = await supabase.from('ai_prompts').insert({
@@ -110,6 +118,7 @@ export async function duplicatePrompt(id: string) {
 
 export async function deletePrompt(id: string) {
   const supabase = await createClient();
+  if (isBuiltinFallbackId(id)) return { error: 'Built-in presets cannot be deleted. Duplicate it first.' };
   const { error } = await supabase.from('ai_prompts').delete().eq('id', id);
   if (error) return { error: error.message };
   revalidatePath('/eleva/prompt-studio');
@@ -120,6 +129,7 @@ export async function toggleFavorite(promptId: string) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return { error: 'Not authenticated' };
+  if (isBuiltinFallbackId(promptId)) return { error: 'Built-in presets cannot be favorited. Duplicate it first.' };
 
   const { data: existing } = await supabase
     .from('prompt_favorites')
@@ -166,7 +176,14 @@ export async function runPrompt(formData: FormData) {
   const body = JSON.parse(formData.get('body') as string);
   const { promptId, variables, temperature, maxTokens } = body;
 
-    const { data: prompt } = await supabase.from('ai_prompts').select('*').eq('id', promptId).single();
+    let prompt: any = null;
+    if (isBuiltinFallbackId(promptId)) {
+      const preset = getBuiltinPresetByKey(promptId.slice('builtin:'.length));
+      prompt = preset ? builtinToPrompt(preset) : null;
+    } else {
+      const { data } = await supabase.from('ai_prompts').select('*').eq('id', promptId).single();
+      prompt = data;
+    }
     if (!prompt) return { error: 'Prompt not found' };
 
     const startTime = Date.now();
@@ -203,44 +220,48 @@ export async function runPrompt(formData: FormData) {
       const tokensOut = aiRes.usage?.completionTokens ?? 0;
       const cost = 0;
 
-    await supabase.from('prompt_executions').insert({
-      prompt_id: promptId,
-      user_id: user.user.id,
-      version: prompt.version,
-      input_variables: variables,
-      output_text: output,
-      model: prompt.model,
-      temperature: temperature ?? prompt.temperature,
-      max_tokens: maxTokens ?? prompt.max_tokens,
-      tokens_input: tokensIn,
-      tokens_output: tokensOut,
-      latency_ms: latency,
-      cost,
-      success: true,
-    });
+    if (!isBuiltinFallbackId(promptId)) {
+      await supabase.from('prompt_executions').insert({
+        prompt_id: promptId,
+        user_id: user.user.id,
+        version: prompt.version,
+        input_variables: variables,
+        output_text: output,
+        model: prompt.model,
+        temperature: temperature ?? prompt.temperature,
+        max_tokens: maxTokens ?? prompt.max_tokens,
+        tokens_input: tokensIn,
+        tokens_output: tokensOut,
+        latency_ms: latency,
+        cost,
+        success: true,
+      });
 
-    await updatePromptStats(promptId, latency, tokensIn + tokensOut, cost, true);
+      await updatePromptStats(promptId, latency, tokensIn + tokensOut, cost, true);
+    }
 
     return { output, latency, tokensIn, tokensOut, cost, model: prompt.model };
   } catch (err: any) {
-    await supabase.from('prompt_executions').insert({
-      prompt_id: promptId,
-      user_id: user.user.id,
-      version: prompt.version,
-      input_variables: variables,
-      output_text: null,
-      model: prompt.model,
-      temperature: temperature ?? prompt.temperature,
-      max_tokens: maxTokens ?? prompt.max_tokens,
-      tokens_input: 0,
-      tokens_output: 0,
-      latency_ms: Date.now() - startTime,
-      cost: 0,
-      success: false,
-      error_message: err.message,
-    });
+    if (!isBuiltinFallbackId(promptId)) {
+      await supabase.from('prompt_executions').insert({
+        prompt_id: promptId,
+        user_id: user.user.id,
+        version: prompt.version,
+        input_variables: variables,
+        output_text: null,
+        model: prompt.model,
+        temperature: temperature ?? prompt.temperature,
+        max_tokens: maxTokens ?? prompt.max_tokens,
+        tokens_input: 0,
+        tokens_output: 0,
+        latency_ms: Date.now() - startTime,
+        cost: 0,
+        success: false,
+        error_message: err.message,
+      });
 
-    await updatePromptStats(promptId, 0, 0, 0, false);
+      await updatePromptStats(promptId, 0, 0, 0, false);
+    }
     return { error: err.message };
   }
 }

@@ -18,9 +18,18 @@ export default async function ResumesPage() {
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false });
 
+  const resumeIds = (resumes ?? []).map((r) => r.id);
+  const { data: scores } = resumeIds.length
+    ? await supabase.from('ats_scores').select('resume_id, overall, created_at').in('resume_id', resumeIds).order('created_at', { ascending: false })
+    : { data: null };
+  const latestAts = new Map<string, number>();
+  for (const s of scores ?? []) {
+    if (!latestAts.has(s.resume_id)) latestAts.set(s.resume_id, s.overall);
+  }
+
   return (
     <WorkspaceShell>
-      <ResumesClient initial={(resumes ?? []) as Resume[]} />
+      <ResumesClient initial={(resumes ?? []) as Resume[]} atsScores={latestAts} />
     </WorkspaceShell>
   );
 }

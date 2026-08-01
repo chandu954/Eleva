@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
+import { builtinToPrompt, getBuiltinPresetByKey, isBuiltinFallbackId } from '../../../prompt-studio/_lib/builtin-presets';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -9,7 +10,13 @@ export async function POST(req: NextRequest) {
 
   const { promptId, variables, model, temperature, maxTokens } = await req.json();
 
-  const { data: prompt } = await supabase.from('ai_prompts').select('*').eq('id', promptId).single();
+  const isBuiltin = isBuiltinFallbackId(promptId);
+  const prompt = isBuiltin
+    ? (() => {
+        const preset = getBuiltinPresetByKey(promptId.slice('builtin:'.length));
+        return preset ? builtinToPrompt(preset) : null;
+      })()
+    : (await supabase.from('ai_prompts').select('*').eq('id', promptId).single()).data;
   if (!prompt) return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
 
   const encoder = new TextEncoder();
@@ -20,6 +27,27 @@ export async function POST(req: NextRequest) {
       let tokensIn = 0;
       let tokensOut = 0;
       let cost = 0;
+
+      const recordExecution = async (success: boolean, errorMessage?: string) => {
+        if (isBuiltin) return; // built-in fallback presets have no DB row to attach executions to
+        await supabase.from('prompt_executions').insert({
+          prompt_id: promptId,
+          user_id: user.user.id,
+          version: prompt.version,
+          input_variables: variables,
+          output_text: output || null,
+          model: model || prompt.model || resultModel,
+          temperature: temperature ?? prompt.temperature,
+          max_tokens: maxTokens ?? prompt.max_tokens,
+          tokens_input: tokensIn,
+          tokens_output: tokensOut,
+          latency_ms: Date.now() - startTime,
+          cost: success ? cost : 0,
+          success,
+          error_message: errorMessage,
+        });
+      };
+      let resultModel: string | null = null;
 
       try {
         const systemPrompt = prompt.editable_instructions
@@ -43,6 +71,7 @@ export async function POST(req: NextRequest) {
         });
 
         output = result.text;
+        resultModel = result.model ?? null;
 
         const latency = Date.now() - startTime;
 
@@ -56,21 +85,7 @@ export async function POST(req: NextRequest) {
         tokensOut = result.usage?.completionTokens || 0;
         cost = (tokensIn * 0.000003) + (tokensOut * 0.000015);
 
-        await supabase.from('prompt_executions').insert({
-          prompt_id: promptId,
-          user_id: user.user.id,
-          version: prompt.version,
-          input_variables: variables,
-          output_text: output,
-          model: model || prompt.model || result.model,
-          temperature: temperature ?? prompt.temperature,
-          max_tokens: maxTokens ?? prompt.max_tokens,
-          tokens_input: tokensIn,
-          tokens_output: tokensOut,
-          latency_ms: latency,
-          cost,
-          success: true,
-        });
+        await recordExecution(true);
 
         controller.enqueue(encoder.encode(JSON.stringify({
           type: 'done',
@@ -78,26 +93,11 @@ export async function POST(req: NextRequest) {
           tokensIn,
           tokensOut,
           cost,
-          model: model || prompt.model || result.model,
+          model: model || prompt.model || resultModel,
         }) + '\n'));
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-        await supabase.from('prompt_executions').insert({
-          prompt_id: promptId,
-          user_id: user.user.id,
-          version: prompt.version,
-          input_variables: variables,
-          output_text: output || null,
-          model: model || prompt.model,
-          temperature: temperature ?? prompt.temperature,
-          max_tokens: maxTokens ?? prompt.max_tokens,
-          tokens_input: tokensIn,
-          tokens_output: tokensOut,
-          latency_ms: Date.now() - startTime,
-          cost: 0,
-          success: false,
-          error_message: errorMessage,
-        });
+        await recordExecution(false, errorMessage);
 
         controller.enqueue(encoder.encode(JSON.stringify({ type: 'error', message: errorMessage }) + '\n'));
       }

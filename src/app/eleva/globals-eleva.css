@@ -11,6 +11,7 @@
   --eleva-primary: 37 99 235;
   --eleva-secondary: 124 58 237;
   --eleva-accent: 14 165 233;
+  --eleva-indigo: 79 70 229;
   --eleva-success: 34 197 94;
   --eleva-warning: 245 158 11;
   --eleva-danger: 239 68 68;
@@ -60,17 +61,6 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
-/* Aurora orbs */
-.eleva-orb {
-  position: absolute;
-  filter: blur(80px);
-  opacity: 0.55;
-  border-radius: 9999px;
-  pointer-events: none;
-  z-index: 0;
-}
-.dark .eleva-orb { opacity: 0.35; }
-
 /* Custom scrollbar */
 .eleva-root ::-webkit-scrollbar { width: 8px; height: 8px; }
 .eleva-root ::-webkit-scrollbar-track { background: transparent; }
@@ -108,10 +98,10 @@
   border-radius: 12px;
   padding: 10px 18px;
   font-weight: 500;
-  background: transparent;
-  transition: all .18s ease;
+  background: rgba(255,255,255,.7);
+  transition: background .18s ease, border-color .18s ease;
 }
-.eleva-btn-ghost:hover { background: rgb(var(--eleva-muted)); }
+.eleva-btn-ghost:hover { background: #FFFFFF; border-color: rgb(var(--eleva-border)); }
 
 .eleva-pill {
   display: inline-flex;
@@ -127,7 +117,7 @@
 }
 
 .eleva-gradient-text {
-  background: linear-gradient(90deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)));
+  background: linear-gradient(105deg, #2563EB 0%, #3B5FEF 45%, #4F46E5 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -143,6 +133,290 @@
   background: rgb(var(--eleva-card));
   color: rgb(var(--eleva-muted-fg));
 }
+
+/* Anchors land below the fixed navbar */
+.eleva-root section[id],
+.eleva-root footer[id] {
+  scroll-margin-top: 90px;
+}
+
+/* Nav links */
+.eleva-nav-link {
+  transition: color .18s ease;
+}
+.eleva-nav-link:hover {
+  color: rgb(var(--eleva-fg));
+}
+.eleva-nav-link:focus-visible {
+  outline: 2px solid rgb(var(--eleva-ring));
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Accessible focus states */
+.eleva-root a:focus-visible,
+.eleva-root button:focus-visible,
+.eleva-root input:focus-visible {
+  outline: 2px solid rgb(var(--eleva-ring));
+  outline-offset: 2px;
+}
+.eleva-root input:focus-visible {
+  outline-offset: 0;
+  border-color: rgb(var(--eleva-primary)) !important;
+}
+
+/* Skip link */
+.eleva-skip-link {
+  position: fixed;
+  top: -48px;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgb(var(--eleva-primary));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  transition: top .18s ease;
+}
+.eleva-skip-link:focus {
+  top: 12px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .eleva-root *,
+  .eleva-root *::before,
+  .eleva-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============ Section rhythm — spacing scale ============
+   normal: 96px 0 (desktop) · large: 120px · compact: 72px */
+.eleva-section {
+  padding-top: 32px;
+  padding-bottom: 32px;
+}
+@media (min-width: 768px) {
+  .eleva-section {
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+}
+.eleva-section-large {
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+@media (min-width: 768px) {
+  .eleva-section-large {
+    padding-top: 60px;
+    padding-bottom: 60px;
+  }
+}
+.eleva-section-tight {
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+@media (min-width: 768px) {
+  .eleva-section-tight {
+    padding-top: 36px;
+    padding-bottom: 36px;
+  }
+}
+
+/* Smooth anchor scrolling for nav links */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ============ Ambient background system ============ */
+
+/* Global page atmosphere — layered, almost invisible radial light sources */
+.eleva-ambient {
+  background:
+    radial-gradient(circle at 15% 8%, rgba(37,99,235,0.06), transparent 34%),
+    radial-gradient(circle at 82% 18%, rgba(99,102,241,0.05), transparent 32%),
+    radial-gradient(circle at 55% 88%, rgba(59,130,246,0.04), transparent 38%),
+    rgb(var(--eleva-bg));
+}
+
+/* Full-bleed section backdrop layers */
+.eleva-ambient-hero {
+  background:
+    radial-gradient(circle at 18% 20%, rgba(37,99,235,0.09), transparent 36%),
+    radial-gradient(circle at 78% 30%, rgba(99,102,241,0.06), transparent 30%);
+}
+.eleva-ambient-tint {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.04), transparent 60%),
+    #F6F9FF;
+}
+.eleva-ambient-indigo {
+  background:
+    radial-gradient(ellipse at 85% 30%, rgba(99,102,241,0.07), transparent 45%),
+    radial-gradient(ellipse at 15% 70%, rgba(37,99,235,0.05), transparent 40%),
+    rgb(var(--eleva-bg));
+}
+.eleva-ambient-spotlight {
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(37,99,235,0.08), transparent 55%);
+}
+.eleva-ambient-cta {
+  background:
+    radial-gradient(circle at 50% 65%, rgba(37,99,235,0.10), transparent 48%);
+}
+
+/* Subtle grid — strongest behind the headline, faded toward the edges */
+.eleva-grid {
+  background-image:
+    linear-gradient(rgba(37,99,235,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37,99,235,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 40% 35%, black 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 40% 35%, black 20%, transparent 75%);
+}
+
+/* Brand gradient accent — use sparingly */
+.eleva-gradient-text {
+  background: linear-gradient(105deg, #2563EB 0%, #3B5FEF 45%, #4F46E5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.eleva-btn-gradient {
+  background: linear-gradient(100deg, #2563EB 0%, #4F46E5 92%, #5b46e8 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 500;
+  transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 8px 22px rgba(37,99,235,.20);
+}
+.eleva-btn-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 12px 28px rgba(37,99,235,.25);
+}
+.eleva-btn-gradient:active {
+  transform: translateY(0);
+}
+
+/* Navbar variant — smaller, quieter glow */
+.eleva-btn-nav {
+  background: linear-gradient(100deg, #2563EB 0%, #4F46E5 92%, #5b46e8 100%);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: transform .18s ease, box-shadow .18s ease;
+  box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 6px 16px -6px rgba(37,99,235,.35);
+}
+.eleva-btn-nav:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 8px 20px -6px rgba(37,99,235,.45);
+}
+.eleva-btn-nav:active { transform: translateY(0); }
+
+/* Ambient orbit ring + node */
+.eleva-orbit-ring {
+  border: 1px solid rgba(37,99,235,0.1);
+  border-radius: 50%;
+  position: absolute;
+}
+.eleva-orbit-node {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* Very slow orbit drift */
+@keyframes eleva-orbit-drift {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(4deg); }
+}
+.eleva-orbit-drift {
+  animation: eleva-orbit-drift 28s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Feature icon tile (Product System) */
+.eleva-feature-icon {
+  background: rgba(239,246,255,.75);
+  border: 1px solid rgba(37,99,235,.15);
+  border-radius: 14px;
+  color: #2563EB;
+  transition: background .2s ease, border-color .2s ease;
+}
+.group:hover .eleva-feature-icon {
+  background: #EFF6FF;
+  border-color: rgba(37,99,235,.28);
+}
+
+/* Form inputs */
+.eleva-input {
+  background: rgb(var(--eleva-card));
+  border: 1px solid #E2E8F0;
+  color: rgb(var(--eleva-fg));
+  border-radius: 12px;
+  height: 48px;
+  width: 100%;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.eleva-input::placeholder { color: #94A3B8; }
+.eleva-input:hover { border-color: #CBD5E1; }
+.eleva-input:focus,
+.eleva-root .eleva-input:focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.10);
+}
+.eleva-input-error,
+.eleva-input-error:focus {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.08);
+}
+
+/* Card hover lift */
+.eleva-card-hover {
+  transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.eleva-card-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(37,99,235,0.3);
+  box-shadow: 0 12px 35px rgba(37,99,235,0.08);
+}
+
+/* Soft glow behind large surfaces (demo, palette, score card) */
+.eleva-glow {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(70px);
+  background: rgba(37,99,235,0.12);
+}
+
+/* Brand button gradient for primary CTAs on gradient-adjacent surfaces */
+.eleva-btn-primary-gradient {
+  background: linear-gradient(90deg, #2563EB, #4F46E5);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 500;
+  transition: transform .18s ease, box-shadow .18s ease;
+  box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 8px 22px rgba(37,99,235,.20);
+}
+.eleva-btn-primary-gradient:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 12px 28px rgba(37,99,235,.25);
+}
+.eleva-btn-primary-gradient:active { transform: translateY(0); }
 
 @keyframes eleva-shimmer {
   0% { transform: translateX(-100%); }
@@ -166,6 +440,10 @@
   100% { box-shadow: 0 0 0 14px rgba(37,99,235,0); }
 }
 .eleva-pulse-ring { animation: eleva-pulse-ring 2s ease-out infinite; }
+
+.eleva-footer-link:hover {
+  color: rgb(var(--eleva-fg)) !important;
+}
 
 @keyframes eleva-blink {
   0%, 49% { opacity: 1; }

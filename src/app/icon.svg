@@ -1,6 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect x="5" y="5" width="4" height="22" rx="1" fill="#6366F1"/>
-  <rect x="9" y="21" width="10" height="4" rx="1" fill="#6366F1"/>
-  <rect x="9" y="14" width="16" height="4" rx="1" fill="#6366F1"/>
-  <rect x="9" y="7" width="20" height="4" rx="1" fill="#6366F1"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="eleva-mark-grad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="0.55" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#fff"/>
+  <g fill="url(#eleva-mark-grad)">
+    <rect x="5" y="6.5" width="22" height="6" rx="3"/>
+    <rect x="8" y="13.5" width="19" height="6" rx="3"/>
+    <rect x="11" y="20.5" width="16" height="6" rx="3"/>
+  </g>
 </svg>

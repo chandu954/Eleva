@@ -6,6 +6,7 @@ import { Sparkles, Check, X, Target, Loader2, Trash2, ExternalLink, Plus, ArrowR
 import { toast } from 'sonner';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
+import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 
 type AtsReport = {
   id: string;
@@ -26,18 +27,6 @@ type AtsReport = {
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 
-function KeywordBar({ keyword, match, color }: { keyword: string; match: number; color: string }) {
-  return (
-    <div className="flex items-center gap-2 py-1.5">
-      <span className="text-[12px] font-mono w-24 truncate shrink-0" style={{ color: 'rgb(var(--eleva-fg))' }}>{keyword}</span>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
-        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(2, match)}%` }} transition={{ duration: 0.6 }} className="h-full rounded-full" style={{ background: color }} />
-      </div>
-      <span className="text-[11px] font-mono w-12 text-right shrink-0" style={{ color }}>{match}%</span>
-    </div>
-  );
-}
-
 export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes: Resume[] }) {
   const [items, setItems] = useState<AtsReport[]>(reports);
   const [selectedId, setSelectedId] = useState<string | null>(reports[0]?.id ?? null);
@@ -53,6 +42,9 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
     if (!jd.trim() || jd.trim().length < 20) { toast.error('Paste a JD (min 20 chars)'); return; }
     if (!resumeId) { toast.error('Select a resume'); return; }
     setRunning(true);
+    const start = Date.now();
+    reportAiRun('Scoring resume', 'ats-score');
+    let failed = false;
     try {
       const { data: r } = await supabase.from('resumes').select('*').eq('id', resumeId).maybeSingle();
       const resumeText = r ? [r.name, r.target_role, r.professional_summary, JSON.stringify(r.work_experience || []), JSON.stringify(r.skills || []), JSON.stringify(r.projects || []), JSON.stringify(r.education || [])].filter(Boolean).join('\n') : '';
@@ -65,8 +57,8 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
       const { data: fresh } = await supabase.from('ats_scores').select('*').eq('resume_id', resumeId).order('created_at', { ascending: false }).limit(40);
       if (fresh) { setItems(fresh as any); setSelectedId((fresh as any)[0]?.id); }
       toast.success(`Scored ${j.overall}%`);
-    } catch (e) { toast.error('Score failed', { description: (e as Error).message }); }
-    finally { setRunning(false); }
+    } catch (e) { failed = true; toast.error('Score failed', { description: (e as Error).message }); }
+    finally { setRunning(false); reportAiDone('ATS score', Date.now() - start, 'ats-score', failed); }
   }
 
   async function remove(id: string) {
@@ -209,13 +201,6 @@ function ReportView({ report }: { report: AtsReport }) {
     { label: 'Recruiter',   value: report.recruiter },
   ];
 
-  /* Generate per-keyword match percentages for visual bars */
-  const matchedWithScore = report.matched.map((k) => ({ keyword: k, match: 55 + Math.round(Math.random() * 40) }));
-  const missingWithScore = report.missing.map((k) => ({ keyword: k, match: 5 + Math.round(Math.random() * 18) }));
-  /* aliased for readability below */
-  const matchedKeywordsWithScore = matchedWithScore;
-  const missingKeywordsWithScore = missingWithScore;
-
   return (
     <div className="space-y-4">
       <div className="eleva-card p-6">
@@ -241,7 +226,7 @@ function ReportView({ report }: { report: AtsReport }) {
         )}
       </div>
 
-      {/* Visual keyword bars */}
+      {/* Keyword coverage */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="eleva-card p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -249,11 +234,13 @@ function ReportView({ report }: { report: AtsReport }) {
             <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Matched</div>
             <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({report.matched.length})</span>
           </div>
-          {matchedKeywordsWithScore.length === 0 ? (
+          {report.matched.length === 0 ? (
             <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>None yet.</div>
           ) : (
-            <div className="space-y-0.5">
-              {matchedKeywordsWithScore.slice(0, 12).map((kw) => <KeywordBar key={kw.keyword} {...kw} color="rgb(var(--eleva-success))" />)}
+            <div className="flex flex-wrap gap-1.5">
+              {report.matched.slice(0, 24).map((kw) => (
+                <span key={kw} className="text-[11px] font-mono px-2 py-1 rounded-md" style={{ background: 'rgba(var(--eleva-success-rgb), 0.1)', color: 'rgb(var(--eleva-success))', border: '1px solid rgba(var(--eleva-success-rgb), 0.2)' }}>{kw}</span>
+              ))}
             </div>
           )}
         </div>
@@ -263,11 +250,13 @@ function ReportView({ report }: { report: AtsReport }) {
             <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Missing</div>
             <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({report.missing.length})</span>
           </div>
-          {missingKeywordsWithScore.length === 0 ? (
+          {report.missing.length === 0 ? (
             <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Nothing missing — great match!</div>
           ) : (
-            <div className="space-y-0.5">
-              {missingKeywordsWithScore.slice(0, 10).map((k) => <KeywordBar key={k.keyword} keyword={k.keyword} match={k.match} color="rgb(var(--eleva-warning))" />)}
+            <div className="flex flex-wrap gap-1.5">
+              {report.missing.slice(0, 20).map((kw) => (
+                <span key={kw} className="text-[11px] font-mono px-2 py-1 rounded-md" style={{ background: 'rgba(245,158,11,0.08)', color: 'rgb(var(--eleva-warning))', border: '1px solid rgba(245,158,11,0.2)' }}>{kw}</span>
+              ))}
             </div>
           )}
         </div>

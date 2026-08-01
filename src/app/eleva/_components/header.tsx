@@ -1,14 +1,15 @@
 'use client';
 
-import { Search, Sun, Moon, Menu } from 'lucide-react';
+import { Search, Sun, Moon, Menu, Check, X, Loader2 } from 'lucide-react';
 import { useElevaTheme } from './theme-provider';
 import { useCommandPalette } from './command-palette';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { NotificationBell } from './notification-bell';
 import { ProviderSelector } from '@/components/shared/provider-selector';
 import type { ProviderId } from '@/lib/ai/provider/registry';
 import { PROVIDER_COOKIE_NAME } from '@/lib/ai/provider/cookie-config';
+import { getAiStatus, subscribeAiStatus } from '../_lib/ai-status';
 
 const MODEL_STORAGE_KEY = 'eleva-ai-selection';
 
@@ -51,6 +52,8 @@ export function ElevaHeader() {
       data-testid="eleva-header"
     >
       <button
+        onClick={open}
+        aria-label="Open navigation"
         className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg"
         style={{ background: 'rgb(var(--eleva-muted))' }}
         data-testid="mobile-menu"
@@ -86,8 +89,7 @@ export function ElevaHeader() {
         </div>
 
         <div className="hidden lg:flex items-center gap-1.5 h-9 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
-          <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgb(var(--eleva-success))' }} />
-          <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Last run 12s</span>
+          <AiStatusPill />
         </div>
 
         <button
@@ -105,6 +107,68 @@ export function ElevaHeader() {
         <UserMenu />
       </div>
     </header>
+  );
+}
+
+function AiStatusPill() {
+  const status = useSyncExternalStore(subscribeAiStatus, getAiStatus, getAiStatus);
+  const [open, setOpen] = useState(false);
+
+  const dot = status.state === 'running'
+    ? { color: 'rgb(var(--eleva-primary))', pulse: true }
+    : status.state === 'error'
+    ? { color: 'rgb(239 68 68)', pulse: false }
+    : { color: 'rgb(var(--eleva-success))', pulse: false };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        data-testid="ai-status-pill"
+        className="flex items-center gap-1.5 cursor-pointer"
+        title={status.task ? `Last task: ${status.task}` : 'AI status'}
+      >
+        {status.state === 'running' ? (
+          <Loader2 className="w-3 h-3 animate-spin" style={{ color: dot.color }} />
+        ) : status.state === 'error' ? (
+          <X className="w-3 h-3" style={{ color: dot.color }} />
+        ) : status.state === 'done' ? (
+          <Check className="w-3 h-3" style={{ color: dot.color }} />
+        ) : (
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: dot.color }} />
+        )}
+        <span className="text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+          {status.state === 'running' && status.label ? `AI · ${status.label}…` : ''}
+          {status.state === 'running' && !status.label ? 'AI · Running…' : ''}
+          {status.state === 'done' ? `AI · ✓ ${Math.max(1, Math.round((status.durationMs ?? 0) / 1000))}s` : ''}
+          {status.state === 'error' ? 'AI · Failed' : ''}
+          {status.state === 'idle' ? 'AI · Ready' : ''}
+        </span>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-56 rounded-xl overflow-hidden shadow-xl z-50" style={{ background: 'rgb(var(--eleva-card))', border: '1px solid rgb(var(--eleva-border))' }}>
+            <div className="p-3 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
+              <div className="text-[11px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI execution</div>
+              <div className="text-[13px] font-medium mt-0.5" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                {status.state === 'running' ? (status.label ?? 'Running…') : status.state === 'done' ? (status.label ?? 'Completed') : status.state === 'error' ? 'Failed' : 'Ready'}
+              </div>
+            </div>
+            <div className="p-3 space-y-1.5 text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+              <div className="flex justify-between"><span>State</span><span className="font-mono capitalize" style={{ color: 'rgb(var(--eleva-fg))' }}>{status.state}</span></div>
+              {status.durationMs !== undefined && (
+                <div className="flex justify-between"><span>Duration</span><span className="font-mono" style={{ color: 'rgb(var(--eleva-fg))' }}>{(status.durationMs / 1000).toFixed(1)}s</span></div>
+              )}
+              {status.task && (
+                <div className="flex justify-between gap-2"><span>Task</span><span className="font-mono truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{status.task}</span></div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

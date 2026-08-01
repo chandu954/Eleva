@@ -22,6 +22,18 @@ function isSubscriptionExemptRoute(pathname: string): boolean {
   return SUBSCRIPTION_EXEMPT_ROUTES.some(route => pathname.startsWith(route))
 }
 
+// Eleva public routes: landing page and the authentication flow
+const ELEVA_PUBLIC_ROUTES = [
+  '/eleva/auth',
+  '/eleva/terms',
+  '/eleva/privacy',
+]
+
+function isElevaPublicRoute(pathname: string): boolean {
+  if (pathname === '/eleva' || pathname === '/eleva/') return true
+  return ELEVA_PUBLIC_ROUTES.some(route => pathname.startsWith(route))
+}
+
 export async function updateSession(request: NextRequest) {
   // Debug logging
   devLog('🔍 updateSession running on:', request.nextUrl.pathname)
@@ -88,11 +100,21 @@ export async function updateSession(request: NextRequest) {
       pathname === '/' ||
       pathname.startsWith('/auth') ||
       pathname.startsWith('/blog') ||
-      pathname.startsWith('/eleva')
+      isElevaPublicRoute(pathname)
 
     if (isPublicRoute) {
       devLog('✅ Allowing unauthenticated access to public route:', pathname)
       return supabaseResponse
+    }
+
+    // Eleva workspace routes require authentication
+    if (pathname.startsWith('/eleva')) {
+      devLog('🚫 Redirecting unauthenticated user to Eleva login:', pathname)
+      const url = request.nextUrl.clone()
+      url.pathname = '/eleva/auth/login'
+      url.search = ''
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
     }
 
     // If no user is authenticated, redirect to the landing page

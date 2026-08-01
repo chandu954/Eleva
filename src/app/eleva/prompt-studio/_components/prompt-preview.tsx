@@ -16,6 +16,7 @@ import {
 import React from 'react';
 import { toast } from 'sonner';
 import type { AIPrompt } from '../types';
+import { reportAiRun, reportAiDone } from '../../_lib/ai-status';
 
 export function PromptPreview({ prompt }: { prompt: AIPrompt }) {
   const [inputVars, setInputVars] = useState<Record<string, string>>({});
@@ -42,6 +43,9 @@ export function PromptPreview({ prompt }: { prompt: AIPrompt }) {
     setError(null);
     setResult(null);
     setStreaming(true);
+    const start = Date.now();
+    reportAiRun('Running preset', 'prompt-run');
+    let failed = false;
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -102,6 +106,7 @@ export function PromptPreview({ prompt }: { prompt: AIPrompt }) {
         }
       }
     } catch (err: unknown) {
+      failed = true;
       if (err instanceof Error && 'name' in err && (err as { name: string }).name !== 'AbortError') {
         setError(err.message);
       }
@@ -109,6 +114,7 @@ export function PromptPreview({ prompt }: { prompt: AIPrompt }) {
 
     setStreaming(false);
     abortRef.current = null;
+    reportAiDone('Prompt run', Date.now() - start, 'prompt-run', failed);
   }, [prompt.id, inputVars, selectedModel, temperature, maxTokens]);
 
   const handleStop = () => {

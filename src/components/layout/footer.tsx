@@ -14,7 +14,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
             Eleva © 2025
           </p>
           <span className="text-sm text-muted-foreground text-center">
-            Made with ❤️ in Vancouver, BC
+            AI Career Operating System
           </span>
         </div>
         <nav className="flex flex-col md:flex-row items-center gap-4 md:gap-6">

@@ -17,6 +17,14 @@ const createSchema = z.object({
   job_url: z.string().optional(),
   notes: z.string().optional(),
   resume_id: z.string().uuid().optional(),
+  cover_letter_id: z.string().uuid().nullable().optional(),
+  source: z.string().optional(),
+  match_score: z.number().int().min(0).max(100).nullable().optional(),
+  ats_score: z.number().int().min(0).max(100).nullable().optional(),
+  applied_at: z.string().datetime().nullable().optional(),
+  interview_at: z.string().datetime().nullable().optional(),
+  pinned: z.boolean().optional(),
+  favorite: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -37,7 +45,7 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString();
   const { data, error } = await supabase.from('applications').insert({ ...parsed.data, user_id: userRes.user.id, created_at: now, updated_at: now }).select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  await supabase.from('activity_log').insert({ user_id: userRes.user.id, kind: 'application_added', title: `Applied to ${parsed.data.company}`, subtitle: parsed.data.role });
+  await supabase.from('activity_log').insert({ user_id: userRes.user.id, kind: 'application_added', title: `${parsed.data.status === 'applied' ? 'Applied to' : 'Added'} ${parsed.data.company}`, subtitle: parsed.data.role });
   return Response.json({ application: data });
 }
 

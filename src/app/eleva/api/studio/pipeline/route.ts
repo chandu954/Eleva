@@ -887,6 +887,7 @@ Write a personalized cover letter for this application.`;
         emit('letter-chunk', { text: letterResult.text });
         emit('step', { step: 'letter', status: 'done' });
 
+        let savedCoverLetterId: string | null = null;
         if (uid) {
           if (effectiveResumeId) {
             await supabase.from('ats_scores').insert({
@@ -932,12 +933,22 @@ Write a personalized cover letter for this application.`;
             tone: 'confident',
             length: 'medium',
           }).select().single();
+          savedCoverLetterId = cl?.id ?? null;
           await supabase.from('activity_log').insert({
             user_id: uid,
             kind: 'pipeline_run',
-            title: `Pipeline: ${skills.company ?? 'company'} · ${score.overall ?? '?'}% → ${rescores.overall ?? '?'}%`,
-            subtitle: `${rescores.matched?.length ?? 0} matched, ${rescores.missing?.length ?? 0} missing · +${bulletsRewritten} bullets`,
-            meta: { atsOverall: rescores.overall, coverLetterId: cl?.id, resumeId: effectiveResumeId },
+            title: `Resume tailored for ${skills.role ?? 'this job'}`,
+            subtitle: skills.company ?? null,
+            meta: {
+              atsOverall: rescores.overall,
+              previousOverall: score.overall,
+              matchedCount: rescores.matched?.length ?? 0,
+              missingCount: rescores.missing?.length ?? 0,
+              role: skills.role ?? null,
+              company: skills.company ?? null,
+              coverLetterId: cl?.id,
+              resumeId: effectiveResumeId,
+            },
           });
           try {
             await supabase.from('notifications').insert({
@@ -966,6 +977,8 @@ Write a personalized cover letter for this application.`;
           isLowCompat,
           sectionsModified: changedSections,
           optimizationStatus,
+          resumeId: effectiveResumeId ?? null,
+          coverLetterId: savedCoverLetterId,
           sectionConfidence: perSectionConfidence,
           sectionChanges: perSectionChanges,
           sectionOutcomes,

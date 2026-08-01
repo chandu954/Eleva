@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/utils/supabase/server';
 import type { AIPrompt, PromptCategory, PromptVersion, PromptExecution, PromptAnalytics, PromptTag } from '../types';
+import { BUILTIN_CATEGORIES, fallbackBuiltinPrompts, isBuiltinFallbackId, getBuiltinPresetByKey, builtinToPrompt } from './builtin-presets';
 
 export async function getPromptCategories(): Promise<PromptCategory[]> {
   const supabase = await createClient();
   const { data } = await supabase.from('prompt_categories').select('*').order('sort_order');
-  return (data ?? []) as PromptCategory[];
+  const db = (data ?? []) as PromptCategory[];
+  return db.length > 0 ? db : BUILTIN_CATEGORIES;
 }
 
 export async function getPrompts(categorySlug?: string, search?: string): Promise<AIPrompt[]> {
@@ -31,10 +33,28 @@ export async function getPrompts(categorySlug?: string, search?: string): Promis
     ...r,
     is_favorite: Array.isArray(r.is_favorite) ? r.is_favorite.some((f: any) => f?.user_id === user.user?.id) : !!r.is_favorite,
   })) as AIPrompt[];
-  return mapped;
+
+  const hasBuiltins = mapped.some((p) => p.is_builtin);
+  if (hasBuiltins) return mapped;
+
+  // DB has no seeded built-in presets yet — fall back to the curated code catalog
+  let fallback = fallbackBuiltinPrompts();
+  if (categorySlug) {
+    fallback = fallback.filter((p) => p.category?.slug === categorySlug);
+  }
+  if (search) {
+    const s = search.toLowerCase();
+    fallback = fallback.filter((p) => p.title.toLowerCase().includes(s) || (p.description ?? '').toLowerCase().includes(s));
+  }
+  return [...fallback, ...mapped];
 }
 
 export async function getPrompt(id: string): Promise<AIPrompt | null> {
+  if (isBuiltinFallbackId(id)) {
+    const key = id.slice('builtin:'.length);
+    const preset = getBuiltinPresetByKey(key);
+    return preset ? builtinToPrompt(preset) : null;
+  }
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
   const { data } = await supabase

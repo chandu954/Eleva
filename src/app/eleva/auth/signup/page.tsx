@@ -1,2 +1,10 @@
 import { AuthForm } from '@/app/eleva/_components/auth-form';
-export default function ElevaSignupPage() { return <AuthForm mode="signup" />; }
+import { redirect } from 'next/navigation';
+import { createClient } from '@/utils/supabase/server';
+
+export default async function ElevaSignupPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) redirect('/eleva/dashboard');
+  return <AuthForm mode="signup" />;
+}

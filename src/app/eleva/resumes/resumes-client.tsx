@@ -11,7 +11,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { TEMPLATES } from '../_lib/templates-catalog';
 import { ResumeUploader } from '../_components/resume-uploader';
 
-export function ResumesClient({ initial }: { initial: Resume[] }) {
+export function ResumesClient({ initial, atsScores }: { initial: Resume[]; atsScores?: Map<string, number> }) {
   const { items } = useRealtimeResumes(initial);
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'grid' | 'table'>('grid');
@@ -102,7 +102,7 @@ export function ResumesClient({ initial }: { initial: Resume[] }) {
           <AnimatePresence>
             {filtered.map((r, i) => {
               const template = TEMPLATES.find((t) => t.id === r.document_settings?.template) ?? TEMPLATES[0];
-              const atsScore = 62 + Math.round(Math.random() * 32);
+              const atsScore = atsScores?.get(r.id);
               const lastUsed = new Date(r.updated_at);
               const daysAgo = Math.floor((Date.now() - lastUsed.getTime()) / 86400000);
               return (
@@ -149,14 +149,16 @@ export function ResumesClient({ initial }: { initial: Resume[] }) {
                     </div>
                     {/* Metadata row */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(var(--eleva-success-rgb), 0.1)', color: 'rgb(var(--eleva-success))' }}>
-                        <Target className="w-2.5 h-2.5" />{atsScore}
-                      </span>
+                      {atsScore != null && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(var(--eleva-success-rgb), 0.1)', color: 'rgb(var(--eleva-success))' }}>
+                          <Target className="w-2.5 h-2.5" />{atsScore}%
+                        </span>
+                      )}
                       <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
                         <Clock className="w-2.5 h-2.5" />{daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                        <Hash className="w-2.5 h-2.5" />v1
+                        <Hash className="w-2.5 h-2.5" />{r.is_base_resume ? 'Base' : 'Tailored'}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
                         <Layers className="w-2.5 h-2.5" />{template.name}
@@ -189,7 +191,7 @@ export function ResumesClient({ initial }: { initial: Resume[] }) {
           {filtered.map((r) => {
             const template = TEMPLATES.find((t) => t.id === r.document_settings?.template) ?? TEMPLATES[0];
             const daysAgo = Math.floor((Date.now() - new Date(r.updated_at).getTime()) / 86400000);
-            const atsScore = 96 + Math.round(Math.random() * 4);
+            const atsScore = atsScores?.get(r.id);
             return (
               <motion.div key={r.id} layout className="grid grid-cols-[1.5fr_1fr_100px_100px_120px_100px_120px] gap-3 px-4 py-3 items-center hover:bg-[rgb(var(--eleva-muted))] group transition-colors" style={{ borderBottom: '1px solid rgb(var(--eleva-border))' }}>
                 <div className="flex items-center gap-3 min-w-0">
@@ -204,11 +206,11 @@ export function ResumesClient({ initial }: { initial: Resume[] }) {
                     <div className="text-[11px] truncate" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{r.target_role || 'No role'}</div>
                   </div>
                 </div>
-                <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-success))' }}>{atsScore}</div>
+                <div className="font-display text-lg font-semibold" style={{ color: atsScore == null ? 'rgb(var(--eleva-muted-fg))' : atsScore >= 90 ? 'rgb(var(--eleva-success))' : atsScore >= 75 ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-warning))' }}>{atsScore == null ? '—' : `${atsScore}%`}</div>
                 <div className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d`}</div>
                 <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-fg))' }}>{template.name}</div>
                 <div className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{new Date(r.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                <div className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>v1</div>
+                <div className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{r.is_base_resume ? 'Base' : 'Tailored'}</div>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Link href={`/eleva/editor?id=${r.id}`} className="text-[11px] px-2 h-7 rounded flex items-center gap-1 hover:bg-black/5" style={{ color: 'rgb(var(--eleva-primary))' }}><Eye className="w-3 h-3" /></Link>
                   <button onClick={() => exportResume(r, 'pdf')} disabled={exportingId === r.id} className="text-[11px] px-2 h-7 rounded flex items-center gap-1 hover:bg-black/5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>

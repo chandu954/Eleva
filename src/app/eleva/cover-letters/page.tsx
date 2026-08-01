@@ -2,9 +2,11 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Sparkles, Copy, RefreshCw, Loader2, FileText, Eye, Download, Edit3, User, Building2, Briefcase, Star, ShieldCheck, CheckCircle2, ListChecks } from 'lucide-react';
 import { WorkspaceShell } from '../_components/workspace-shell';
 import { streamElevaText } from '../_lib/eleva-client';
+import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
 
@@ -21,7 +23,14 @@ export default function CoverLetterPage() {
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [achievements, setAchievements] = useState('');
-  const [letter, setLetter] = useState('');
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const c = searchParams.get('company');
+    const r = searchParams.get('role');
+    if (c) setCompany(c);
+    if (r) setRole(r);
+    if (c || r) toast.info('Prefilled from Studio', { description: c && r ? `${c} · ${r}` : c || r });
+  }, [searchParams]);  const [letter, setLetter] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDraft, setShowDraft] = useState(true);
@@ -52,6 +61,9 @@ export default function CoverLetterPage() {
     setBusy(true);
     setLetter('');
     let acc = '';
+    const start = Date.now();
+    reportAiRun('Writing cover letter', 'cover-letter');
+    let failed = false;
     try {
       for await (const chunk of streamElevaText('/eleva/api/tool/draft', {
         company, role, tone: tone.toLowerCase(), length: length.toLowerCase(), achievements,
@@ -61,7 +73,11 @@ export default function CoverLetterPage() {
         setLetter(acc);
       }
       setGenerated(true);
-    } finally { setBusy(false); }
+    } catch { failed = true; }
+    finally {
+      setBusy(false);
+      reportAiDone(failed ? 'Cover letter' : 'Cover letter ready', Date.now() - start, 'cover-letter', failed);
+    }
   };
 
   const copy = () => {
@@ -320,6 +336,18 @@ export default function CoverLetterPage() {
                   </div>
                 )}
               </motion.div>
+              {letter && (
+                <div className="flex items-center gap-4 mt-3 px-2 text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  <span>{letter.trim().split(/\s+/).length} words</span>
+                  <span>·</span>
+                  <span>{letter.length} chars</span>
+                  <span>·</span>
+                  <span>~{Math.max(1, Math.ceil(letter.trim().split(/\s+/).length / 200))} min read</span>
+                  <span className="ml-auto" style={{ color: letter.trim().split(/\s+/).length <= 500 ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-warning))' }}>
+                    {letter.trim().split(/\s+/).length <= 500 ? 'Ideal length' : 'Consider trimming'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

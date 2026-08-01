@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Check, Star, X, Grid3x3, Rows3 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CATEGORIES, type ResumeTemplate } from '../_lib/templates-catalog';
+import { CATEGORIES, SAMPLE_RESUME, type ResumeTemplate } from '../_lib/templates-catalog';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean; document_settings?: { template?: string } | null; updated_at: string };
 
@@ -89,7 +89,6 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="text-[14px] font-semibold truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{t.name}</div>
-                  {t.tier === 'pro' && <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))', color: '#fff' }}>Pro</span>}
                 </div>
                 <div className="text-[12px] mt-0.5 line-clamp-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{t.description}</div>
               </div>
@@ -191,29 +190,30 @@ function Row({ k, v }: { k: string; v: string }) {
 
 function TemplatePreview({ t, compact = false, full = false }: { t: ResumeTemplate; compact?: boolean; full?: boolean }) {
   const h = compact ? 'h-32' : full ? 'h-full' : 'h-56';
+  const s = SAMPLE_RESUME;
   return (
     <div className={`${h} w-full relative overflow-hidden`} style={{ background: '#fff' }}>
       <div className="absolute inset-0 flex flex-col p-3 md:p-5" style={{ fontFamily: t.fontPair.split(' · ')[0] }}>
         <div className="flex items-start justify-between mb-2">
           <div>
-            <div className="text-[13px] md:text-[15px] font-semibold" style={{ color: '#111' }}>Ashish Dhonde</div>
-            <div className="text-[9px] md:text-[10px]" style={{ color: t.accent }}>{t.layout === 'timeline' ? 'Software Engineer' : 'Senior Backend Engineer'}</div>
+            <div className="text-[13px] md:text-[15px] font-semibold" style={{ color: '#111' }}>{s.name}</div>
+            <div className="text-[9px] md:text-[10px]" style={{ color: t.accent }}>{s.headline}</div>
           </div>
-          <div className="text-[7px] md:text-[8px] text-right" style={{ color: '#666' }}>ashish@example.com · SF</div>
+          <div className="text-[7px] md:text-[8px] text-right" style={{ color: '#666' }}>{s.email} · {s.location}</div>
         </div>
         <div className="h-px w-full mb-2" style={{ background: t.category === 'minimal' ? '#eee' : t.accent, opacity: t.category === 'minimal' ? 1 : 0.35 }} />
         {t.layout === 'two-column' ? (
           <div className="grid grid-cols-[1fr_1.6fr] gap-3 flex-1">
             <div className="space-y-1">
               <div className="text-[7px] md:text-[8px] font-semibold" style={{ color: t.accent }}>SKILLS</div>
-              {['Go', 'K8s', 'gRPC', 'Postgres'].map((s) => <div key={s} className="text-[6px] md:text-[7px]" style={{ color: '#333' }}>{s}</div>)}
+              {s.skills.slice(0, 4).map((skill) => <div key={skill} className="text-[6px] md:text-[7px]" style={{ color: '#333' }}>{skill}</div>)}
             </div>
             <div className="space-y-1.5">
               <div className="text-[8px] md:text-[9px] font-semibold" style={{ color: '#111' }}>Experience</div>
-              {[0,1,2].map((i) => (
-                <div key={i}>
-                  <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>Staff Eng · Company {i+1}</div>
-                  <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>Owned distributed systems. Shipped 3 platforms. Cut latency 45%.</div>
+              {s.roles.map((r) => (
+                <div key={r.company}>
+                  <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>{r.title} · {r.company}</div>
+                  <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>{r.points[0]}. {r.points[1]}.</div>
                 </div>
               ))}
             </div>
@@ -222,16 +222,16 @@ function TemplatePreview({ t, compact = false, full = false }: { t: ResumeTempla
           <div className="grid grid-cols-[80px_1fr] gap-3 flex-1">
             <div className="rounded-md p-2" style={{ background: t.accent }}>
               <div className="text-[6px] md:text-[7px] font-semibold text-white mb-1">CONTACT</div>
-              <div className="text-[5px] md:text-[6px] text-white/80 leading-tight">SF · ashish@ex.co · linkedin</div>
+              <div className="text-[5px] md:text-[6px] text-white/80 leading-tight">{s.location} · {s.email}</div>
               <div className="text-[6px] md:text-[7px] font-semibold text-white mt-2 mb-1">SKILLS</div>
-              <div className="text-[5px] md:text-[6px] text-white/80 leading-tight">Go, K8s, gRPC, PG, TS, React</div>
+              <div className="text-[5px] md:text-[6px] text-white/80 leading-tight">{s.skills.join(', ')}</div>
             </div>
             <div className="space-y-1.5">
               <div className="text-[8px] md:text-[9px] font-semibold" style={{ color: '#111' }}>Experience</div>
-              {[0,1].map((i) => (
-                <div key={i}>
-                  <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>Staff Engineer · Company {i+1}</div>
-                  <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>Shipped platform \u2022 40% latency cut \u2022 mentored 6 engineers.</div>
+              {s.roles.slice(0, 2).map((r) => (
+                <div key={r.company}>
+                  <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>{r.title} · {r.company}</div>
+                  <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>{r.points[0]} · {r.points[2] ?? r.points[1]}</div>
                 </div>
               ))}
             </div>
@@ -239,21 +239,21 @@ function TemplatePreview({ t, compact = false, full = false }: { t: ResumeTempla
         ) : t.layout === 'timeline' ? (
           <div className="space-y-2 flex-1 relative pl-4">
             <div className="absolute left-1.5 top-1 bottom-1 w-px" style={{ background: t.accent, opacity: 0.4 }} />
-            {[0,1,2].map((i) => (
-              <div key={i} className="relative">
+            {s.roles.map((r) => (
+              <div key={r.company} className="relative">
                 <div className="absolute -left-3 top-0.5 w-2 h-2 rounded-full" style={{ background: t.accent }} />
-                <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>2023 \u2014 Present \u00b7 Company {i+1}</div>
-                <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>Staff engineer. Ownership across services. Cut cost 32%.</div>
+                <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>{r.period} · {r.company}</div>
+                <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>{r.title}. {r.points[0]}.</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="space-y-1.5 flex-1">
             <div className="text-[8px] md:text-[9px] font-semibold" style={{ color: '#111' }}>Experience</div>
-            {[0,1,2].map((i) => (
-              <div key={i}>
-                <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>Senior Engineer \u00b7 Company {i+1}</div>
-                <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>Owned end-to-end systems. Metric-driven. Improved SLOs and DX.</div>
+            {s.roles.map((r) => (
+              <div key={r.company}>
+                <div className="text-[7px] md:text-[8px] font-medium" style={{ color: '#222' }}>{r.title} · {r.company}</div>
+                <div className="text-[6px] md:text-[7px] leading-tight" style={{ color: '#555' }}>{r.points[0]}. {r.points[1]}.</div>
               </div>
             ))}
           </div>

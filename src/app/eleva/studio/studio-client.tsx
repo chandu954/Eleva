@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Wand2, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase } from 'lucide-react';
+import { Sparkles, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase, Plus, Check } from 'lucide-react';
+import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 type StepStatus = 'idle' | 'pending' | 'running' | 'done' | 'error';
@@ -27,6 +29,24 @@ type StepState = {
 };
 
 type LogEntry = { time: string; message: string; status: 'running' | 'done' | 'error'; step?: string };
+
+const STEP_LABELS: Record<string, string> = {
+  extract: 'Analyzing the job description',
+  score: 'Scoring your resume',
+  plan: 'Planning improvements',
+  tailor: 'Improving your resume',
+  rescore: 'Re-scoring the improved resume',
+  review: 'Reviewing the result',
+  letter: 'Drafting cover letter',
+};
+
+const STAGES = [
+  { key: 'job', label: 'Job analyzed', steps: ['extract'] },
+  { key: 'analyze', label: 'Resume analysis', steps: ['score'] },
+  { key: 'improve', label: 'Improve', steps: ['plan', 'tailor'] },
+  { key: 'review', label: 'Review', steps: ['rescore', 'review'] },
+  { key: 'apply', label: 'Ready to Apply', steps: ['letter'] },
+];
 
 const MICRO_LABELS: Record<MicroStatus, string> = {
   connecting: 'Connecting to model…',
@@ -51,17 +71,8 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const [resumeId, setResumeId] = useState<string | undefined>(base?.id);
   const [running, setRunning] = useState(false);
   const [steps, setSteps] = useState<StepState[]>([]);
-  const emptySteps: StepState[] = [
-    { step: 'extract', label: 'Reading JD & extracting signal',  status: 'idle' as StepStatus, progress: 0 },
-    { step: 'score',   label: 'Scoring resume against JD',       status: 'idle' as StepStatus, progress: 0 },
-    { step: 'plan',    label: 'Planning optimization strategy',   status: 'idle' as StepStatus, progress: 0 },
-    { step: 'tailor',  label: 'Tailoring resume to job',          status: 'idle' as StepStatus, progress: 0 },
-    { step: 'rescore', label: 'Re-scoring tailored resume',       status: 'idle' as StepStatus, progress: 0 },
-    { step: 'review',  label: 'Recruiter reviewing resume',       status: 'idle' as StepStatus, progress: 0 },
-    { step: 'letter',  label: 'Drafting cover letter',           status: 'idle' as StepStatus, progress: 0 },
-  ];
   const [letter, setLetter] = useState('');
-  const [summary, setSummary] = useState<{ overall: number; previousOverall?: number; matched: number; missing: number; company?: string | null; role?: string | null; keywordsAdded: number; bulletsRewritten: number; compatibility?: number; isLowCompat?: boolean; sectionsModified?: number; plan?: { rewriteSummary: boolean; rewriteExperience: boolean; rewriteProjects: boolean; rewriteSkills: boolean; keywordsToInject: number; hardTruthNote?: string | null }; sectionConfidence?: { summary: number; skills: number; experience: number; projects: number }; sectionChanges?: { summary: string[]; skills: string[]; experience: string[]; projects: string[] }; quality?: { passed: boolean; issues: string[]; score: number }; review?: { wouldInterview: boolean; score: number; strengths: string[]; weaknesses: string[]; genericAreas: string[]; recommendation: string; confidence: number } } | null>(null);
+  const [summary, setSummary] = useState<{ overall: number; previousOverall?: number; matched: number; missing: number; company?: string | null; role?: string | null; keywordsAdded: number; bulletsRewritten: number; compatibility?: number; isLowCompat?: boolean; sectionsModified?: number; resumeId?: string | null; coverLetterId?: string | null; plan?: { rewriteSummary: boolean; rewriteExperience: boolean; rewriteProjects: boolean; rewriteSkills: boolean; keywordsToInject: number; hardTruthNote?: string | null }; sectionConfidence?: { summary: number; skills: number; experience: number; projects: number }; sectionChanges?: { summary: string[]; skills: string[]; experience: string[]; projects: string[] }; quality?: { passed: boolean; issues: string[]; score: number }; review?: { wouldInterview: boolean; score: number; strengths: string[]; weaknesses: string[]; genericAreas: string[]; recommendation: string; confidence: number } } | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState(true);
   const [showErrorDetails, setShowErrorDetails] = useState<string | null>(null);
@@ -74,27 +85,44 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const [scoreData, setScoreData] = useState<any>(null);
   const [rescoreData, setRescoreData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('resume');
+  const [creatingApplication, setCreatingApplication] = useState<'wishlist' | 'applied' | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const startTimeRef = useRef<number>(0);
 
   const hasJd = jd.trim().length >= 20;
 
-  const estimateMatch = useMemo(() => {
-    if (!hasJd || !base) return null;
-    const jdLen = jd.trim().length;
-    const techKeywords = ['JavaScript', 'TypeScript', 'Python', 'Java', 'Go', 'Rust', 'React', 'Angular', 'Vue', 'Node', 'Express', 'Next.js', 'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'Terraform', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'GraphQL', 'REST', 'gRPC', 'Kafka', 'SQL', 'NoSQL', 'HTML', 'CSS', 'Git', 'Linux', 'Microservices', 'Serverless', 'CI/CD', 'Machine Learning', 'LLM'];
-    const jdKeywords = techKeywords.filter((k) => new RegExp(`\\b${k.replace(/[.+*?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(jd));
-    const resumeText = `${base.name} ${base.target_role ?? ''}`;
-    const matched = jdKeywords.filter((k) => resumeText.toLowerCase().includes(k.toLowerCase()));
-    const coverage = jdKeywords.length > 0 ? Math.round((matched.length / jdKeywords.length) * 100) : 50;
-    const time = `${Math.round(45 + coverage * 0.3)} sec`;
-    return {
-      score: Math.min(95, coverage + 10),
-      keywordCount: jdKeywords.length,
-      estimatedCount: Math.round(jdLen / 10),
-      time,
-    };
-  }, [jd, hasJd, base]);
+  async function createApplication(status: 'wishlist' | 'applied') {
+    if (!summary) return;
+    setCreatingApplication(status);
+    try {
+      const res = await fetch('/eleva/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company: summary.company || 'Unknown company',
+          role: summary.role || 'Unknown role',
+          status,
+          job_description: jd,
+          resume_id: summary.resumeId || null,
+          cover_letter_id: summary.coverLetterId || null,
+          match_score: typeof summary.compatibility === 'number' ? Math.round(summary.compatibility) : null,
+          ats_score: summary.overall ?? null,
+          source: 'studio',
+          applied_at: status === 'applied' ? new Date().toISOString() : null,
+          notes: `Auto-created from Studio. ATS score ${summary.overall}% after tailoring${summary.keywordsAdded ? `, ${summary.keywordsAdded} keywords added` : ''}.`,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to save application');
+      toast.success(status === 'applied' ? 'Application marked as applied' : 'Application added to wishlist', {
+        description: `${summary.company || 'Unknown company'} · ${summary.role || 'Unknown role'}`,
+      });
+    } catch (e) {
+      toast.error('Could not save application', { description: (e as Error).message });
+    } finally {
+      setCreatingApplication(null);
+    }
+  }
 
   function updateStep(step: string, patch: Partial<StepState>) {
     setSteps((prev) => prev.map((s) => (s.step === step ? { ...s, ...patch } : s)));
@@ -125,14 +153,17 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
     setActiveTab('resume');
     setStepTimings({});
     startTimeRef.current = Date.now();
+    reportAiRun('Analyzing job', 'studio-pipeline');
+    let pipelineFailed = false;
+    let pipelineCompleted = false;
     const pipelineSteps: StepState[] = [
-      { step: 'extract', label: 'Reading JD & extracting signal',  status: 'idle', progress: 0 },
-      { step: 'score',   label: 'Scoring resume against JD',       status: 'idle', progress: 0 },
-      { step: 'plan',    label: 'Planning optimization strategy',   status: 'idle', progress: 0 },
-      { step: 'tailor',  label: 'Tailoring resume to job',          status: 'idle', progress: 0 },
-      { step: 'rescore', label: 'Re-scoring tailored resume',       status: 'idle', progress: 0 },
-      { step: 'review',  label: 'Recruiter reviewing resume',       status: 'idle', progress: 0 },
-      { step: 'letter',  label: 'Drafting cover letter',           status: 'idle', progress: 0 },
+      { step: 'extract', label: STEP_LABELS.extract,  status: 'idle', progress: 0 },
+      { step: 'score',   label: STEP_LABELS.score,    status: 'idle', progress: 0 },
+      { step: 'plan',    label: STEP_LABELS.plan,     status: 'idle', progress: 0 },
+      { step: 'tailor',  label: STEP_LABELS.tailor,   status: 'idle', progress: 0 },
+      { step: 'rescore', label: STEP_LABELS.rescore,  status: 'idle', progress: 0 },
+      { step: 'review',  label: STEP_LABELS.review,   status: 'idle', progress: 0 },
+      { step: 'letter',  label: STEP_LABELS.letter,   status: 'idle', progress: 0 },
     ];
     setSteps(pipelineSteps);
 
@@ -170,7 +201,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
 
           if (event === 'step') {
             const micro: MicroStatus = data.micro ? 'waiting' : data.status === 'running' ? 'waiting' : data.status === 'done' ? 'complete' : 'connecting';
-            const stepName = data.step === 'extract' ? 'Reading JD & extracting signal' : data.step === 'score' ? 'Scoring resume against JD' : data.step === 'plan' ? 'Planning optimization strategy' : data.step === 'tailor' ? 'Tailoring resume to job' : data.step === 'rescore' ? 'Re-scoring tailored resume' : data.step === 'review' ? 'Recruiter reviewing resume' : 'Drafting cover letter';
+            const stepName = STEP_LABELS[data.step] || data.step;
             addLog(`${stepName} ${data.status === 'done' ? '✓' : data.status === 'running' ? '⟳' : '✓'}`, data.status === 'done' ? 'done' : data.status === 'running' ? 'running' : 'done', data.step);
             const patch: Partial<StepState> = { status: data.status, data: data.data, progress: data.status === 'done' ? 100 : typeof data.progress === 'number' ? data.progress : 50, microStatus: micro };
             if (data.micro) patch.microText = data.micro;
@@ -185,13 +216,15 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
           } else if (event === 'letter-chunk') {
             setLetter((prev) => prev + data.text);
           } else if (event === 'done') {
-            setSummary({ overall: data.overall, previousOverall: data.previousOverall, matched: data.matched, missing: data.missing, company: data.company, role: data.role, keywordsAdded: data.keywordsAdded ?? 0, bulletsRewritten: data.bulletsRewritten ?? 0, compatibility: data.compatibility, isLowCompat: data.isLowCompat, sectionsModified: data.sectionsModified, plan: data.plan, review: data.review, sectionConfidence: data.sectionConfidence, sectionChanges: data.sectionChanges, quality: data.quality });
+            pipelineCompleted = true;
+            setSummary({ overall: data.overall, previousOverall: data.previousOverall, matched: data.matched, missing: data.missing, company: data.company, role: data.role, keywordsAdded: data.keywordsAdded ?? 0, bulletsRewritten: data.bulletsRewritten ?? 0, compatibility: data.compatibility, isLowCompat: data.isLowCompat, sectionsModified: data.sectionsModified, plan: data.plan, review: data.review, sectionConfidence: data.sectionConfidence, sectionChanges: data.sectionChanges, quality: data.quality, resumeId: data.resumeId ?? null, coverLetterId: data.coverLetterId ?? null });
             if (data.letterBody && !letter) setLetter(data.letterBody);
             const el = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
             setElapsed(el);
-            addLog(`Pipeline completed in ${el}s · ATS ${data.overall}% · ${data.matched} matched, ${data.missing} missing`, 'done');
-            toast.success('Pipeline complete', { description: `ATS ${data.overall}% — your resume scored well.` });
+            addLog(`Tailored resume ready in ${el}s · ATS ${data.overall}% · ${data.matched} keywords matched, ${data.missing} still missing`, 'done');
+            toast.success('Resume ready to apply', { description: data.previousOverall !== undefined ? `ATS ${data.previousOverall} → ${data.overall}` : `ATS ${data.overall}% — resume tailored and cover letter drafted.` });
           } else if (event === 'error') {
+            pipelineFailed = true;
             const failedStep = data.step || 'letter';
             const elapsed = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
             const errDetails: ErrorDetails = { reason: data.reason, traceId: data.traceId, elapsed: `${elapsed}s`, rawMessage: data.rawMessage || data.message, provider: data.provider, statusCode: data.statusCode };
@@ -199,8 +232,8 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
             addLog(`Failed: ${data.message || 'Unknown error'}`, 'error', failedStep);
             updateStep(failedStep, { status: 'error', error: text, errorDetails: errDetails, progress: 0 });
             setSteps((prev) => prev.map((s) => s.status === 'idle' ? { ...s, status: 'pending', progress: 0 } : s));
-            toast('Pipeline stopped', {
-              description: `${failedStep === 'extract' ? 'Reading JD' : failedStep === 'score' ? 'Scoring' : 'Cover letter'} failed. Nothing was modified.`,
+            toast('Analysis paused', {
+              description: `${failedStep === 'extract' ? 'Reading the job' : failedStep === 'score' ? 'Scoring' : 'Cover letter'} failed. Nothing was modified.`,
               duration: 4000,
             });
           }
@@ -208,17 +241,18 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
       }
     } catch (e) {
       if ((e as Error).name === 'AbortError') {
-        addLog('Pipeline aborted by user', 'error');
-        toast('Pipeline aborted', { description: 'Nothing was modified.', duration: 3000 });
+        addLog('Analysis aborted by user', 'error');
+        toast('Analysis aborted', { description: 'Nothing was modified.', duration: 3000 });
       } else {
         const errMsg = (e as Error).message || 'Unknown error';
         addLog(`Connection error: ${errMsg}`, 'error');
-        toast.error('The AI provider couldn\'t complete this request', { description: errMsg.includes('fetch') ? 'Check your network.' : 'Progress has been saved. Retry the pipeline.' });
+        toast.error("We couldn't complete this request", { description: errMsg.includes('fetch') ? 'Check your network.' : 'Progress has been saved. Retry the analysis.' });
       }
     } finally {
       clearInterval(intervalId);
       setSteps((prev) => prev.map((s) => s.status === 'running' ? { ...s, status: 'error', progress: 0, error: 'Pipeline stopped before completing this step.' } : s.status === 'idle' ? { ...s, status: 'pending', progress: 0 } : s));
       setRunning(false);
+      reportAiDone(pipelineCompleted ? 'Resume optimized' : 'Analysis', Date.now() - startTimeRef.current, 'studio-pipeline', pipelineFailed);
     }
   }
 
@@ -253,16 +287,63 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
 
   const anyError = steps.some((s) => s.status === 'error');
 
+  const stageStatus = useMemo(() => {
+    return STAGES.map((stage) => {
+      const sts = stage.steps.map((s) => steps.find((x) => x.step === s)?.status ?? 'idle');
+      if (sts.some((s) => s === 'error')) return 'error' as const;
+      if (sts.some((s) => s === 'running')) return 'running' as const;
+      if (sts.every((s) => s === 'done')) return 'done' as const;
+      if (sts.some((s) => s === 'done')) return 'partial' as const;
+      return 'idle' as const;
+    });
+  }, [steps]);
+
+  const stageTimings = useMemo(() => {
+    return STAGES.map((stage) =>
+      stage.steps.reduce((acc, s) => acc + (stepTimings[s] ?? 0), 0)
+    );
+  }, [stepTimings]);
+
+  const STAGE_TAB: Record<string, string | null> = { improve: 'resume', review: 'ats', apply: 'letter' };
+
+  const currentStage = useMemo(() => {
+    const idx = stageStatus.findIndex((s) => s !== 'done');
+    return idx === -1 ? STAGES.length - 1 : idx;
+  }, [stageStatus]);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const stepParamRef = useRef<string | null>(searchParams.get('step'));
+  useEffect(() => {
+    if (steps.length === 0) {
+      if (stepParamRef.current !== null) {
+        stepParamRef.current = null;
+        router.replace('/eleva/studio', { scroll: false });
+      }
+      return;
+    }
+    const key = STAGES[currentStage].key;
+    if (key !== stepParamRef.current) {
+      stepParamRef.current = key;
+      router.replace(key === 'job' ? '/eleva/studio' : `/eleva/studio?step=${key}`, { scroll: false });
+    }
+  }, [steps.length, currentStage, router]);
+
+  const runningStep = steps.find((s) => s.status === 'running');
+  const erroredStep = steps.find((s) => s.status === 'error');
+  const role = summary?.role || extractData?.role;
+  const company = summary?.company || extractData?.company;
+
   return (
     <div className="max-w-6xl mx-auto px-6 lg:px-10 py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-        <div className="text-[11px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Studio · Pipeline</div>
-        <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>Paste a job. Run the full stack.</h1>
-        <p className="mt-2 text-[15px] max-w-xl" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Eleva extracts signal, scores your resume, and drafts a cover letter — all in one go, streaming in real time.</p>
+        <div className="text-[11px] font-mono uppercase tracking-[0.2em] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Studio · Job → Apply</div>
+        <h1 className="font-display text-4xl md:text-5xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>Optimize your resume for a job</h1>
+        <p className="mt-2 text-[15px] max-w-xl" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Paste a job description and Eleva will analyze your match, improve your resume, and draft your application — streaming results as they happen.</p>
       </motion.div>
 
       <div className="grid lg:grid-cols-[1fr_1.3fr] gap-6">
-        {/* ─── LEFT COLUMN: Controls + Pipeline ─── */}
+        {/* ─── LEFT COLUMN: Job + Progress ─── */}
         <div className="space-y-4">
           {/* JD Input Card */}
           <div className="eleva-card p-5">
@@ -278,7 +359,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
             <AnimatePresence initial={false}>
               {!jdCollapsed && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} className="overflow-hidden">
-                  <textarea rows={jdParsed ? 3 : 7} value={jd} onChange={(e) => setJd(e.target.value)} placeholder="Paste the full JD here…" className="w-full p-4 rounded-lg text-[13px] outline-none resize-none font-mono" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} disabled={running} />
+                  <textarea rows={jdParsed ? 3 : 7} value={jd} onChange={(e) => setJd(e.target.value)} placeholder="Paste the job description here…" className="w-full p-4 rounded-lg text-[13px] outline-none resize-none font-mono" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} disabled={running} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -291,7 +372,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
 
             {resumes.length > 0 && (
               <div className="mt-3">
-                <label className="text-[11px] font-mono uppercase tracking-widest block mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Ground on resume</label>
+                <label className="text-[11px] font-mono uppercase tracking-widest block mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Resume</label>
                 <select value={resumeId} onChange={(e) => setResumeId(e.target.value)} className="w-full px-3 py-2 rounded-lg text-[13px] outline-none" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-fg))' }} disabled={running}>
                   {resumes.map((r) => <option key={r.id} value={r.id}>{r.name} {r.is_base_resume ? '· base' : ''}</option>)}
                 </select>
@@ -300,64 +381,34 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
 
             <div className="flex items-center gap-2 mt-4">
               {running ? (
-                <button onClick={abort} className="inline-flex items-center gap-2 h-10 px-4 rounded-lg text-white font-medium" style={{ background: 'rgb(220,38,38)' }}>
+                <button onClick={abort} className="inline-flex items-center gap-2 h-11 px-5 rounded-lg text-white font-medium" style={{ background: 'rgb(220,38,38)' }}>
                   <X className="w-4 h-4" /> Abort
                 </button>
               ) : (
-                <button onClick={run} disabled={!hasJd} className="inline-flex items-center gap-2 h-10 px-5 rounded-lg text-white font-medium disabled:opacity-40" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
+                <button onClick={run} disabled={!hasJd} className="inline-flex items-center gap-2 h-11 px-6 rounded-lg text-white font-medium disabled:opacity-40" style={{ background: 'linear-gradient(135deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))' }}>
                   <Sparkles className="w-4 h-4" />
-                  Run full pipeline
+                  Analyze Job
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               )}
-              <button onClick={() => { setJd(''); setSteps([]); setLetter(''); setSummary(null); setLogs([]); }} className="eleva-btn-ghost inline-flex items-center gap-2 text-[12px]" disabled={running}>
+              <button onClick={() => { setJd(''); setSteps([]); setLetter(''); setSummary(null); setLogs([]); setExtractData(null); setScoreData(null); setRescoreData(null); setTailoredResume(null); setJdParsed(false); setJdCollapsed(false); }} className="eleva-btn-ghost inline-flex items-center gap-2 text-[12px]" disabled={running}>
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
+            {!hasJd && !running && (
+              <div className="mt-2.5 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                Tip: paste the full posting for the most accurate match.
+              </div>
+            )}
           </div>
 
-          {/* Pre-flight summary */}
-          <AnimatePresence>
-            {hasJd && !running && !summary && estimateMatch && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="eleva-card p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Zap className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} />
-                  <span className="text-[11px] font-mono uppercase tracking-widest" style={{ color: 'rgb(var(--eleva-primary))' }}>Pre-flight summary</span>
-                </div>
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  {[
-                    { label: 'ATS Estimate', value: `${estimateMatch.score}%`, color: estimateMatch.score >= 80 ? 'rgb(var(--eleva-success))' : estimateMatch.score >= 60 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' },
-                    { label: 'Keywords', value: estimateMatch.keywordCount.toString(), color: 'rgb(var(--eleva-primary))' },
-                    { label: 'Match', value: `${estimateMatch.score}%`, color: 'rgb(var(--eleva-secondary))' },
-                  ].map((s) => (
-                    <div key={s.label} className="p-3 rounded-lg text-center" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                      <div className="font-display text-2xl font-bold" style={{ color: s.color }}>{s.value}</div>
-                      <div className="text-[10px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between text-[12px] p-2.5 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
-                    <span style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Estimated <strong>{estimateMatch.time}</strong></span>
-                  </div>
-                  <button onClick={run} className="font-medium inline-flex items-center gap-1" style={{ color: 'rgb(var(--eleva-primary))' }}>
-                    Run <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Pipeline Card */}
+          {/* Progress Card */}
           <div className="eleva-card p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Pipeline</div>
+                <div className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Progress</div>
                 <div className="font-display text-lg font-semibold mt-0.5" style={{ color: 'rgb(var(--eleva-fg))' }}>
-                  {running ? 'Running…' : summary ? `Completed in ${elapsed ?? '—'}s` : steps.length > 0 && anyError ? (() => {
-                    const doneCount = steps.filter((s) => s.status === 'done').length;
-                    return `Stopped after Step ${doneCount + 1} of ${steps.length}`;
-                  })() : steps.length > 0 ? 'Waiting' : 'Ready'}
+                  {running ? 'Analyzing…' : summary ? `Done in ${elapsed ?? '—'}s` : steps.length > 0 && anyError ? 'Paused' : steps.length > 0 ? 'In progress' : 'Ready'}
                 </div>
               </div>
               {summary && (
@@ -380,220 +431,93 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
               )}
             </div>
 
-            <div className="space-y-3">
-              {(running || steps.length > 0 ? steps : emptySteps).map((s: StepState) => (
-                <div key={s.step} className="p-3 rounded-lg" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                  <div className="flex items-center gap-3 mb-2">
+            {/* Workflow stages */}
+            <div className="space-y-2.5">
+              {STAGES.map((stage, i) => {
+                const status = stageStatus[i];
+                const isCurrent = i === currentStage;
+                const tabTarget = status === 'done' || status === 'partial' ? STAGE_TAB[stage.key] : null;
+                const doneTiming = status === 'done' ? stageTimings[i] : null;
+                return (
+                  <div key={stage.key} onClick={() => { if (tabTarget) setActiveTab(tabTarget); }} className={`flex items-center gap-3 p-3 rounded-lg transition-all ${tabTarget ? 'cursor-pointer hover:opacity-90' : ''}`} style={{ background: status === 'running' || isCurrent ? 'rgba(var(--eleva-primary-rgb), 0.06)' : 'rgb(var(--eleva-muted))' }}>
                     <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0" style={{
-                      background: s.status === 'done' ? 'rgb(var(--eleva-success))' :
-                                   s.status === 'running' ? 'rgb(var(--eleva-primary))' :
-                                   s.status === 'error' ? 'rgb(220,38,38)' :
-                                   s.status === 'pending' ? 'rgb(var(--eleva-muted))' : 'rgb(var(--eleva-card))',
-                      color: s.status === 'idle' ? 'rgb(var(--eleva-muted-fg))' : '#fff',
+                      background: status === 'done' ? 'rgb(var(--eleva-success))' :
+                                   status === 'running' ? 'rgb(var(--eleva-primary))' :
+                                   status === 'error' ? 'rgb(220,38,38)' : 'rgb(var(--eleva-card))',
+                      color: status === 'done' || status === 'running' || status === 'error' ? '#fff' : 'rgb(var(--eleva-muted-fg))',
+                      border: status === 'done' || status === 'error' ? 'none' : '1px solid rgb(var(--eleva-border))',
                     }}>
-                      {s.status === 'running' ? <Loader2 className="w-3 h-3 animate-spin" /> :
-                       s.status === 'done' ? <CheckCircle2 className="w-3 h-3" /> :
-                       s.status === 'error' ? <X className="w-3 h-3" /> :
-                       s.status === 'pending' ? <Clock className="w-3 h-3" /> :
-                       <div className="w-1.5 h-1.5 rounded-full bg-current" />}
+                      {status === 'running' ? <Loader2 className="w-3 h-3 animate-spin" /> :
+                       status === 'done' ? <CheckCircle2 className="w-3 h-3" /> :
+                       status === 'error' ? <X className="w-3 h-3" /> :
+                       <span className="text-[10px] font-mono">{i + 1}</span>}
                     </div>
-                    <span className="flex-1 text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.label}</span>
-                    {s.status === 'running' && (
-                      <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                        {Math.round(s.progress || 0)}%
+                    <span className="flex-1 text-[13px] font-medium" style={{ color: status === 'idle' ? 'rgb(var(--eleva-muted-fg))' : 'rgb(var(--eleva-fg))' }}>
+                      {stage.label}
+                    </span>
+                    {status === 'running' && runningStep && (
+                      <span className="text-[10px] font-mono max-w-[40%] truncate" style={{ color: 'rgb(var(--eleva-primary))' }}>
+                        {runningStep.microText || Math.round(runningStep.progress || 0)}%
                       </span>
                     )}
-                    {s.status === 'done' && (
-                      <CheckCircle2 className="w-4 h-4" style={{ color: 'rgb(var(--eleva-success))' }} />
+                    {doneTiming != null && (
+                      <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                        {(doneTiming / 1000).toFixed(1)}s
+                      </span>
                     )}
+                    {status === 'partial' && <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>…</span>}
+                    {status === 'done' && tabTarget && <ChevronRight className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />}
                   </div>
-                  {s.status === 'running' && s.microStatus && s.microStatus !== 'complete' && (
-                    <div className="flex items-center gap-2 mt-1 mb-2 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                      <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'rgb(var(--eleva-primary))' }} />
-                      {s.microText || MICRO_LABELS[s.microStatus]}
-                    </div>
-                  )}
-                  {s.status === 'pending' && (
-                    <div className="flex items-center gap-2 mt-1 mb-2 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgb(var(--eleva-muted-fg))' }} />
-                      Waiting for previous step
-                    </div>
-                  )}
-                  {s.status !== 'idle' && s.status !== 'error' && s.status !== 'pending' && (
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--eleva-card))' }}>
-                      <div className="h-full rounded-full" style={{
-                        width: s.status === 'running' ? `${s.progress || 5}%` : s.status === 'done' ? '100%' : '0%',
-                        background: s.status === 'done' ? 'rgb(var(--eleva-success))' : 'linear-gradient(90deg, rgb(var(--eleva-primary)), rgb(var(--eleva-secondary)))',
-                        transition: 'width 0.6s ease-out',
-                      }} />
-                    </div>
-                  )}
-                  {s.status === 'error' && (
-                    <motion.div initial={{ x: 0 }} animate={{ x: [0, -4, 4, -2, 2, 0] }} transition={{ duration: 0.4 }} className="mt-2 space-y-2">
-                      <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: 'rgba(220,38,38,0.08)' }}>
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(220,38,38)' }} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <p className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.error || 'Something went wrong'}</p>
-                            {s.errorDetails?.reason && (() => {
-                              const { diagnosis, confidence } = friendlyError(s.errorDetails?.reason, undefined, s.step);
-                              return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono" style={{ background: 'rgba(220,38,38,0.1)', color: 'rgb(220,38,38)' }}><Scan className="w-2.5 h-2.5" />{diagnosis} · {confidence} confidence</span>);
-                            })()}
-                          </div>
-                          <p className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Nothing has been changed.</p>
-                          {s.errorDetails?.traceId && (<>
-                            <button onClick={() => setShowErrorDetails(showErrorDetails === s.step ? null : s.step)} className="inline-flex items-center gap-1 mt-2 text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                              {showErrorDetails === s.step ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />} Technical details
-                            </button>
-                            {showErrorDetails === s.step && s.errorDetails && (
-                              <div className="mt-2 p-2.5 rounded text-[10px] font-mono space-y-1" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                  {s.errorDetails?.rawMessage && <><span className="opacity-60 col-span-2 text-[9px] mb-0.5">Raw</span><span className="col-span-2 text-[10px] break-all" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.errorDetails.rawMessage}</span></>}
-                                  {s.errorDetails.model && <><span className="opacity-60">Model</span><span>{s.errorDetails.model}</span></>}
-                                  {s.errorDetails.provider && <><span className="opacity-60">Provider</span><span>{s.errorDetails.provider}</span></>}
-                                  {s.errorDetails.elapsed && <><span className="opacity-60">Duration</span><span>{s.errorDetails.elapsed}</span></>}
-                                  {s.errorDetails.reason && <><span className="opacity-60">Reason</span><span>{s.errorDetails.reason}</span></>}
-                                </div>
-                              </div>
-                            )}
-                          </>)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => retryFrom(s.step)} className="inline-flex items-center gap-1.5 text-[11px] font-medium h-7 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-primary))', border: '1px solid rgb(var(--eleva-border))' }}>
-                          <RefreshCw className="w-3 h-3" /> Retry
-                        </motion.button>
-                        <button onClick={() => { const d = [s.errorDetails?.model && `Model: ${s.errorDetails.model}`, s.errorDetails?.provider && `Provider: ${s.errorDetails.provider}`, `Step: ${s.label}`, `Error: ${s.error}`, s.errorDetails?.reason && `Reason: ${s.errorDetails.reason}`, s.errorDetails?.traceId && `Trace: ${s.errorDetails.traceId}`].filter(Boolean).join('\n'); navigator.clipboard.writeText(d); toast('Copied', { duration: 2000 }); }} className="ml-auto inline-flex items-center gap-1 text-[10px] h-7 px-2 rounded-lg" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                          <Copy className="w-3 h-3" /> Copy
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                  {s.status === 'done' && !!s.data && <StepDetail step={s.step} data={s.data} />}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Summary Dashboard Card */}
-            {summary && !running && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-5 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(var(--eleva-success-rgb), 0.08), rgba(var(--eleva-primary-rgb), 0.06))', border: '1px solid rgba(var(--eleva-success-rgb), 0.15)' }}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5" style={{ color: 'rgb(var(--eleva-warning))' }} />
-                    <span className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Application Ready</span>
-                  </div>
-                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.2 }} className="px-3 py-1 rounded-full text-[10px] font-mono font-semibold" style={{ background: 'rgba(var(--eleva-success-rgb), 0.15)', color: 'rgb(var(--eleva-success))' }}>
-                    ★★★★★
-                  </motion.div>
-                </div>
+            {runningStep && runningStep.microStatus && runningStep.microStatus !== 'complete' && (
+              <div className="flex items-center gap-2 mt-3 text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'rgb(var(--eleva-primary))' }} />
+                {runningStep.microText || MICRO_LABELS[runningStep.microStatus]}
+              </div>
+            )}
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
-                    <div className="flex items-center justify-center gap-1">
-                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-display text-2xl font-bold" style={{ color: summary.overall >= summary.previousOverall! ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-danger))' }}>{summary.overall}%</motion.span>
-                      {summary.previousOverall !== undefined && (
-                        <motion.span initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-[11px] font-mono" style={{ color: summary.overall >= summary.previousOverall ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-danger))' }}>
-                          <TrendingUp className="w-3 h-3 inline mr-0.5" />+{summary.overall - summary.previousOverall}
-                        </motion.span>
-                      )}
+            {/* Error panel */}
+            {erroredStep && (
+              <motion.div initial={{ x: 0 }} animate={{ x: [0, -4, 4, -2, 2, 0] }} transition={{ duration: 0.4 }} className="mt-3 space-y-2">
+                <div className="flex items-start gap-2 p-3 rounded-lg" style={{ background: 'rgba(220,38,38,0.08)' }}>
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(220,38,38)' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <p className="text-[13px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>{erroredStep.error || 'Something went wrong'}</p>
+                      {erroredStep.errorDetails?.reason && (() => {
+                        const { diagnosis, confidence } = friendlyError(erroredStep.errorDetails?.reason, undefined, erroredStep.step);
+                        return (<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono" style={{ background: 'rgba(220,38,38,0.1)', color: 'rgb(220,38,38)' }}><Scan className="w-2.5 h-2.5" />{diagnosis} · {confidence} confidence</span>);
+                      })()}
                     </div>
-                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>ATS Score</div>
-                    {summary.previousOverall !== undefined && (
-                      <div className="text-[9px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{summary.previousOverall}% → {summary.overall}%</div>
-                    )}
-                  </div>
-                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
-                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-primary))' }}>{summary.keywordsAdded}</div>
-                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Keywords Added</div>
-                  </div>
-                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
-                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-secondary))' }}>{summary.bulletsRewritten}</div>
-                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Bullets Rewritten</div>
-                  </div>
-                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
-                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-accent))' }}>{summary.matched}</div>
-                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Keywords Matched</div>
-                  </div>
-                </div>
-
-                {/* Compatibility Warning */}
-                {summary.isLowCompat && (
-                  <div className="p-3 rounded-xl mb-3" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.1)', border: '1px solid rgba(var(--eleva-warning-rgb), 0.2)' }}>
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
-                      <div>
-                        <div className="text-[11px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Low Job Compatibility</div>
-                        <div className="text-[10px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                          This role ({summary.role || 'unknown'}) differs significantly from your resume. The AI optimized wording and transferable skills but could not fabricate missing experience ({summary.compatibility}% match).
-                        </div>
-                        <div className="text-[10px] mt-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                          Recommendation: Create or select a resume with software engineering experience for best results.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* AI Improvements */}
-                <div className="p-3 rounded-xl" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.06)' }}>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Lightbulb className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
-                    <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Improvements</span>
-                  </div>
-                  <div className="space-y-1">
-                    {summary.sectionsModified ? (
-                      <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.sectionsModified} sections rewritten</span></div>
-                    ) : null}
-                    {summary.keywordsAdded > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>Added {summary.keywordsAdded} missing keywords</span></div>}
-                    {summary.bulletsRewritten > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>Rewrote {summary.bulletsRewritten} bullets</span></div>}
-                    {summary.matched > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.matched} keywords matched</span></div>}
-                    {summary.missing > 0 && <div className="flex items-center gap-2 text-[11px]"><AlertTriangle className="w-3 h-3" style={{ color: 'rgb(var(--eleva-warning))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.missing} keywords still missing</span></div>}
-                  </div>
-                </div>
-
-                {/* Pipeline Timeline */}
-                {elapsed && (
-                  <div className="p-3 rounded-xl mb-4" style={{ background: 'rgba(var(--eleva-card), 0.5)' }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-primary))' }} />
-                        <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Pipeline</span>
-                      </div>
-                      <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{elapsed}s total</span>
-                    </div>
-                    <div className="space-y-1">
-                      {steps.filter(s => s.status === 'done').map((s) => {
-                        const timing = stepTimings[s.step];
-                        const stepLabels: Record<string, string> = {
-                          extract: 'Resume Parsed',
-                          score: 'ATS Analyzed',
-                          plan: 'Optimization Planned',
-                          tailor: 'Sections Rewritten',
-                          rescore: 'ATS Recalculated',
-                          review: 'Recruiter Reviewed',
-                          letter: 'Cover Letter Written',
-                        };
-                        return (
-                          <div key={s.step} className="flex items-center gap-2 py-1">
-                            <CheckCircle2 className="w-3 h-3 shrink-0" style={{ color: 'rgb(var(--eleva-success))' }} />
-                            <span className="flex-1 text-[11px]" style={{ color: 'rgb(var(--eleva-fg))' }}>{stepLabels[s.step] || s.step}</span>
-                            {timing !== undefined && (
-                              <span className="text-[9px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{(timing / 1000).toFixed(1)}s</span>
-                            )}
+                    <p className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Nothing has been changed.</p>
+                    {erroredStep.errorDetails?.traceId && (<>
+                      <button onClick={() => setShowErrorDetails(showErrorDetails === erroredStep.step ? null : erroredStep.step)} className="inline-flex items-center gap-1 mt-2 text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                        {showErrorDetails === erroredStep.step ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />} Technical details
+                      </button>
+                      {showErrorDetails === erroredStep.step && erroredStep.errorDetails && (
+                        <div className="mt-2 p-2.5 rounded text-[10px] font-mono space-y-1" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            {erroredStep.errorDetails?.rawMessage && <><span className="opacity-60 col-span-2 text-[9px] mb-0.5">Raw</span><span className="col-span-2 text-[10px] break-all" style={{ color: 'rgb(var(--eleva-fg))' }}>{erroredStep.errorDetails.rawMessage}</span></>}
+                            {erroredStep.errorDetails.model && <><span className="opacity-60">Model</span><span>{erroredStep.errorDetails.model}</span></>}
+                            {erroredStep.errorDetails.provider && <><span className="opacity-60">Provider</span><span>{erroredStep.errorDetails.provider}</span></>}
+                            {erroredStep.errorDetails.elapsed && <><span className="opacity-60">Duration</span><span>{erroredStep.errorDetails.elapsed}</span></>}
+                            {erroredStep.errorDetails.reason && <><span className="opacity-60">Reason</span><span>{erroredStep.errorDetails.reason}</span></>}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      )}
+                    </>)}
                   </div>
-                )}
-
-                <div className="flex items-center justify-between mt-4">
-                  <Link href="/eleva/resumes" className="eleva-btn-ghost text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg" style={{ border: '1px solid rgb(var(--eleva-border))' }}>
-                    <FileText className="w-3 h-3" /> View Resume
-                  </Link>
-                  <Link href="/eleva/ats" className="eleva-btn-primary text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg">
-                    <Target className="w-3 h-3" /> Open ATS
-                  </Link>
+                </div>
+                <div className="flex items-center gap-2">
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => retryFrom(erroredStep.step)} className="inline-flex items-center gap-1.5 text-[11px] font-medium h-7 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-primary))', border: '1px solid rgb(var(--eleva-border))' }}>
+                    <RefreshCw className="w-3 h-3" /> Retry
+                  </motion.button>
+                  <button onClick={() => { const d = [erroredStep.errorDetails?.model && `Model: ${erroredStep.errorDetails.model}`, erroredStep.errorDetails?.provider && `Provider: ${erroredStep.errorDetails.provider}`, `Step: ${erroredStep.label}`, `Error: ${erroredStep.error}`, erroredStep.errorDetails?.reason && `Reason: ${erroredStep.errorDetails.reason}`, erroredStep.errorDetails?.traceId && `Trace: ${erroredStep.errorDetails.traceId}`].filter(Boolean).join('\n'); navigator.clipboard.writeText(d); toast('Copied', { duration: 2000 }); }} className="ml-auto inline-flex items-center gap-1 text-[10px] h-7 px-2 rounded-lg" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                    <Copy className="w-3 h-3" /> Copy
+                  </button>
                 </div>
               </motion.div>
             )}
@@ -605,7 +529,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
               </div>
             )}
 
-            {/* Pipeline Activity Logs */}
+            {/* Activity Logs */}
             {logs.length > 0 && (
               <div className="mt-4">
                 <button onClick={() => setShowLogs(!showLogs)} className="flex items-center gap-1.5 text-[11px] font-medium h-8 w-full justify-center rounded-lg" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
@@ -634,59 +558,141 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
           </div>
         </div>
 
-        {/* ─── RIGHT COLUMN: Workspace Tabs ─── */}
+        {/* ─── RIGHT COLUMN: Live Results ─── */}
         <div className="space-y-4">
-          {!summary ? (
-            <>
-              {/* Pre-flight quick links */}
-              {!running && !anyError && !jdParsed && (
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { icon: Wand2, title: 'Tailor Resume', href: '/eleva/editor', desc: 'Rewrite bullets' },
-                    { icon: Target, title: 'Score ATS', href: '/eleva/ats', desc: 'Detailed scorecard' },
-                    { icon: Mail, title: 'Cover Letter', href: '/eleva/cover-letters', desc: 'Standalone generator' },
-                    { icon: FileText, title: 'Version History', href: '/eleva/resumes', desc: 'All snapshots' },
-                  ].map((a) => (
-                    <Link key={a.title} href={a.href} className="p-3 rounded-lg flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                      <a.icon className="w-4 h-4 shrink-0" style={{ color: 'rgb(var(--eleva-primary))' }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[12px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{a.title}</div>
-                        <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{a.desc}</div>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
-                    </Link>
-                  ))}
+          {/* AI Analysis — live results panel */}
+          <div className="eleva-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />
+                <span className="text-[11px] font-mono uppercase tracking-[0.2em]" style={{ color: 'rgb(var(--eleva-primary))' }}>AI Analysis</span>
+              </div>
+              {(role || company) && (
+                <div className="text-right leading-tight">
+                  {role && <div className="text-[13px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{role}</div>}
+                  {company && <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{company}</div>}
                 </div>
               )}
+            </div>
 
-              {/* Detected skills card */}
-              {jdParsed && !running && !summary && (() => {
-                const techKeywords = ['React', 'Node', 'TypeScript', 'JavaScript', 'Python', 'AWS', 'Docker', 'Kubernetes', 'SQL', 'Redis', 'GraphQL', 'REST', 'CSS', 'HTML', 'Git', 'CI/CD', 'PostgreSQL', 'MongoDB', 'Express', 'Next.js', 'Vue', 'Angular', 'Go', 'Rust', 'Java', 'Kafka', 'Microservices'];
-                const detected = techKeywords.filter((k) => jd.includes(k)).slice(0, 10);
-                const seniority = jd.match(/\b(Senior|Lead|Staff|Principal|Junior|Mid-level|Senior-level|Entry)\b/i)?.[1] || '—';
-                return (
-                  <div className="eleva-card p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Scan className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} />
-                      <span className="text-[11px] font-mono uppercase tracking-widest" style={{ color: 'rgb(var(--eleva-primary))' }}>JD Signal</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>{seniority}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-secondary-rgb), 0.1)', color: 'rgb(var(--eleva-secondary))' }}>{jd.toLowerCase().includes('remote') ? 'Remote' : 'On-site'}</span>
-                    </div>
-                    {detected.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {detected.map((k) => (<span key={k} className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.06)', color: 'rgb(var(--eleva-fg))' }}>{k}</span>))}
+            {!running && steps.length === 0 && !summary && (
+              <div className="text-center py-10">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.08)' }}>
+                  <Target className="w-6 h-6" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.5} />
+                </div>
+                <div className="text-[14px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Your match analysis will appear here</div>
+                <p className="text-[12px] mt-1 max-w-xs mx-auto" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                  Paste a job description and press Analyze Job to see how your resume compares.
+                </p>
+              </div>
+            )}
+
+            {(running || steps.length > 0 || summary) && (() => {
+              const live = rescoreData || scoreData || null;
+              const atsVal = live ? Number(live.overall ?? 0) : summary ? summary.overall : 0;
+              const matchVal = live ? Number(live.keyword ?? 0) : summary ? summary.matched : 0;
+              const fmtVal = live ? Number(live.formatting ?? 0) : 0;
+              const matchedSkills: string[] = live?.matched ?? [];
+              const missingSkills: string[] = live?.missing ?? [];
+              return (
+              <div className="space-y-4">
+                {/* Score tiles */}
+                {(scoreData || summary) && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Match', value: matchVal, suffix: '%', color: 'rgb(var(--eleva-secondary))' },
+                      { label: 'ATS', value: atsVal, suffix: '/100', color: 'rgb(var(--eleva-primary))' },
+                      { label: 'Formatting', value: fmtVal, suffix: '%', color: 'rgb(var(--eleva-accent))' },
+                    ].map((t) => (
+                      <div key={t.label} className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', border: '1px solid rgb(var(--eleva-border))' }}>
+                        <div className="text-[9px] font-mono uppercase tracking-widest" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{t.label}</div>
+                        <div className="font-display text-2xl md:text-3xl font-bold mt-1" style={{ color: t.color }}>{t.value}{t.suffix}</div>
                       </div>
-                    )}
-                    <div className="mt-2 flex items-center gap-2 text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                      <Lightbulb className="w-3 h-3" />
-                      Run pipeline for full analysis
+                    ))}
+                  </div>
+                )}
+
+                {/* Matched skills */}
+                {matchedSkills.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: 'rgb(var(--eleva-success))' }}>Matched Skills</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {matchedSkills.slice(0, 10).map((k) => (
+                        <span key={k} className="px-2 py-1 rounded-lg text-[11px] font-mono" style={{ background: 'rgba(var(--eleva-success-rgb), 0.1)', color: 'rgb(var(--eleva-success))' }}>{k}</span>
+                      ))}
+                      {matchedSkills.length > 10 && (
+                        <span className="px-2 py-1 rounded-lg text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>+{matchedSkills.length - 10}</span>
+                      )}
                     </div>
                   </div>
-                );
-              })()}
+                )}
 
+                {/* Missing skills */}
+                {missingSkills.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest mb-2" style={{ color: 'rgb(var(--eleva-warning))' }}>Missing Skills</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {missingSkills.slice(0, 10).map((k) => (
+                        <span key={k} className="px-2 py-1 rounded-lg text-[11px] font-mono" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.1)', color: 'rgb(var(--eleva-warning))' }}>{k}</span>
+                      ))}
+                      {missingSkills.length > 10 && (
+                        <span className="px-2 py-1 rounded-lg text-[11px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>+{missingSkills.length - 10}</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] mt-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                      {missingSkills.length} skills could improve this resume
+                    </div>
+                  </div>
+                )}
+
+                {/* Recommended changes */}
+                {(summary || steps.some((s) => s.step === 'tailor' && s.status === 'done')) && (
+                  <div className="p-3 rounded-xl" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.06)' }}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Lightbulb className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
+                      <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recommended Changes</span>
+                    </div>
+                    <div className="space-y-1">
+                      {summary?.sectionsModified ? (
+                        <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.sectionsModified} sections rewritten</span></div>
+                      ) : null}
+                      {summary?.keywordsAdded ? (
+                        <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.keywordsAdded} keywords added</span></div>
+                      ) : null}
+                      {summary?.bulletsRewritten ? (
+                        <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.bulletsRewritten} bullets improved</span></div>
+                      ) : null}
+                      {!summary && <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Analyzing which changes would improve your match…</div>}
+                    </div>
+                  </div>
+                )}
+
+                {summary && !running && (
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-[12px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                      {summary.previousOverall !== undefined && summary.overall !== summary.previousOverall ? (
+                        <><strong style={{ color: 'rgb(var(--eleva-success))' }}>{summary.previousOverall} → {summary.overall}</strong> ATS · improved by {summary.overall - summary.previousOverall}</>
+                      ) : (
+                        <strong style={{ color: 'rgb(var(--eleva-success))' }}>ATS {summary.overall}/100</strong>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link href="/eleva/resumes" className="eleva-btn-ghost text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg" style={{ border: '1px solid rgb(var(--eleva-border))' }}>
+                        <FileText className="w-3 h-3" /> View Resume
+                      </Link>
+                      <Link href="/eleva/cover-letters" className="eleva-btn-primary text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg">
+                        <Mail className="w-3 h-3" /> Cover Letter
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+              );
+            })()}
+          </div>
+
+          {!summary ? (
+            <>
               {/* Cover letter streaming */}
               <AnimatePresence>
                 {(letter || running) && (
@@ -718,7 +724,117 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
               </AnimatePresence>
             </>
           ) : (
-            /* ─── Tabbed Workspace ─── */
+            /* ─── Application Ready + Tabbed Workspace ─── */
+            <>
+            {summary && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="p-5 rounded-xl" style={{ background: 'linear-gradient(135deg, rgba(var(--eleva-success-rgb), 0.08), rgba(var(--eleva-primary-rgb), 0.06))', border: '1px solid rgba(var(--eleva-success-rgb), 0.15)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5" style={{ color: 'rgb(var(--eleva-warning))' }} />
+                    <div>
+                      <div className="font-display text-lg font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Application Ready</div>
+                      {role && <div className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{role}{company ? ` · ${company}` : ''}</div>}
+                    </div>
+                  </div>
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.2 }} className="px-3 py-1 rounded-full text-[10px] font-mono font-semibold" style={{ background: 'rgba(var(--eleva-success-rgb), 0.15)', color: 'rgb(var(--eleva-success))' }}>
+                    ★★★★★
+                  </motion.div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
+                    <div className="flex items-center justify-center gap-1">
+                      <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="font-display text-2xl font-bold" style={{ color: summary.overall >= (summary.previousOverall ?? 0) ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-danger))' }}>{summary.overall}%</motion.span>
+                      {summary.previousOverall !== undefined && (
+                        <motion.span initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-[11px] font-mono" style={{ color: summary.overall >= summary.previousOverall ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-danger))' }}>
+                          <TrendingUp className="w-3 h-3 inline mr-0.5" />+{summary.overall - summary.previousOverall}
+                        </motion.span>
+                      )}
+                    </div>
+                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>ATS Score</div>
+                    {summary.previousOverall !== undefined && (
+                      <div className="text-[9px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{summary.previousOverall}% → {summary.overall}%</div>
+                    )}
+                  </div>
+                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
+                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-primary))' }}>{summary.keywordsAdded}</div>
+                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Keywords Added</div>
+                  </div>
+                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
+                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-secondary))' }}>{summary.bulletsRewritten}</div>
+                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Bullets Rewritten</div>
+                  </div>
+                  <div className="p-3 rounded-xl text-center" style={{ background: 'rgba(var(--eleva-card), 0.7)', backdropFilter: 'blur(8px)' }}>
+                    <div className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--eleva-accent))' }}>{summary.matched}</div>
+                    <div className="text-[9px] font-mono mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Keywords Matched</div>
+                  </div>
+                </div>
+
+                {summary.isLowCompat && (
+                  <div className="p-3 rounded-xl mb-3" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.1)', border: '1px solid rgba(var(--eleva-warning-rgb), 0.2)' }}>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
+                      <div>
+                        <div className="text-[11px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Low Job Compatibility</div>
+                        <div className="text-[10px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                          This role ({summary.role || 'unknown'}) differs significantly from your resume. The AI optimized wording and transferable skills but could not fabricate missing experience ({summary.compatibility}% match).
+                        </div>
+                        <div className="text-[10px] mt-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+                          Recommendation: Create or select a resume with software engineering experience for best results.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.06)' }}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Lightbulb className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
+                    <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI Improvements</span>
+                  </div>
+                  <div className="space-y-1">
+                    {summary.sectionsModified ? (
+                      <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.sectionsModified} sections rewritten</span></div>
+                    ) : null}
+                    {summary.keywordsAdded > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>Added {summary.keywordsAdded} missing keywords</span></div>}
+                    {summary.bulletsRewritten > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>Rewrote {summary.bulletsRewritten} bullets</span></div>}
+                    {summary.matched > 0 && <div className="flex items-center gap-2 text-[11px]"><CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.matched} keywords matched</span></div>}
+                    {summary.missing > 0 && <div className="flex items-center gap-2 text-[11px]"><AlertTriangle className="w-3 h-3" style={{ color: 'rgb(var(--eleva-warning))' }} /><span style={{ color: 'rgb(var(--eleva-fg))' }}>{summary.missing} keywords still missing</span></div>}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between mt-4 gap-2 flex-wrap">
+                  <Link href="/eleva/resumes" className="eleva-btn-ghost text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg" style={{ border: '1px solid rgb(var(--eleva-border))' }}>
+                    <FileText className="w-3 h-3" /> View Resume
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/eleva/cover-letters?company=${encodeURIComponent(summary.company ?? '')}&role=${encodeURIComponent(summary.role ?? '')}`} className="eleva-btn-ghost text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg" style={{ border: '1px solid rgb(var(--eleva-border))' }}>
+                      <Mail className="w-3 h-3" /> Cover Letter
+                    </Link>
+                    <button
+                      onClick={() => createApplication('wishlist')}
+                      disabled={!!creatingApplication}
+                      className="eleva-btn-ghost text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                      style={{ border: '1px solid rgb(var(--eleva-border))' }}
+                    >
+                      {creatingApplication === 'wishlist' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Add to Applications
+                    </button>
+                    <button
+                      onClick={() => createApplication('applied')}
+                      disabled={!!creatingApplication}
+                      className="eleva-btn-primary text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg disabled:opacity-50"
+                    >
+                      {creatingApplication === 'applied' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Mark as Applied
+                    </button>
+                    <Link href="/eleva/ats" className="eleva-btn-primary text-[11px] inline-flex items-center gap-1 px-3 py-1.5 rounded-lg">
+                      <Target className="w-3 h-3" /> Open ATS
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Tabbed Workspace */}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="eleva-card">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="px-5 pt-4 pb-0 border-b" style={{ borderColor: 'rgb(var(--eleva-border))' }}>
@@ -1365,6 +1481,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                 </TabsContent>
               </Tabs>
             </motion.div>
+            </>
           )}
         </div>
       </div>
@@ -1372,244 +1489,3 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
   );
 }
 
-function StepDetail({ step, data }: { step: string; data: unknown }) {
-  const d = data as Record<string, unknown>;
-  if (step === 'extract') {
-    const skills = (d.required_skills ?? []) as string[];
-    const nice = (d.nice_to_have ?? []) as string[];
-    const reasoning = [
-      `Detected ${d.role ?? 'unknown'} role at ${d.company ?? 'unknown'}.`,
-      `Identified ${skills.length} required skills, ${nice.length} nice-to-haves.`,
-      `Ignored company benefits, culture, and location sections.`,
-    ];
-    return (
-      <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgb(var(--eleva-border))' }}>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          {[
-            { label: 'Company', value: String(d.company ?? '—') },
-            { label: 'Role', value: String(d.role ?? '—') },
-            { label: 'Experience', value: nice.length > 0 ? `${nice.length}+ yrs` : '—' },
-            { label: 'Skills detected', value: `${skills.length}` },
-          ].map((s) => (
-            <div key={s.label} className="p-2 rounded-lg" style={{ background: 'rgb(var(--eleva-card))' }}>
-              <div className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</div>
-              <div className="text-[13px] font-semibold mt-0.5" style={{ color: 'rgb(var(--eleva-fg))' }}>{s.value}</div>
-            </div>
-          ))}
-        </div>
-        <div className="text-[10px] font-medium mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Detected skills</div>
-        <div className="flex flex-wrap gap-1">
-          {skills.slice(0, 8).map((s: string) => (
-            <span key={s} className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>{s}</span>
-          ))}
-          {skills.length > 8 && <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>+{skills.length - 8}</span>}
-        </div>
-        {/* AI Reasoning */}
-        <div className="mt-2 p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.04)' }}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <Scan className="w-3 h-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
-            <span className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI reasoning</span>
-            <span className="ml-auto text-[10px]" style={{ color: 'rgb(var(--eleva-success))' }}>Confidence 96%</span>
-          </div>
-          <ul className="space-y-0.5">
-            {(reasoning ?? []).map((r, i) => (
-              <li key={i} className="text-[10px] flex items-start gap-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                <span className="w-1 h-1 rounded-full mt-1 shrink-0" style={{ background: 'rgb(var(--eleva-primary))' }} />
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-  if (step === 'score') {
-    const kw = Number(d.keyword ?? 0);
-    const matched = (d.matched ?? []) as string[];
-    const missing = (d.missing ?? []) as string[];
-    const reasoning = [
-      `Matched ${matched.length} keywords from your resume.`,
-      `Missing ${missing.length} keywords — consider adding them.`,
-      `Impact is ${String(d.impact ?? 'N/A')}% — ${Number(d.impact ?? 0) >= 80 ? 'strong achievement language.' : Number(d.impact ?? 0) >= 60 ? 'could use more metrics.' : 'needs more measurable results.'}`,
-    ];
-    return (
-      <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgb(var(--eleva-border))' }}>
-        <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgb(var(--eleva-card))' }}>
-            <div className="font-display text-xl font-bold" style={{ color: 'rgb(var(--eleva-success))' }}>{matched.length}</div>
-            <div className="text-[9px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Matched</div>
-          </div>
-          <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgb(var(--eleva-card))' }}>
-            <div className="font-display text-xl font-bold" style={{ color: 'rgb(var(--eleva-danger))' }}>{missing.length}</div>
-            <div className="text-[9px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Missing</div>
-          </div>
-          <div className="p-2.5 rounded-lg text-center" style={{ background: 'rgb(var(--eleva-card))' }}>
-            <div className="font-display text-xl font-bold" style={{ color: Number(d.impact ?? 0) >= 80 ? 'rgb(var(--eleva-success))' : Number(d.impact ?? 0) >= 60 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' }}>{String(d.impact ?? '')}%</div>
-            <div className="text-[9px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Impact</div>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-1.5 mb-2">
-          {[
-            { label: 'KW', value: `${kw}%`, color: kw >= 80 ? 'rgb(var(--eleva-success))' : kw >= 55 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' },
-            { label: 'Fmt', value: `${String(d.formatting ?? '')}%`, color: Number(d.formatting ?? 0) >= 80 ? 'rgb(var(--eleva-success))' : Number(d.formatting ?? 0) >= 60 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' },
-            { label: 'Read', value: `${String(d.readability ?? '')}%`, color: Number(d.readability ?? 0) >= 80 ? 'rgb(var(--eleva-success))' : Number(d.readability ?? 0) >= 60 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center gap-1.5 p-1.5 rounded text-[10px]" style={{ background: 'rgb(var(--eleva-card))' }}>
-              <span style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{s.label}</span>
-              <span className="font-semibold font-mono" style={{ color: s.color }}>{s.value}</span>
-            </div>
-          ))}
-        </div>
-        {(d.suggestions as unknown as Array<{ type: string; text: string; action: string }>)?.slice(0, 2).map((sg, i) => (
-          <div key={i} className="flex items-center gap-1.5 p-1.5 rounded text-[10px] mb-1" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.06)' }}>
-            <Lightbulb className="w-3 h-3 shrink-0" style={{ color: 'rgb(var(--eleva-warning))' }} />
-            <span style={{ color: 'rgb(var(--eleva-fg))' }}>{sg.text}</span>
-          </div>
-        ))}
-        {/* AI Reasoning */}
-        <div className="mt-2 p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.04)' }}>
-          <div className="flex items-center gap-1.5 mb-1">
-            <Scan className="w-3 h-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
-            <span className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>AI reasoning</span>
-            <span className="ml-auto text-[10px]" style={{ color: 'rgb(var(--eleva-success))' }}>Confidence 96%</span>
-          </div>
-          <ul className="space-y-0.5">
-            {(reasoning ?? []).map((r, i) => (
-              <li key={i} className="text-[10px] flex items-start gap-1.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                <span className="w-1 h-1 rounded-full mt-1 shrink-0" style={{ background: 'rgb(var(--eleva-primary))' }} />
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    );
-  }
-  if (step === 'plan') {
-    const p = d as any;
-    const tSkills = (p.transferableSkills ?? []) as Array<{from: string; to: string; confidence: number}>;
-    return (
-      <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgb(var(--eleva-border))' }}>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div className="p-2 rounded-lg" style={{ background: 'rgb(var(--eleva-card))' }}>
-            <div className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Compatibility</div>
-            <div className="font-display text-lg font-bold" style={{ color: p.compatibility >= 60 ? 'rgb(var(--eleva-success))' : p.compatibility >= 35 ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-danger))' }}>{p.compatibility}%</div>
-          </div>
-          <div className="p-2 rounded-lg" style={{ background: 'rgb(var(--eleva-card))' }}>
-            <div className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Keywords to inject</div>
-            <div className="font-display text-lg font-bold" style={{ color: 'rgb(var(--eleva-primary))' }}>{p.keywordsToInject?.length ?? 0}</div>
-          </div>
-        </div>
-        <div className="text-[10px] font-medium mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Sections to rewrite</div>
-        <div className="flex flex-wrap gap-1 mb-2">
-          {p.rewriteSummary && <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>Summary</span>}
-          {p.rewriteExperience && <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>Experience</span>}
-          {p.rewriteProjects && <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>Projects</span>}
-          {p.rewriteSkills && <span className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>Skills</span>}
-        </div>
-        {p.sectionsToSkip?.length > 0 && (
-          <div className="text-[10px] mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Skip: {p.sectionsToSkip.join(', ')}</div>
-        )}
-        {tSkills.length > 0 && (
-          <div className="mt-2 p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.04)' }}>
-            <div className="flex items-center gap-1.5 mb-1">
-              <Lightbulb className="w-3 h-3" style={{ color: 'rgb(var(--eleva-warning))' }} />
-              <span className="text-[9px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Transferable skills</span>
-            </div>
-            {tSkills.map((t, i) => (
-              <div key={i} className="flex items-center gap-2 py-0.5 text-[10px]">
-                <ArrowRight className="w-3 h-3" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
-                <span style={{ color: 'rgb(var(--eleva-fg))' }}>{t.from} <span className="opacity-50">→</span> {t.to}</span>
-                <span className="ml-auto font-mono" style={{ color: t.confidence >= 70 ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-warning))' }}>{t.confidence}%</span>
-              </div>
-            ))}
-          </div>
-        )}
-        {p.hardTruthNote && (
-          <div className="mt-2 p-2 rounded-lg flex items-start gap-2" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.08)' }}>
-            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-warning))' }} />
-            <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-fg))' }}>{p.hardTruthNote}</span>
-          </div>
-        )}
-      </div>
-    );
-  }
-  if (step === 'tailor') {
-    const meta = (d as any)?.meta ?? {};
-    const kwAdded = meta.keywords_added ?? [];
-    const we = (d.work_experience ?? []) as Array<{ company: string; position: string; responsibilities: string[] }>;
-    return (
-      <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgb(var(--eleva-border))' }}>
-        {kwAdded.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {kwAdded.map((k: string) => (
-              <span key={k} className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-success-rgb), 0.12)', color: 'rgb(var(--eleva-success))' }}>+{k}</span>
-            ))}
-          </div>
-        )}
-        <div className="text-[10px] font-medium mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Sections tailored</div>
-        {['professional_summary', 'work_experience', 'skills', 'projects'].filter((s) => !!(d as any)[s] && (Array.isArray((d as any)[s]) ? (d as any)[s].length > 0 : true)).map((sec) => (
-          <div key={sec} className="flex items-center gap-2 py-1 text-[11px]">
-            <CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--eleva-success))' }} />
-            <span style={{ color: 'rgb(var(--eleva-fg))' }}>{sec.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span>
-            {sec === 'work_experience' && <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({we.length} entries)</span>}
-            {sec === 'skills' && <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>({((d as any).skills ?? []).length} categories)</span>}
-          </div>
-        ))}
-        {we.length > 0 && (
-          <div className="mt-2 text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-            <span className="font-medium">{meta.bullets_rewritten ?? 0} bullets rewritten</span> across {we.length} positions
-          </div>
-        )}
-      </div>
-    );
-  }
-  if (step === 'review') {
-    const r = d as any;
-    return (
-      <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgb(var(--eleva-border))' }}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: r.wouldInterview ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-danger))' }} />
-            <span className="text-[12px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{r.wouldInterview ? 'Would Interview' : 'Would Not Interview'}</span>
-          </div>
-          <div className="text-[11px] font-mono px-2 py-0.5 rounded" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.1)', color: 'rgb(var(--eleva-primary))' }}>Score: {r.score}%</div>
-          <div className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{r.confidence}% confidence</div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <div className="p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-success-rgb), 0.06)' }}>
-            <div className="text-[9px] font-mono uppercase mb-1" style={{ color: 'rgb(var(--eleva-success))' }}>Strengths</div>
-            {(r.strengths ?? []).map((s: string, i: number) => (
-              <div key={i} className="flex items-start gap-1.5 py-0.5 text-[10px]">
-                <CheckCircle2 className="w-2.5 h-2.5 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-success))' }} />
-                <span style={{ color: 'rgb(var(--eleva-fg))' }}>{s}</span>
-              </div>
-            ))}
-          </div>
-          <div className="p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-danger-rgb), 0.06)' }}>
-            <div className="text-[9px] font-mono uppercase mb-1" style={{ color: 'rgb(var(--eleva-danger))' }}>Weaknesses</div>
-            {(r.weaknesses ?? []).map((s: string, i: number) => (
-              <div key={i} className="flex items-start gap-1.5 py-0.5 text-[10px]">
-                <X className="w-2.5 h-2.5 shrink-0 mt-0.5" style={{ color: 'rgb(var(--eleva-danger))' }} />
-                <span style={{ color: 'rgb(var(--eleva-fg))' }}>{s}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {r.genericAreas?.length > 0 && (
-          <div className="p-2 rounded-lg mb-2" style={{ background: 'rgba(var(--eleva-warning-rgb), 0.06)' }}>
-            <div className="text-[9px] font-mono uppercase mb-1" style={{ color: 'rgb(var(--eleva-warning))' }}>Generic / Templated</div>
-            {r.genericAreas.map((s: string, i: number) => (
-              <div key={i} className="text-[10px] py-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>— {s}</div>
-            ))}
-          </div>
-        )}
-        <div className="mt-2 p-2 rounded-lg text-[11px]" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-fg))' }}>
-          <span className="text-[9px] font-mono uppercase block mb-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recommendation</span>
-          {r.recommendation ?? '—'}
-        </div>
-      </div>
-    );
-  }
-  return null;
-}

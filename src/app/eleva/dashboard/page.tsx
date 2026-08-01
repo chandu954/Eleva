@@ -27,6 +27,7 @@ export default async function Dashboard() {
         activity={activity}
         recentResumes={recentResumes}
         recentAts={recentAts}
+        profile={profile}
       />
     </WorkspaceShell>
   );
