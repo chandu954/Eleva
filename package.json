@@ -60,7 +60,7 @@
     "@tiptap/extension-paragraph": "^2.11.0",
     "@tiptap/extension-text": "^2.11.0",
     "@tiptap/extension-text-align": "^2.11.3",
-    "@tiptap/extension-underline": "^2.11.3",
+    "@tiptap/extension-underline": "^2.27.2",
     "@tiptap/pm": "^2.11.0",
     "@tiptap/react": "^2.11.0",
     "@tiptap/starter-kit": "^2.11.0",
