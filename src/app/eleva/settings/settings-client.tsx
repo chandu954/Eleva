@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { User2, Sparkles, Shield, Palette, Bell, Trash2, ExternalLink, Network, Cpu, Bot, Globe, Eye, EyeOff, Loader2, Wifi } from 'lucide-react';
@@ -8,11 +8,13 @@ import { updateProfile, updatePreferences, deleteAccount } from '../_lib/actions
 import { createClient } from '@/utils/supabase/client';
 import { saveProviderKey, deleteProviderKey, validateProviderKey } from '../_lib/actions-ai-providers';
 import { PROVIDER_DEFINITIONS, type ProviderId } from '@/lib/ai/provider/registry';
+import { getAiStatus, subscribeAiStatus } from '../_lib/ai-status';
 
 const NAV_GROUPS: { label: string; items: { id: string; label: string; icon: React.ComponentType<any> }[] }[] = [
   {
     label: 'General',
     items: [
+      { id: 'status',        label: 'System Status',     icon: Wifi },
       { id: 'profile',       label: 'Profile',          icon: User2 },
       { id: 'appearance',    label: 'Appearance',       icon: Palette },
       { id: 'notifications', label: 'Notifications',    icon: Bell },
@@ -49,7 +51,7 @@ function detectTimezone() {
 }
 
 export function SettingsClient({ email, userId, profile, subscription, prefs, usageCount, tokensUsed, providerKeys }: { email: string; userId: string; profile: ProfileRow | null; subscription: Sub; prefs: PrefsRow; usageCount: number; tokensUsed: number; providerKeys: ProviderKeyEntry[] }) {
-  const [tab, setTab] = useState('profile');
+  const [tab, setTab] = useState('status');
   return (
     <div className="max-w-6xl mx-auto px-6 lg:px-10 py-10">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -75,6 +77,7 @@ export function SettingsClient({ email, userId, profile, subscription, prefs, us
         </aside>
 
         <div className="eleva-card p-6">
+          {tab === 'status' && <StatusTab email={email} providerKeys={providerKeys} prefs={prefs} />}
           {tab === 'profile' && <ProfileTab profile={profile} />}
           {tab === 'appearance' && <AppearanceTab prefs={prefs} />}
           {tab === 'notifications' && <NotificationsTab prefs={prefs} />}
@@ -90,8 +93,11 @@ export function SettingsClient({ email, userId, profile, subscription, prefs, us
 
 function ProfileTab({ profile }: { profile: ProfileRow | null }) {
   const [isPending, startTransition] = useTransition();
-  const detected = detectTimezone();
-  const [timezone, setTimezone] = useState(profile?.timezone ?? detected);
+  const [detected, setDetected] = useState('');
+  useEffect(() => {
+    setDetected(detectTimezone());
+  }, []);
+  const [timezone, setTimezone] = useState(profile?.timezone ?? '');
   return (
     <form action={(fd) => { startTransition(async () => { const r = await updateProfile(fd); if (r?.error) toast.error('Save failed', { description: r.error }); else toast.success('Profile updated'); }); }}>
       <SectionHead title="Profile" desc="How you appear on generated resumes and cover letters." />
@@ -490,6 +496,58 @@ function ReadRow({ k, v }: { k: string; v: string }) {
     <div className="flex items-center justify-between gap-4 py-2">
       <div className="text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{k}</div>
       <div className="font-mono text-[12px] truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{v}</div>
+    </div>
+  );
+}
+
+type HealthResp = { status: string; database: string; env: Record<string, string>; timestamp: string };
+
+function StatusTab({ email, providerKeys, prefs }: { email: string; providerKeys: ProviderKeyEntry[]; prefs: PrefsRow }) {
+  const [health, setHealth] = useState<HealthResp | null>(null);
+  const [healthErr, setHealthErr] = useState(false);
+  const [ai, setAi] = useState(getAiStatus());
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((d) => setHealth(d))
+      .catch(() => setHealthErr(true));
+  }, []);
+
+  useEffect(() => subscribeAiStatus(setAi), []);
+
+  const rows: { label: string; value: string; ok?: boolean }[] = [];
+  if (health) {
+    rows.push({ label: 'Supabase database', value: health.database === 'connected' ? 'Connected' : 'Error', ok: health.database === 'connected' });
+    rows.push({ label: 'Required env vars', value: health.env.NEXT_PUBLIC_SUPABASE_URL && health.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && health.env.SUPABASE_SERVICE_ROLE_KEY ? 'All set' : 'Missing', ok: !!(health.env.NEXT_PUBLIC_SUPABASE_URL && health.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && health.env.SUPABASE_SERVICE_ROLE_KEY) });
+  } else {
+    rows.push({ label: 'Health endpoint', value: healthErr ? 'Unreachable' : 'Checking…', ok: !healthErr });
+  }
+  rows.push({ label: 'Email', value: email, ok: true });
+  rows.push({ label: 'AI provider keys', value: providerKeys.length > 0 ? `${providerKeys.filter((k) => k.hasKey).length} configured` : 'Not configured', ok: providerKeys.some((k) => k.hasKey) });
+  rows.push({ label: 'Default model', value: prefs?.default_model || 'openrouter/free', ok: true });
+  rows.push({ label: 'AI runtime', value: ai.state === 'error' ? 'Error' : ai.state === 'running' ? `Running: ${ai.label ?? ''}` : ai.state === 'done' ? 'Last run finished' : 'Idle', ok: ai.state !== 'error' });
+
+  return (
+    <div>
+      <SectionHead title="System Status" desc="Live health of your workspace services." />
+      <div className="grid md:grid-cols-2 gap-3 mb-6">
+        {rows.map((r) => (
+          <div key={r.label} className="p-4 rounded-lg flex items-center justify-between" style={{ background: 'rgb(var(--eleva-muted))' }}>
+            <div>
+              <div className="text-[11px] font-mono uppercase tracking-wider" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{r.label}</div>
+              <div className="text-[13px] font-medium mt-0.5" style={{ color: 'rgb(var(--eleva-fg))' }}>{r.value}</div>
+            </div>
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.ok === undefined ? 'rgb(var(--eleva-muted-fg))' : r.ok ? 'rgb(var(--eleva-success, 34 197 94))' : 'rgb(var(--eleva-danger, 239 68 68))' }} />
+          </div>
+        ))}
+      </div>
+      {health && (
+        <ReadRow k="Server time (UTC)" v={new Date(health.timestamp).toLocaleString()} />
+      )}
+      {healthErr && (
+        <p className="text-[12px] mt-2" style={{ color: 'rgb(var(--eleva-danger, 239 68 68))' }}>Could not reach the health endpoint. Check that the server is running.</p>
+      )}
     </div>
   );
 }

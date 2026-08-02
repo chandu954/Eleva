@@ -1,12 +1,11 @@
 /* Eleva Design Tokens — layered over globals.css only within /eleva */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap');
 
 .eleva-root {
   --eleva-bg: 248 250 252;
   --eleva-fg: 2 6 23;
   --eleva-card: 255 255 255;
   --eleva-muted: 241 245 249;
-  --eleva-muted-fg: 100 116 139;
+  --eleva-muted-fg: 71 85 105;
   --eleva-border: 226 232 240;
   --eleva-primary: 37 99 235;
   --eleva-secondary: 124 58 237;
@@ -14,12 +13,12 @@
   --eleva-indigo: 79 70 229;
   --eleva-success: 34 197 94;
   --eleva-warning: 245 158 11;
-  --eleva-danger: 239 68 68;
+  --eleva-danger: 220 38 38;
   --eleva-ring: 37 99 235;
 
   color: rgb(var(--eleva-fg));
   background: rgb(var(--eleva-bg));
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
   font-feature-settings: 'ss01', 'cv11';
 }
 
@@ -42,12 +41,12 @@
 .eleva-root h3,
 .eleva-root h4,
 .eleva-root .font-display {
-  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  font-family: var(--font-geist), var(--font-inter), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 .eleva-root .font-mono,
 .eleva-root code {
-  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 /* Grain overlay used on hero */
@@ -125,7 +124,7 @@
 
 /* Keyboard hint */
 .eleva-kbd {
-  font-family: 'Geist Mono', monospace;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 6px;

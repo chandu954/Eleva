@@ -82,17 +82,15 @@ export async function updateSession(request: NextRequest) {
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-pathname', pathname)
 
-
-  // Create new response with enriched headers
+  // Recreate the response with the enriched request headers so the header
+  // propagates to the page, without writing a cookie on every request
+  // (Set-Cookie on navigation disables bfcache).
   supabaseResponse = NextResponse.next({
     request: {
       ...request,
       headers: requestHeaders,
     },
   })
-
-  supabaseResponse.cookies.set('show-banner', 'false')
-
   // Check if user is authenticated and redirect if needed
   if (!user) {
     // Allow access to public routes without a session (avoid redirect loops on '/')

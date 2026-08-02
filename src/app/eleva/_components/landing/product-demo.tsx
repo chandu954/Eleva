@@ -79,7 +79,7 @@ export function ProductDemo() {
                 <div className="flex items-baseline gap-1 mb-6">
                   <span className="font-display text-5xl font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>61</span>
                   <span className="text-sm font-medium" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>%</span>
-                  <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: 'rgb(var(--eleva-danger))' }}>
+                  <span className="ml-2 text-[11px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.12)', color: 'rgb(185 28 28)' }}>
                     Needs work
                   </span>
                 </div>
