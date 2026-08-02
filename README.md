@@ -11,7 +11,7 @@
 
 ## Live Demo
 
-**https://eleva-chandu954.vercel.app**
+**https://eleva-beige.vercel.app/eleva**
 
 Try it with **Google Sign-In** — no credit card, no setup.
 
