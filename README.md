@@ -1,11 +1,39 @@
-# Eleva - AI-Powered Resume Workspace
+# Eleva — AI-Powered Career Workspace
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org)
 [![Supabase](https://img.shields.io/badge/Supabase-db-green)](https://supabase.com)
+[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ed)](https://www.docker.com)
+[![Vercel](https://img.shields.io/badge/Vercel-ready-black)](https://vercel.com)
 
-Eleva is a production-grade SaaS application that helps job seekers create ATS-optimized resumes with AI assistance. It supports multiple AI providers (OpenAI, Claude, Gemini, OpenRouter, NVIDIA, Ollama) and includes a full resume editor, ATS scoring, cover letter generation, and a prompt studio.
+> Most resume builders stop after creating a document. Eleva is an AI-powered career workspace: tailor resumes to job descriptions, analyze ATS compatibility, generate cover letters, and track every application — in one place.
+
+## Live Demo
+
+**https://eleva-chandu954.vercel.app**
+
+Try it with **Google Sign-In** — no credit card, no setup.
+
+---
+
+## Screenshots
+
+![Eleva Landing](docs/screenshots/landing.jpg)
+
+> Dashboard, Studio, and Resume Editor screenshots are captured from the live app (requires sign-in).
+
+---
+
+## Why Eleva?
+
+Traditional resume tools are static documents. Eleva treats your job search as a **workflow**:
+
+1. **Upload or build** a base resume once.
+2. **Paste a real job description** into the Studio.
+3. Eleva **extracts, scores, and tailors** — then generates the cover letter and tracks the application.
+
+It's a pipeline, not a form.
 
 ---
 
@@ -20,6 +48,85 @@ Eleva is a production-grade SaaS application that helps job seekers create ATS-o
 - **Pipeline Studio** — Run a full AI pipeline: extract skills → analyze job fit → score ATS → generate cover letter.
 - **Kanban Board** — Track job applications through your pipeline.
 - **Subscription Management** — Stripe integration with free/pro plans and gated features.
+
+---
+
+## Architecture
+
+```
+Browser
+   │
+   ▼
+Next.js App Router (Server-first)
+   │
+   ├── Server Actions (data mutations)
+   └── API Routes (chat, export, webhooks, health)
+            │
+            ▼
+      Validation (Zod)
+            │
+            ▼
+       AI Router
+   ├── Cache
+   ├── Rate Limiter (Redis)
+   ├── Retry + Fallback
+   └── Providers
+        ├── OpenRouter
+        ├── OpenAI
+        ├── Anthropic
+        ├── Gemini
+        ├── NVIDIA
+        └── Ollama (local)
+            │
+            ▼
+        Supabase
+   ├── Auth (RLS-enforced)
+   ├── PostgreSQL
+   ├── Storage
+   └── Activity Logs
+```
+
+### AI Pipeline Flow
+
+```
+Resume ──► Job Description
+              │
+              ▼
+      AI Extraction
+              │
+              ▼
+        ATS Analysis
+              │
+              ▼
+      Resume Tailoring
+              │
+              ▼
+      Cover Letter
+              │
+              ▼
+      Export (PDF/DOCX)
+```
+
+---
+
+## Production Ready
+
+- ✅ Authentication — Supabase Auth (Google OAuth + email) with SSR session handling
+- ✅ Row Level Security — per-user data isolation on every table
+- ✅ Validation — Zod schemas on all API inputs and AI outputs
+- ✅ Standardized API Errors — consistent `{ success, code, message, requestId }` envelope
+- ✅ Retry Logic — exponential backoff + `Retry-After` support across providers
+- ✅ Rate Limiting — leaky-bucket via Redis (Upstash or local)
+- ✅ Caching — AI response cache layer
+- ✅ Monitoring — Sentry error tracking + PostHog analytics + OpenTelemetry spans
+- ✅ Health Endpoint — `GET /api/health` (database + env checks)
+- ✅ Audit Logging — `activity_log` for key user actions
+- ✅ Startup Env Validation — fails fast on missing configuration
+- ✅ Tests — Vitest unit tests + Playwright e2e
+- ✅ CI/CD — GitHub Actions (Docker + Helm publish)
+- ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
+
+---
 
 ## Tech Stack
 
@@ -76,7 +183,36 @@ Eleva supports six AI providers. Set the corresponding environment variable for 
 
 The default provider is configurable via `DEFAULT_AI_PROVIDER` env variable (JSON format).
 
+## API Overview
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/health` | Liveness probe — database + environment checks |
+| `POST /api/chat` | Streaming AI chat with tool access to resume data |
+| `POST /eleva/api/studio/pipeline` | Full pipeline: ATS score → tailor → cover letter |
+| `POST /eleva/api/resumes/import` | Parse and import a resume |
+| `POST /eleva/api/applications` | Create/update/delete tracked applications |
+| `POST /eleva/api/export/resume` | Export resume as PDF |
+| `POST /eleva/api/export/resume-docx` | Export resume as DOCX |
+
+All API errors use a consistent envelope:
+
+```json
+{
+  "success": false,
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Rate limit exceeded.",
+  "requestId": "m3x8f0-1f-a1b2c3"
+}
+```
+
 ## Deployment
+
+### Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+Deploy the Next.js app directly with all required environment variables set in the Vercel dashboard.
 
 ### Docker
 
@@ -84,12 +220,6 @@ The default provider is configurable via `DEFAULT_AI_PROVIDER` env variable (JSO
 docker build -f docker/Dockerfile -t eleva:latest .
 docker compose -f docker/docker-compose.yml up
 ```
-
-### Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
-
-Deploy the Next.js app directly with all required environment variables set in the Vercel dashboard.
 
 ### Kubernetes (Helm)
 
@@ -133,6 +263,18 @@ All environment variables are documented in `.env.example`. Key variables:
 - `SUPABASE_SERVICE_ROLE_KEY` — Server-side database access
 - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` — Payment processing
 - `PROVIDER_KEY_ENCRYPTION_SECRET` — Encryption for user BYOK feature
+
+## Roadmap
+
+- ✅ Resume Editor
+- ✅ ATS Scoring & Tailoring
+- ✅ Cover Letters
+- ✅ Prompt Studio
+- ✅ Applications Kanban
+- ✅ Analytics
+- ⬜ Chrome Extension
+- ⬜ AI Interview Prep
+- ⬜ Team Workspaces
 
 ## License
 
