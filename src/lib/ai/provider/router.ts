@@ -11,6 +11,7 @@ import type {
 } from './types';
 import { MODELS, AUTO_MODE_CHAINS, getModelsForProvider } from './models';
 import { getProvider, isProviderAvailable } from './factory';
+import { getMaxRetries, runWithRetry, shouldRetryError, shouldRetryResult } from './retry';
 
 const metrics: ProviderMetrics[] = [];
 const MAX_METRICS = 1000;
@@ -105,7 +106,16 @@ export async function routeGenerateText(
   }
 
   try {
-    const result = await provider.generateText(params, model);
+    const maxRetries = getMaxRetries();
+    const { value: result, retries } = await runWithRetry({
+      run: () => provider.generateText(params, model),
+      isRetryableResult: shouldRetryResult,
+      isRetryableError: shouldRetryError,
+      maxRetries,
+      onRetry: (attempt, reason) => {
+        console.warn(`[AI Router] ${task} failed, retrying ${attempt}/${maxRetries}: ${reason}`);
+      },
+    });
     const latency = Math.round(performance.now() - start);
 
     const trace: PipelineTraceStep = {
@@ -122,7 +132,7 @@ export async function routeGenerateText(
       latency, tokens: result.usage
         ? { prompt: result.usage.promptTokens, completion: result.usage.completionTokens, total: result.usage.totalTokens }
         : { prompt: 0, completion: 0, total: 0 },
-      retries: 0, fallback: false, success: result.success, timestamp: Date.now(), requestId,
+      retries, fallback: false, success: result.success, timestamp: Date.now(), requestId,
     });
 
     return {
@@ -206,7 +216,16 @@ export async function routeObject(
   }
 
   try {
-    const result = await provider.generateObject(params, model);
+    const maxRetries = getMaxRetries();
+    const { value: result, retries } = await runWithRetry({
+      run: () => provider.generateObject(params, model),
+      isRetryableResult: shouldRetryResult,
+      isRetryableError: shouldRetryError,
+      maxRetries,
+      onRetry: (attempt, reason) => {
+        console.warn(`[AI Router] ${task} object failed, retrying ${attempt}/${maxRetries}: ${reason}`);
+      },
+    });
     const latency = Math.round(performance.now() - start);
 
     const trace: PipelineTraceStep = {
@@ -223,7 +242,7 @@ export async function routeObject(
       latency, tokens: result.usage
         ? { prompt: result.usage.promptTokens, completion: result.usage.completionTokens, total: result.usage.totalTokens }
         : { prompt: 0, completion: 0, total: 0 },
-      retries: 0, fallback: false, success: result.success, timestamp: Date.now(), requestId,
+      retries, fallback: false, success: result.success, timestamp: Date.now(), requestId,
     });
 
     return { ...result, provider: cfg.selectedProvider, model: modelId, trace };

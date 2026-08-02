@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
+import { apiError } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -10,10 +11,7 @@ export async function POST(req: NextRequest) {
     const { messages } = body as { messages?: { role: string; content: string }[] };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return new Response(JSON.stringify({ error: 'messages array is required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return apiError('INVALID_BODY', 'messages array is required');
     }
 
     const stream = await AIProvider.stream({
@@ -25,9 +23,6 @@ export async function POST(req: NextRequest) {
     return stream.toDataStreamResponse();
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return apiError('INTERNAL_ERROR', message);
   }
 }

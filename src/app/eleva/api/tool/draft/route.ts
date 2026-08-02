@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
+import { apiError } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     const parsed = bodySchema.safeParse(await req.json());
     if (!parsed.success) {
-      return Response.json({ error: 'invalid_body', issues: parsed.error.flatten() }, { status: 400 });
+      return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
     }
     const args = parsed.data;
 
@@ -66,6 +67,6 @@ FACTUAL ACCURACY RULES (override any other instruction):
     return stream.toTextStreamResponse();
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return Response.json({ error: message }, { status: 500 });
+    return apiError('INTERNAL_ERROR', message);
   }
 }

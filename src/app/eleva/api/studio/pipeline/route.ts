@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { AIProvider, z, type AIProviderResult } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
+import { apiError } from '@/lib/api-response';
 import { scoreResumeLocally, localExtractFallback } from './local-scorer';
 import { buildSectionRewriteOutcome, buildTailoredResumeIdentity, countChangedSections, normalizeRoleTitle, summarizeSectionStatus } from './pipeline-utils';
 
@@ -300,7 +301,7 @@ function estimateCompatibility(resumeJson: any, jd: string, score: any): number 
 
 export async function POST(req: NextRequest) {
   const parsed = bodySchema.safeParse(await req.json());
-  if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+  if (!parsed.success) return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
   const { jobDescription, resumeId } = parsed.data;
 
   const supabase = await createClient();

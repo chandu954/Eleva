@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { apiError } from '@/lib/api-response';
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -11,8 +12,8 @@ export async function GET(req: NextRequest) {
 
   if (key) {
     const { data, error } = await base.eq('key', key).single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-    return NextResponse.json(data);
+    if (error) return apiError('NOT_FOUND', 'Prompt not found');
+    return Response.json(data);
   }
 
   let query = base.order('is_builtin', { ascending: false }).order('updated_at', { ascending: false });
@@ -21,14 +22,14 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  if (error) return apiError('INTERNAL_ERROR', error.message);
+  return Response.json(data);
 }
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
 
   const body = await req.json();
   const { data, error } = await supabase.from('ai_prompts').insert({
@@ -47,6 +48,6 @@ export async function POST(req: NextRequest) {
     is_builtin: false,
   }).select().single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  if (error) return apiError('INTERNAL_ERROR', error.message);
+  return Response.json(data);
 }

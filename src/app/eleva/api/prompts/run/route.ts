@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
+import { apiError } from '@/lib/api-response';
 import { builtinToPrompt, getBuiltinPresetByKey, isBuiltinFallbackId } from '../../../prompt-studio/_lib/builtin-presets';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: user } = await supabase.auth.getUser();
-  if (!user.user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  if (!user.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
 
   const { promptId, variables, model, temperature, maxTokens } = await req.json();
 
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
         return preset ? builtinToPrompt(preset) : null;
       })()
     : (await supabase.from('ai_prompts').select('*').eq('id', promptId).single()).data;
-  if (!prompt) return NextResponse.json({ error: 'Prompt not found' }, { status: 404 });
+  if (!prompt) return apiError('NOT_FOUND', 'Prompt not found');
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({

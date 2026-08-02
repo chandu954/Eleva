@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
+import { apiError } from '@/lib/api-response';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -59,11 +60,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = bodySchema.safeParse(body);
-    if (!parsed.success) return Response.json({ error: 'invalid_body', issues: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success) return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
 
     const supabase = await createClient();
     const { data: userRes } = await supabase.auth.getUser();
-    if (!userRes?.user) return Response.json({ error: 'unauthenticated' }, { status: 401 });
+    if (!userRes?.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
     const uid = userRes.user.id;
 
     const resumeText = parsed.data.text.slice(0, 40000);
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
 
       if (!result.text?.trim()) {
         console.error('[Resume Import] AI returned empty response');
-        return Response.json({ error: 'ai_extraction_failed', detail: 'AI returned empty response' }, { status: 500 });
+        return apiError('AI_EXTRACTION_FAILED', 'AI returned empty response');
       }
 
       try {
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
         const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
         console.error('[Resume Import] JSON parse / schema validation failed:', msg);
         console.error('[Resume Import] Raw AI text:', result.text);
-        return Response.json({ error: 'ai_extraction_failed', detail: msg, raw: result.text.slice(0, 500) }, { status: 500 });
+        return apiError('AI_EXTRACTION_FAILED', msg, { detail: { raw: result.text.slice(0, 500) } });
       }
     }
 
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
       ...parsedResult,
     }).select().single();
 
-    if (insertErr) return Response.json({ error: insertErr.message }, { status: 500 });
+    if (insertErr) return apiError('INTERNAL_ERROR', insertErr.message);
 
     await supabase.from('activity_log').insert({
       user_id: uid,
@@ -157,6 +158,6 @@ export async function POST(req: NextRequest) {
     if (err && typeof err === 'object' && 'cause' in err) {
       console.error('cause:', (err as any).cause);
     }
-    return Response.json({ error: message }, { status: 500 });
+    return apiError('INTERNAL_ERROR', message);
   }
 }

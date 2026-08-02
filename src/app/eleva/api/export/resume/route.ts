@@ -3,6 +3,7 @@ import { renderToBuffer, Document, Page, Text, View, StyleSheet, Link } from '@r
 import React from 'react';
 import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
+import { apiError } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -57,14 +58,14 @@ const styles = StyleSheet.create({
 export async function POST(req: NextRequest) {
   try {
     const parsed = bodySchema.safeParse(await req.json());
-    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+    if (!parsed.success) return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
 
     const supabase = await createClient();
     const { data: userRes } = await supabase.auth.getUser();
-    if (!userRes?.user) return Response.json({ error: 'unauthenticated' }, { status: 401 });
+    if (!userRes?.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
 
   const { data: r, error } = await supabase.from('resumes').select('*').eq('id', parsed.data.resumeId).eq('user_id', userRes.user.id).maybeSingle();
-  if (error || !r) return Response.json({ error: error?.message ?? 'resume_not_found' }, { status: 404 });
+  if (error || !r) return apiError('NOT_FOUND', error?.message ?? 'Resume not found');
 
   const resume = r as ResumeRow;
   const fullName = [resume.first_name, resume.last_name].filter(Boolean).join(' ') || resume.name || 'Applicant';
@@ -206,6 +207,6 @@ export async function POST(req: NextRequest) {
   });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return Response.json({ error: message }, { status: 500 });
+    return apiError('EXPORT_FAILED', message);
   }
 }

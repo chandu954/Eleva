@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { z } from 'zod';
+import { apiError } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -17,7 +18,7 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const parsed = bodySchema.safeParse(await req.json());
-    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+    if (!parsed.success) return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
     const { content, title, company, role, candidateName, candidateEmail } = parsed.data;
 
     const paragraphs = content.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
@@ -55,6 +56,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return Response.json({ error: message }, { status: 500 });
+    return apiError('EXPORT_FAILED', message);
   }
 }

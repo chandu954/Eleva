@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
+import { apiError } from '@/lib/api-response';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
@@ -58,7 +59,7 @@ function localScore(resume: string, jobDescription: string): ScoreShape {
 export async function POST(req: NextRequest) {
   try {
     const parsed = bodySchema.safeParse(await req.json());
-    if (!parsed.success) return Response.json({ error: 'invalid_body' }, { status: 400 });
+    if (!parsed.success) return apiError('INVALID_BODY', 'Invalid request body', { detail: parsed.error.flatten() });
     const { resume, jobDescription, resumeId, jobId, save } = parsed.data;
 
     let object: ScoreShape;
@@ -129,6 +130,6 @@ export async function POST(req: NextRequest) {
   return Response.json(object);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return Response.json({ error: message }, { status: 500 });
+    return apiError('INTERNAL_ERROR', message);
   }
 }
