@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 
 import { getTaskModel, withTaskModel } from "./task-models";
 import type { AIConfig } from "@/lib/ai-models";

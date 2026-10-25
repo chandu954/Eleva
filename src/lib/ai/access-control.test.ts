@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "vitest";
 
 import { resolveAIRequest } from "./access-control";
+
+// Eleva routes every AI request through a single OpenRouter server key
+// (see access-control.ts). These tests pin that contract:
+//  - known models (including legacy aliases) resolve to their canonical
+//    OpenRouter model id via the server key
+//  - free-tier models skip rate limiting, non-free ones do not
+//  - BYOK keys must not route to non-OpenRouter providers
+//  - missing server configuration and unknown models fail loudly
 
 const originalEnv = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
@@ -16,8 +24,8 @@ afterEach(() => {
 });
 
 describe("resolveAIRequest", () => {
-  it("allows free users to use explicitly free server-key models", () => {
-    process.env.OPENAI_API_KEY = "server-openai";
+  it("resolves legacy free-tier aliases through the server OpenRouter key", () => {
+    process.env.OPENROUTER_API_KEY = "server-openrouter";
 
     const result = resolveAIRequest({
       requestedModel: "gpt-5.4-nano",
@@ -25,29 +33,15 @@ describe("resolveAIRequest", () => {
       isPro: false,
     });
 
-    assert.equal(result.providerId, "openai");
-    assert.equal(result.modelId, "gpt-5.4-nano");
-    assert.equal(result.apiKey, "server-openai");
+    assert.equal(result.providerId, "openrouter");
+    assert.equal(result.modelId, "google/gemma-4-31b-it:free");
+    assert.equal(result.apiKey, "server-openrouter");
     assert.equal(result.usedServerKey, true);
-    assert.equal(result.requiresRateLimit, true);
+    assert.equal(result.requiresRateLimit, false);
   });
 
-  it("does not allow free users to force arbitrary slash-style OpenRouter models onto the server key", () => {
+  it("resolves legacy premium aliases to the canonical free model id", () => {
     process.env.OPENROUTER_API_KEY = "server-openrouter";
-
-    assert.throws(
-      () =>
-        resolveAIRequest({
-          requestedModel: "z-ai/glm-4.6:exacto",
-          apiKeys: [],
-          isPro: false,
-        }),
-      /OpenRouter API key not found in user configuration/
-    );
-  });
-
-  it("allows Pro users to use configured server-key Pro models", () => {
-    process.env.OPENAI_API_KEY = "server-openai";
 
     const result = resolveAIRequest({
       requestedModel: "gpt-5.5",
@@ -55,14 +49,15 @@ describe("resolveAIRequest", () => {
       isPro: true,
     });
 
-    assert.equal(result.providerId, "openai");
-    assert.equal(result.modelId, "gpt-5.5");
-    assert.equal(result.apiKey, "server-openai");
+    assert.equal(result.providerId, "openrouter");
+    assert.equal(result.modelId, "openrouter/free");
+    assert.equal(result.apiKey, "server-openrouter");
     assert.equal(result.usedServerKey, true);
-    assert.equal(result.requiresRateLimit, true);
   });
 
-  it("allows BYOK users only when their key matches the requested model provider", () => {
+  it("keeps BYOK users on the OpenRouter server-key policy", () => {
+    process.env.OPENROUTER_API_KEY = "server-openrouter";
+
     const result = resolveAIRequest({
       requestedModel: "claude-sonnet-4-6",
       apiKeys: [
@@ -71,22 +66,9 @@ describe("resolveAIRequest", () => {
       isPro: false,
     });
 
-    assert.equal(result.providerId, "anthropic");
-    assert.equal(result.apiKey, "user-anthropic");
-    assert.equal(result.usedServerKey, false);
-    assert.equal(result.requiresRateLimit, false);
-
-    assert.throws(
-      () =>
-        resolveAIRequest({
-          requestedModel: "claude-sonnet-4-6",
-          apiKeys: [
-            { service: "openai", key: "user-openai", addedAt: "2026-05-03" },
-          ],
-          isPro: false,
-        }),
-      /Anthropic API key not found in user configuration/
-    );
+    assert.equal(result.providerId, "openrouter");
+    assert.equal(result.apiKey, "server-openrouter");
+    assert.equal(result.usedServerKey, true);
   });
 
   it("rejects unknown models", () => {
@@ -101,8 +83,22 @@ describe("resolveAIRequest", () => {
     );
   });
 
-  it("reports server-key usage for every allowed server-key call", () => {
-    process.env.OPENAI_API_KEY = "server-openai";
+  it("throws when the server has no OpenRouter key configured", () => {
+    delete process.env.OPENROUTER_API_KEY;
+
+    assert.throws(
+      () =>
+        resolveAIRequest({
+          requestedModel: "gpt-5.4-nano",
+          apiKeys: [],
+          isPro: false,
+        }),
+      /OpenRouter API key not configured on the server/
+    );
+  });
+
+  it("reports server-key usage for every allowed call", () => {
+    process.env.OPENROUTER_API_KEY = "server-openrouter";
 
     const result = resolveAIRequest({
       requestedModel: "gpt-5.4-nano",

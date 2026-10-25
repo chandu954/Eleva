@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 
 import { ProviderBusyError, ProviderError, ProviderInternalError } from "./errors";
 import { getRetryDelayMs, runWithRetry, shouldRetryError, shouldRetryResult } from "./retry";
