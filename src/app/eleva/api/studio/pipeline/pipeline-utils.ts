@@ -36,7 +36,15 @@ function extractRoleLikePhrase(text: string): string | null {
   );
 
   if (titleMatch) {
-    const candidate = normalizeWhitespace(titleMatch[0]);
+    let candidate = normalizeWhitespace(titleMatch[0]);
+    // The title regex greedily swallows up trailing filler words (for
+    // example "Senior Backend Engineer to"); trim preposition/conjunction
+    // stopwords that can never legitimately end a role title.
+    let previous = '';
+    while (previous !== candidate) {
+      previous = candidate;
+      candidate = candidate.replace(/^(.*\S?)\s+(the|a|an|and|or|for|of|at|on|in|with|from|by|to|us)$/i, '$1');
+    }
     if (candidate.length >= 4 && candidate.length <= 80) return candidate;
   }
 
