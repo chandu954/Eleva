@@ -11,6 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege: quality/audit checks only need to read the repo. The
+# Docker image and Helm chart publishing workflows declare their own
+# packages:write scopes on the jobs that push artifacts.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Lint, typecheck, test
@@ -20,10 +26,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for exposed credentials in tracked files
+        run: |
+          # Guard against access-token patterns that must never be committed.
+          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'
+          ! git grep -nE "$pattern" -- . ':!*.md' || {
+            echo "::error::Potential GitHub access token detected in tracked files"; exit 1; }
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
+        # Version is read from the packageManager field in package.json.
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -57,10 +69,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Secret-exposure guard shared by both jobs.
+      - name: Check for exposed credentials in tracked files
+        run: |
+          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'
+          ! git grep -nE "$pattern" -- . ':!*.md' || {
+            echo "::error::Potential GitHub access token detected in tracked files"; exit 1; }
+
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
+        # Version is read from the packageManager field in package.json.
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
