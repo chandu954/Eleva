@@ -160,7 +160,7 @@ cp .env.example .env.local   # Fill in your API keys
 pnpm dev
 ```
 
-Visit [http://localhost:8080](http://localhost:8080).
+Visit [http://localhost:3000](http://localhost:3000).
 
 ### Testing & Quality Gates
 

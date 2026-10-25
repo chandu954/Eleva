@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 const REQUIRED_ENV = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -42,9 +44,22 @@ function validateEnv() {
   }
 }
 
+function initSentry() {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 0.1,
+    environment: process.env.NODE_ENV,
+    enabled: process.env.NODE_ENV === "production",
+  });
+}
+
 export async function register() {
+  initSentry();
+
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     validateEnv();
     await import('./instrumentation.node');
   }
 }
+
+export const onRequestError = Sentry.captureRequestError;

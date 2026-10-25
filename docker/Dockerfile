@@ -21,8 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Pin pnpm version for reproducibility
-ARG PNPM_VERSION=9.15.1
+# Pin pnpm version for reproducibility (matches packageManager in package.json)
+ARG PNPM_VERSION=11.9.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 # ==========================================
@@ -113,7 +113,7 @@ FROM node:22-slim AS production
 LABEL org.opencontainers.image.title="Eleva" \
       org.opencontainers.image.description="AI-powered resume builder" \
       org.opencontainers.image.vendor="Eleva" \
-      org.opencontainers.image.source="https://github.com/chandu954/app"
+      org.opencontainers.image.source="https://github.com/chandu954/Eleva"
 
 # Install ONLY runtime libraries for canvas (not -dev packages)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -150,9 +150,10 @@ USER nextjs
 EXPOSE 3000
 
 # Health check for container orchestration (k8s, compose, etc.)
-# Uses TCP check since no dedicated health endpoint exists
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD node -e "require('net').createConnection(3000, 'localhost').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
+# Uses the app's real /api/health endpoint (reports 503 until required
+# env vars are present and the database answers), not just a TCP probe.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD node -e "fetch('http://localhost:' + (process.env.PORT || 3000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "server.js"]

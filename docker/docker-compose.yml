@@ -158,7 +158,9 @@ services:
       API_EXTERNAL_URL: http://localhost:54321
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres-dev-password}@db:5432/postgres
-      GOTRUE_SITE_URL: http://localhost:3000
+      # Auth redirects must land on the app; override NEXT_PUBLIC_SITE_URL
+      # in ../.env.local when the app is served from a custom domain.
+      GOTRUE_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       GOTRUE_URI_ALLOW_LIST: "*"
       GOTRUE_DISABLE_SIGNUP: false
       GOTRUE_JWT_ADMIN_ROLES: service_role

@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "scripts": {
-    "dev": "next dev -p 8080",
+    "dev": "next dev",
     "dev:turbo": "next dev --turbopack",
     "build": "next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/static/",
     "start": "node .next/standalone/server.js",

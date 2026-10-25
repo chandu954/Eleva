@@ -2,7 +2,7 @@ import path from "path";
 import type { NextConfig } from "next";
 import remarkGfm from "remark-gfm";
 import mdx from "@next/mdx";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const withMDX = mdx({
   extension: /\.mdx?$/,
