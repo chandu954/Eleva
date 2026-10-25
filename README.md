@@ -1,115 +1,45 @@
-# Eleva — AI-Powered Career Workspace
+# Eleva — AI Career Operating System
 
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org)
-[![Supabase](https://img.shields.io/badge/Supabase-db-green)](https://supabase.com)
-[![Docker](https://img.shields.io/badge/Docker-multi--stage-2496ed)](https://www.docker.com)
-[![Vercel](https://img.shields.io/badge/Vercel-ready-black)](https://vercel.com)
+> **Multi-stage resume optimization and ATS scoring pipeline** — paste a job description, and Eleva scores your resume, tailors it with honest-AI constraints, shows you the diff, and tracks the application.
 
-> Most resume builders stop after creating a document. Eleva is an AI-powered career workspace: tailor resumes to job descriptions, analyze ATS compatibility, generate cover letters, and track every application — in one place.
+**Live demo** → [eleva-beige.vercel.app/eleva](https://eleva-beige.vercel.app/eleva) · Blog post: [how the scoring works](https://ashish-chandan.vercel.app/blog/building-elevas-ats-pipeline)
 
-## Live Demo
+## Why it exists
 
-**https://eleva-beige.vercel.app/eleva**
-
-Try it with **Google Sign-In** — no credit card, no setup.
-
----
-
-## Screenshots
-
-![Eleva Landing](docs/screenshots/landing.jpg)
-
-> Dashboard, Studio, and Resume Editor screenshots are captured from the live app (requires sign-in).
-
----
-
-## Why Eleva?
-
-Traditional resume tools are static documents. Eleva treats your job search as a **workflow**:
-
-1. **Upload or build** a base resume once.
-2. **Paste a real job description** into the Studio.
-3. Eleva **extracts, scores, and tailors** — then generates the cover letter and tracks the application.
-
-It's a pipeline, not a form.
-
----
-
-## Features
-
-- **Multi-Provider AI** — Switch between OpenAI, Claude, Gemini, OpenRouter, NVIDIA, or local Ollama models. Single-provider mode ensures all requests use your chosen model. Auto mode routes each task to the best model within your provider's family.
-- **Resume Editor** — Rich text editor with TipTap, drag-and-drop sections, real-time preview, PDF/DOCX export.
-- **ATS Optimizer** — Score your resume against job descriptions, get keyword suggestions, and targeted improvement recommendations.
-- **Cover Letter Generator** — AI-powered cover letters tailored to specific job descriptions.
-- **Prompt Studio** — Create, version, and manage custom AI prompts for resume operations.
-- **Analytics Dashboard** — Track AI usage, resume scores, application activity, and interview tracking.
-- **Pipeline Studio** — Run a full AI pipeline: extract skills → analyze job fit → score ATS → generate cover letter.
-- **Kanban Board** — Track job applications through your pipeline.
-- **Subscription Management** — Stripe integration with free/pro plans and gated features.
-
----
+Job-search tooling either keyword-stuffs your resume or hands you a generic "AI rewrite" that fabricates experience. Eleva is built around a multi-stage pipeline that rewrites only what your real experience supports — and proves it with a structured ATS-style analysis.
 
 ## Architecture
 
-```
-Browser
-   │
-   ▼
-Next.js App Router (Server-first)
-   │
-   ├── Server Actions (data mutations)
-   └── API Routes (chat, export, webhooks, health)
-            │
-            ▼
-      Validation (Zod)
-            │
-            ▼
-       AI Router
-   ├── Cache
-   ├── Rate Limiter (Redis)
-   ├── Retry + Fallback
-   └── Providers
-        ├── OpenRouter
-        ├── OpenAI
-        ├── Anthropic
-        ├── Gemini
-        ├── NVIDIA
-        └── Ollama (local)
-            │
-            ▼
-        Supabase
-   ├── Auth (RLS-enforced)
-   ├── PostgreSQL
-   ├── Storage
-   └── Activity Logs
+```mermaid
+flowchart TD
+    A[Job Description / URL] --> B[JD Extraction]
+    B --> C[AI Scoring]
+    C --> D[Planning]
+    D --> E[Resume Tailoring]
+    E --> F[ATS Rescoring]
+    F --> G[Recruiter Review]
+    G --> H[Final Resume]
+    E -. grounded in real experience only .-> C
 ```
 
-### AI Pipeline Flow
+## Key features
 
-```
-Resume ──► Job Description
-              │
-              ▼
-      AI Extraction
-              │
-              ▼
-        ATS Analysis
-              │
-              ▼
-      Resume Tailoring
-              │
-              ▼
-      Cover Letter
-              │
-              ▼
-      Export (PDF/DOCX)
-```
+- **ATS parser simulation** — weighted keyword, formatting, and recruiter-signal analysis, not a keyword-count blender.
+- **Multi-stage tailoring workflow** — paste JD → match analysis → tailored resume → review diff → apply & track.
+- **Honest AI constraints** — rewrites restructure and re-emphasize *supported* facts only. Employers, titles, projects, degrees, and metrics must exist in the resume. Nothing is invented.
+- **Provider-agnostic LLM routing** — requests route across providers with automatic fallback; rate limits fail over instead of failing the workflow.
+- **Application kanban** — every application tracked from first touch to offer/rejection.
 
----
+## Measured results
 
-## Production Ready
+| Metric | Value |
+| --- | --- |
+| ATS score lift | 61 → 91 on the same resume |
+| Keyword gaps fixed | 4 |
+| Facts fabricated | 0 |
+| Provider failover paths | 3× |
+
+[Eval artifact](https://ashish-chandan.vercel.app/eleva-ats-eval.json) · methodology in the [scoring post](https://ashish-chandan.vercel.app/blog/building-elevas-ats-pipeline)
 
 - ✅ Authentication — Supabase Auth (Google OAuth + email) with SSR session handling
 - ✅ Row Level Security — per-user data isolation on every table
@@ -126,37 +56,20 @@ Resume ──► Job Description
 - ✅ CI/CD — GitHub Actions quality gate (lint, typecheck, tests, coverage) + dependency audit + Docker/Helm publish
 - ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
 
----
+## Tech stack
 
-## Tech Stack
+- **Frontend** — Next.js, TypeScript, React, Tailwind CSS
+- **Backend** — Next.js API routes, Supabase (auth, storage, Postgres)
+- **AI** — LLM APIs with provider routing + fallback
+- **Deployment** — Vercel
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | [Next.js 15](https://nextjs.org) (App Router, React 19) |
-| Language | [TypeScript](https://www.typescriptlang.org) (strict mode) |
-| Database | [Supabase](https://supabase.com) (PostgreSQL + RLS) |
-| Auth | [Supabase Auth](https://supabase.com/auth) (SSR, cookies) |
-| AI SDK | Vercel AI SDK + custom provider abstraction |
-| AI Providers | OpenAI, Anthropic, Google Gemini, OpenRouter, NVIDIA, Ollama |
-| Payments | [Stripe](https://stripe.com) (subscriptions, webhooks) |
-| Rate Limiting | Redis (Upstash or local) |
-| Analytics | [PostHog](https://posthog.com) |
-| Styling | Tailwind CSS + shadcn/ui (Radix primitives) |
-| Content | MDX (blog) |
-| Deployment | Docker (multi-stage), Helm (Kubernetes), Vercel-ready |
-
-## Prerequisites
-
-- **Node.js** >= 20.0.0
-- **pnpm** (required — project uses pnpm workspace)
-- **Supabase** project (free tier works)
-- At least one **AI provider API key** (OpenAI, Anthropic, or OpenRouter recommended)
-
-## Quick Start
+## Getting started
 
 ```bash
+git clone https://github.com/chandu954/Eleva
+cd Eleva
 pnpm install
-cp .env.example .env.local   # Fill in your API keys
+cp .env.example .env.local   # Supabase + LLM provider keys
 pnpm dev
 ```
 
@@ -282,16 +195,6 @@ All environment variables are documented in `.env.example`. Key variables:
 
 ## Roadmap
 
-- ✅ Resume Editor
-- ✅ ATS Scoring & Tailoring
-- ✅ Cover Letters
-- ✅ Prompt Studio
-- ✅ Applications Kanban
-- ✅ Analytics
-- ⬜ Chrome Extension
-- ⬜ AI Interview Prep
-- ⬜ Team Workspaces
-
-## License
-
-[GNU Affero General Public License v3.0](LICENSE.md) — see [LICENSE.md](LICENSE.md) for details.
+- [ ] LLM-as-judge eval harness for fabrication rate
+- [ ] PDF resume upload (parse real layouts)
+- [ ] Job tracker sync with email/linkedin exports
