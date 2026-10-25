@@ -7,15 +7,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sparkles, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase, Plus, Check } from 'lucide-react';
+import { Sparkles, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase, Plus, Check, type LucideIcon } from 'lucide-react';
 import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 import { StepLogPanel, type LogEntry } from './_components/step-log-panel';
+import type { ExtractedJobData, JobScore, TailoredResume } from './_lib/studio-types';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 type StepStatus = 'idle' | 'pending' | 'running' | 'done' | 'error';
 type MicroStatus = 'connecting' | 'sending' | 'waiting' | 'parsing' | 'complete';
 
 type ErrorDetails = { reason?: string; model?: string; provider?: string; attempt?: number; statusCode?: number; elapsed?: string; traceId?: string; rawMessage?: string };
+
+type StudioMilestone = { icon: LucideIcon; label: string; detail: string };
 
 type StepState = {
   step: string;
@@ -79,10 +82,10 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const [stepTimings, setStepTimings] = useState<Record<string, number>>({});
   const [jdCollapsed, setJdCollapsed] = useState(false);
   const [jdParsed, setJdParsed] = useState(false);
-  const [tailoredResume, setTailoredResume] = useState<any>(null);
-  const [extractData, setExtractData] = useState<any>(null);
-  const [scoreData, setScoreData] = useState<any>(null);
-  const [rescoreData, setRescoreData] = useState<any>(null);
+  const [tailoredResume, setTailoredResume] = useState<TailoredResume | null>(null);
+  const [extractData, setExtractData] = useState<ExtractedJobData | null>(null);
+  const [scoreData, setScoreData] = useState<JobScore | null>(null);
+  const [rescoreData, setRescoreData] = useState<JobScore | null>(null);
   const [activeTab, setActiveTab] = useState('resume');
   const [creatingApplication, setCreatingApplication] = useState<'wishlist' | 'applied' | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -879,7 +882,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                             <div className="mb-5">
                               <h3 className="text-[11px] font-bold uppercase tracking-wider mb-2 opacity-60">Skills</h3>
                               <div className="space-y-1.5">
-                                {tailoredResume.skills.map((s: any, i: number) => (
+                                {tailoredResume.skills.map((s, i) => (
                                   <div key={i} className="flex items-start gap-2 text-[13px]">
                                     <span className="font-semibold shrink-0 min-w-[100px]">{s.category}:</span>
                                     <span>{Array.isArray(s.skills) ? s.skills.join(', ') : Array.isArray(s.items) ? s.items.join(', ') : ''}</span>
@@ -893,7 +896,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                           {tailoredResume.work_experience?.length > 0 && (
                             <div className="mb-5">
                               <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 opacity-60">Experience</h3>
-                              {tailoredResume.work_experience.map((w: any, i: number) => (
+                              {tailoredResume.work_experience.map((w, i) => (
                                 <div key={i} className="mb-4">
                                   <div className="flex items-start justify-between">
                                     <div>
@@ -917,7 +920,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                           {tailoredResume.projects?.length > 0 && (
                             <div className="mb-5">
                               <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 opacity-60">Projects</h3>
-                              {tailoredResume.projects.map((p: any, i: number) => (
+                              {tailoredResume.projects.map((p, i) => (
                                 <div key={i} className="mb-3">
                                   <div className="font-bold text-[14px]">{p.name}</div>
                                   {(Array.isArray(p.description) ? p.description : [p.description]).filter(Boolean).map((d: string, j: number) => (
@@ -935,7 +938,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                           {tailoredResume.education?.length > 0 && (
                             <div>
                               <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 opacity-60">Education</h3>
-                              {tailoredResume.education.map((e: any, i: number) => (
+                              {tailoredResume.education.map((e, i) => (
                                 <div key={i} className="mb-2 text-[13px]">
                                   <span className="font-semibold">{e.school || e.institution}</span>
                                   {e.degree && <span> — {e.degree}</span>}
@@ -1000,7 +1003,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                       <div className="max-w-[650px] mx-auto space-y-6">
                         {/* Before/After */}
                         <div className="grid grid-cols-2 gap-4">
-                          {['overall', 'keyword', 'formatting', 'readability', 'impact', 'recruiter'].map((metric) => {
+                          {(['overall', 'keyword', 'formatting', 'readability', 'impact', 'recruiter'] as const).map((metric) => {
                             const before = Number(scoreData[metric] ?? 0);
                             const after = Number(rescoreData[metric] ?? 0);
                             const diff = after - before;
@@ -1054,7 +1057,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                           <div className="p-4 rounded-xl" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.04)', border: '1px solid rgb(var(--eleva-border))' }}>
                             <h4 className="text-[10px] font-mono uppercase mb-2" style={{ color: 'rgb(var(--eleva-primary))' }}>Recommendations</h4>
                             <div className="space-y-2">
-                              {(rescoreData.suggestions as Array<{ type: string; text: string; action: string }>).map((sg, i) => (
+                              {rescoreData.suggestions.map((sg, i) => (
                                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg" style={{ background: 'rgba(var(--eleva-card), 0.7)' }}>
                                   <Lightbulb className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: sg.type === 'success' ? 'rgb(var(--eleva-success))' : sg.type === 'warning' ? 'rgb(var(--eleva-warning))' : 'rgb(var(--eleva-primary))' }} />
                                   <div className="flex-1">
@@ -1240,7 +1243,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                                 rescoreData?.overall !== undefined && scoreData?.overall !== undefined && { icon: TrendingUp, label: 'ATS Recalculated', detail: `${scoreData.overall}% → ${rescoreData.overall}% (${rescoreData.overall >= scoreData.overall ? '+' : ''}${rescoreData.overall - scoreData.overall} pts)` },
                                 summary?.review && { icon: Star, label: 'Recruiter Review', detail: `${summary.review.wouldInterview ? 'Would interview' : 'Would not interview'} — ${summary.review.strengths.length} strengths, ${summary.review.weaknesses.length} weaknesses (${summary.review.confidence}% confidence)` },
                                 extractData?.role && { icon: Mail, label: 'Cover Letter', detail: `Generated for ${extractData.role} at ${extractData.company || 'company'}` },
-                              ].filter(Boolean).map((item: any, i: number) => {
+                              ].filter((entry): entry is StudioMilestone => Boolean(entry)).map((item, i) => {
                                 const Icon = item.icon;
                                 const timing = stepTimings[['extract','score','plan','tailor','rescore','review','letter'][i]];
                                 return (
@@ -1437,7 +1440,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                               </div>
                               <p className="text-[11px] mb-2" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Consider adding these to your resume for a stronger match:</p>
                               <div className="flex flex-wrap gap-1">
-                                {(rescoreData.missing as string[]).slice(0, 8).map((k: string) => (
+                                {(rescoreData?.missing ?? []).slice(0, 8).map((k) => (
                                   <span key={k} className="px-2 py-0.5 rounded text-[10px] font-mono" style={{ background: 'rgba(var(--eleva-danger-rgb), 0.1)', color: 'rgb(var(--eleva-danger))' }}>{k}</span>
                                 ))}
                               </div>
