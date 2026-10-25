@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import fs from "node:fs";
 
 interface Env {
   NEXT_PUBLIC_SUPABASE_URL?: string;
@@ -32,7 +33,6 @@ interface StripeSnapshot {
 const ACTIVE_LIKE = new Set<Stripe.Subscription.Status>(["active", "trialing"]);
 
 function loadDotenv(path = ".env.local"): Env {
-  const fs = require("node:fs") as typeof import("node:fs");
   if (!fs.existsSync(path)) return {};
 
   return Object.fromEntries(
@@ -172,7 +172,6 @@ function mapStripeSubscription(subscription: Stripe.Subscription): StripeSnapsho
 }
 
 function readStripeSnapshot(path: string): StripeSnapshot[] {
-  const fs = require("node:fs") as typeof import("node:fs");
   const json = JSON.parse(fs.readFileSync(path, "utf8")) as {
     data?: Stripe.Subscription[];
   } | Stripe.Subscription[];

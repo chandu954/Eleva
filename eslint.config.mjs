@@ -10,6 +10,20 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
+  {
+    // `pnpm lint` runs the ESLint CLI over the whole repo (`eslint .`
+    // replacing the deprecated `next lint`); keep build and tool output
+    // out of the lint scope.
+    ignores: [
+      "node_modules/**",
+      ".next/**",
+      "out/**",
+      "coverage/**",
+      "playwright-report/**",
+      "test-results/**",
+      "next-env.d.ts",
+    ],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     files: ["src/app/eleva/**/*.ts", "src/app/eleva/**/*.tsx"],

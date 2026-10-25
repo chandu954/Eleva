@@ -1,7 +1,3 @@
-/* eslint-disable import/no-commonjs */
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import path from "path";
 import type { NextConfig } from "next";
 import remarkGfm from "remark-gfm";
