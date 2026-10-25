@@ -125,4 +125,6 @@ schema-eleva.sql
 android-sdk/node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
 node_modules/@next/swc-linux-arm64-gnu/next-swc.linux-arm64-gnu.node
 node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
+# Track template files despite the .env* rule above — never ignore the real .env.local
 .env*
+!.env.example
