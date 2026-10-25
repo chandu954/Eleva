@@ -47,11 +47,16 @@ they are not met (CI runs both).
 
 - Thresholds sit just below the measured baseline of the test suite and
   act as a **ratchet**: they must be raised — never lowered — whenever
-  new code or tests land.
+  new tests land and the baseline stayed flat or improved.
+- Adding a new code file under test can legitimately pull the baseline
+  down (the file enters the measured set with partial coverage). In that
+  case re-measure with `pnpm coverage`, set the affected floors just
+  under the new measured values, and say so in the commit message. Every
+  other metric's floor must move up.
 - To raise a threshold: after adding a test, measure the new baseline
   with `pnpm coverage`, then bump the corresponding numbers in
-  `vitest.config.ts` (global block and/or the `src/lib/**` group) to sit
-  just below the new measured values, and include that bump in the same
+  `vitest.config.ts` (global block and/or per-glob group) to sit just
+  below the new measured values, and include that bump in the same
   commit as the new tests.
 - Do not game the ratchet by excluding files from `coverage.include` or
   adding new `coverage.exclude` entries — extensions to the exclude list

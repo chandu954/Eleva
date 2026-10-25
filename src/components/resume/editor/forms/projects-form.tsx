@@ -218,7 +218,12 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
 
   const approveSuggestion = (projectIndex: number, suggestion: AISuggestion) => {
     const updated = [...projects];
-    updated[projectIndex].description = [...updated[projectIndex].description, suggestion.point];
+    // Immutable update: the memo comparator JSON-compares previous props, so
+    // mutating shared project objects in place would make the change invisible.
+    updated[projectIndex] = {
+      ...updated[projectIndex],
+      description: [...updated[projectIndex].description, suggestion.point]
+    };
     onChange(updated);
     
     // Remove the suggestion after approval
@@ -276,7 +281,10 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
       }));
 
       const updated = [...projects];
-      updated[projectIndex].description[pointIndex] = improvedPoint;
+      updated[projectIndex] = {
+        ...updated[projectIndex],
+        description: updated[projectIndex].description.map((d, i) => (i === pointIndex ? improvedPoint : d)),
+      };
       onChange(updated);
     } catch (error: unknown) {
       if (error instanceof Error && (
@@ -308,7 +316,10 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
     const improvedPoint = improvedPoints[projectIndex]?.[pointIndex];
     if (improvedPoint) {
       const updated = [...projects];
-      updated[projectIndex].description[pointIndex] = improvedPoint.original;
+      updated[projectIndex] = {
+        ...updated[projectIndex],
+        description: updated[projectIndex].description.map((d, i) => (i === pointIndex ? improvedPoint.original : d)),
+      };
       onChange(updated);
       
       // Remove the improvement from state
@@ -342,7 +353,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
     setNewTechnologies({ ...newTechnologies, [projectIndex]: '' });
   };
 
-  const handleTechKeyPress = (e: KeyboardEvent<HTMLInputElement>, projectIndex: number) => {
+  const handleTechKeyDown = (e: KeyboardEvent<HTMLInputElement>, projectIndex: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       addTechnology(projectIndex);
@@ -351,8 +362,12 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
 
   const removeTechnology = (projectIndex: number, techIndex: number) => {
     const updated = [...projects];
-    updated[projectIndex].technologies = (updated[projectIndex].technologies || [])
-      .filter((_, i) => i !== techIndex);
+    // Immutable update (see approveSuggestion note above).
+    updated[projectIndex] = {
+      ...updated[projectIndex],
+      technologies: (updated[projectIndex].technologies || [])
+        .filter((_, i) => i !== techIndex),
+    };
     onChange(updated);
   };
 
@@ -515,7 +530,10 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                             content={desc} 
                             onChange={(newContent) => {
                               const updated = [...projects];
-                              updated[index].description[descIndex] = newContent;
+                              updated[index] = {
+                                ...updated[index],
+                                description: updated[index].description.map((d, i) => (i === descIndex ? newContent : d)),
+                              };
                               onChange(updated);
 
                               if (improvedPoints[index]?.[descIndex]) {
@@ -612,8 +630,9 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
+                                  // Immutable update so the memo comparator sees the change.
                                   const updated = [...projects];
-                                  updated[index].description = updated[index].description.filter((_, i) => i !== descIndex);
+                                  updated[index] = { ...updated[index], description: updated[index].description.filter((_, i) => i !== descIndex) };
                                   onChange(updated);
                                 }}
                                 className="p-0 group-hover/item:opacity-100 text-gray-400 hover:text-red-500 transition-all duration-300"
@@ -699,8 +718,9 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        // Immutable update so the memo comparator sees the change.
                         const updated = [...projects];
-                        updated[index].description = [...updated[index].description, ""];
+                        updated[index] = { ...updated[index], description: [...updated[index].description, ""] };
                         onChange(updated);
                       }}
                       className={cn(
@@ -775,7 +795,7 @@ export const ProjectsForm = memo(function ProjectsFormComponent({
                       <Input
                         value={newTechnologies[index] || ''}
                         onChange={(e) => setNewTechnologies({ ...newTechnologies, [index]: e.target.value })}
-                        onKeyPress={(e) => handleTechKeyPress(e, index)}
+                        onKeyDown={(e) => handleTechKeyDown(e, index)}
                         className={cn(
                           "h-9 bg-white/50 border-gray-200 rounded-lg",
                           "focus:border-violet-500/40 focus:ring-2 focus:ring-violet-500/20",
