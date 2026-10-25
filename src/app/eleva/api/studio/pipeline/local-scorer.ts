@@ -142,7 +142,9 @@ export function localExtractFallback(jdText: string): {
   nice_to_have: string[];
   summary: string;
 } {
-  const companyMatch = jdText.match(/@\s*(\w[\w\s.&]+)/) ||
+  // \s is deliberately excluded from the @mention body so the capture
+  // stops at the line break instead of swallowing following JD text.
+  const companyMatch = jdText.match(/@\s*(\w[\w .&]+)/) ||
     jdText.match(/(?:Company|Organization|Employer)[:\s]+(.+)/i) ||
     jdText.match(/^(.*?)(?:is hiring|seeking|looking for|has an opening)/i);
   const company = companyMatch?.[1]?.trim()?.slice(0, 60) ?? null;
