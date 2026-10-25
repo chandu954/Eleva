@@ -122,8 +122,8 @@ Resume ──► Job Description
 - ✅ Health Endpoint — `GET /api/health` (database + env checks)
 - ✅ Audit Logging — `activity_log` for key user actions
 - ✅ Startup Env Validation — fails fast on missing configuration
-- ✅ Tests — Vitest unit tests + Playwright e2e
-- ✅ CI/CD — GitHub Actions (Docker + Helm publish)
+- ✅ Tests — Vitest unit + component tests with enforced coverage thresholds + Playwright e2e
+- ✅ CI/CD — GitHub Actions quality gate (lint, typecheck, tests, coverage) + dependency audit + Docker/Helm publish
 - ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
 
 ---
@@ -161,6 +161,22 @@ pnpm dev
 ```
 
 Visit [http://localhost:8080](http://localhost:8080).
+
+### Testing & Quality Gates
+
+```bash
+pnpm lint       # ESLint
+pnpm typecheck  # tsc --noEmit (strict mode)
+pnpm test       # Vitest unit suite (jsdom, Testing Library)
+pnpm coverage   # Tests + enforced coverage thresholds (ratchet policy)
+pnpm build      # Next.js production build
+```
+
+CI (`.github/workflows/ci.yml`) runs two jobs on every PR and push to
+`main`: **quality** (lint, typecheck, unit tests, coverage thresholds)
+and **audit** (`pnpm audit --audit-level=high` with documented
+exemptions). Conventions and the coverage-ratchet rule live in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Database Setup
 

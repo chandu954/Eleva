@@ -62,6 +62,44 @@ they are not met (CI runs both).
   adding new `coverage.exclude` entries — extensions to the exclude list
   need a justification comment next to the change.
 
+### Dependency & Audit Policy
+
+Dependencies are managed with pnpm; the lockfile is committed and CI
+installs with `--frozen-lockfile`.
+
+- `pnpm install` locally after pulling changes that touch
+  `package.json` or `pnpm-lock.yaml`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm coverage`, and
+  `pnpm build` must pass before a commit lands.
+
+#### Audit gate
+
+`.github/workflows/ci.yml` runs `pnpm audit --audit-level=high` and the
+quality job fails on any unaccepted high or critical advisory.
+
+- Prefer fixing an advisory through a direct bump (`pnpm update <pkg>`)
+  or a semver-compatible `overrides` entry in `pnpm-workspace.yaml` over
+  accepting it.
+- `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml` holds the accepted
+  advisories; every entry needs a comment naming the affected package,
+  why no fixed version can be adopted yet, and what to watch for before
+  removing it. Review the list quarterly.
+- Never widen an override compiler range or pin an old vulnerable
+  version to silence an audit failure — that trades a red build for a
+  real vulnerability.
+
+#### Overrides
+
+`pnpm-workspace.yaml` carries two kinds of overrides:
+
+1. **Vulnerability-driven selectors** — pin only the vulnerable ranges
+   (`lodash@<=4.17.23` etc.) so consumers keep their declared majors.
+2. **Build-critical version alignment** — e.g. `zod` 3.25.76 (the
+   `zod/v3` subpath the `ai` package imports only exists in >= 3.25) and
+   `@opentelemetry/api` ^1.10.0 (required by the OTel SDK 0.300 train).
+   These keep the tree on a single compatible version; removing one
+   breaks `next build`, not just a CI check.
+
 ### Architecture Notes
 
 - AI provider routing lives in `src/lib/ai/provider/`
