@@ -2,12 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Sparkles, TrendingUp, Target, FileText, Code2, BookOpen, Award, Brain } from 'lucide-react';
-
-interface ResumeData {
-  name: string; role: string; email: string; phone: string; location: string;
-  linkedin: string; github: string; website: string; summary: string;
-  experience: any[]; projects: any[]; skills: any[]; education: any[]; certificates: any[];
-}
+import type { ResumeData } from '../_lib/use-resume-editor';
 
 function computeHealth(data: ResumeData) {
   const hasSummary = data.summary.trim().length > 0;
@@ -16,8 +11,8 @@ function computeHealth(data: ResumeData) {
   const skillCount = data.skills.reduce((a, c) => a + c.items.length, 0);
   const eduCount = data.education.length;
   const certCount = data.certificates.length;
-  const totalBullets = data.experience.reduce((a, e) => a + e.bullets.filter((b: any) => b.text.trim().length > 0).length, 0);
-  const hasMetrics = data.experience.some((e: any) => e.bullets.some((b: any) => /\d/.test(b.text)));
+  const totalBullets = data.experience.reduce((a, e) => a + e.bullets.filter((b) => b.text.trim().length > 0).length, 0);
+  const hasMetrics = data.experience.some((e) => e.bullets.some((b) => /\d/.test(b.text)));
 
   const completeness = Math.min(100, Math.round(
     (hasSummary ? 15 : 0) +
@@ -59,14 +54,14 @@ function computeHealth(data: ResumeData) {
     hasMetrics ? 30 : 10 +
     Math.min(totalBullets * 8, 30) +
     Math.min(expCount * 10, 20) +
-    (data.experience.some((e: any) => e.company && e.role) ? 20 : 0)
+    (data.experience.some((e) => e.company && e.role) ? 20 : 0)
   ));
 
   const skillsScore = Math.min(100, Math.round(
     Math.min(skillCount * 4, 40) +
     (data.skills.length > 2 ? 25 : data.skills.length * 10) +
     (skillCount > 5 ? 20 : 0) +
-    (data.skills.some((s: any) => s.category && s.items.length > 0) ? 15 : 0)
+    (data.skills.some((s) => s.category && s.items.length > 0) ? 15 : 0)
   ));
 
   const atsScore = Math.min(100, Math.round(
@@ -183,8 +178,8 @@ export function ResumeHealth({ data }: { data: ResumeData }) {
       <div className="grid grid-cols-3 gap-2 text-center">
         {[
           { label: 'Sections', value: [data.summary ? 1 : 0, data.experience.length, data.projects.length, data.skills.length, data.education.length, data.certificates.length].filter(Boolean).length, color: 'rgb(var(--eleva-primary))' },
-          { label: 'Bullets', value: data.experience.reduce((a: number, e: any) => a + e.bullets.length, 0), color: 'rgb(var(--eleva-secondary))' },
-          { label: 'Skills', value: data.skills.reduce((a: number, c: any) => a + c.items.length, 0), color: 'rgb(var(--eleva-success))' },
+          { label: 'Bullets', value: data.experience.reduce((a, e) => a + e.bullets.length, 0), color: 'rgb(var(--eleva-secondary))' },
+          { label: 'Skills', value: data.skills.reduce((a, c) => a + c.items.length, 0), color: 'rgb(var(--eleva-success))' },
         ].map((s) => (
           <div key={s.label} className="rounded-lg py-2" style={{ background: 'rgb(var(--eleva-muted))' }}>
             <div className="font-display text-lg font-bold" style={{ color: s.color }}>{s.value}</div>

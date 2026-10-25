@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Check, Lightbulb, Target } from 'lucide-react';
+import type { ResumeData } from '../_lib/use-resume-editor';
 
 const ROLE_KEYWORDS: Record<string, string[]> = {
   engineer: [
@@ -44,18 +45,18 @@ function inferRoleKeywords(role: string): string[] {
   return ROLE_KEYWORDS.engineer;
 }
 
-function extractText(data: any): string {
+function extractText(data: ResumeData): string {
   const parts: string[] = [];
   if (data.summary) parts.push(data.summary);
-  data.experience?.forEach((e: any) => {
-    e.bullets?.forEach((b: any) => parts.push(b.text));
+  data.experience?.forEach((e) => {
+    e.bullets?.forEach((b) => parts.push(b.text));
   });
-  data.skills?.forEach((c: any) => parts.push(c.items.join(' ')));
-  data.projects?.forEach((p: any) => parts.push(p.description || ''));
+  data.skills?.forEach((c) => parts.push(c.items.join(' ')));
+  data.projects?.forEach((p) => parts.push(p.description || ''));
   return parts.join(' ');
 }
 
-export function KeywordHeatmap({ data, role: targetRole }: { data: any; role?: string }) {
+export function KeywordHeatmap({ data, role: targetRole }: { data: ResumeData; role?: string }) {
   const [showAll, setShowAll] = useState(false);
   const keywords = inferRoleKeywords(targetRole || data.role || 'engineer');
   const text = extractText(data).toLowerCase();
