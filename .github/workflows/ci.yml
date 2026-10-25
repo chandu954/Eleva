@@ -44,6 +44,11 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # Fails when vitest coverage falls below the ratcheted thresholds in
+      # vitest.config.ts (policy: CONTRIBUTING.md → "Coverage ratchet").
+      - name: Coverage thresholds
+        run: pnpm coverage
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

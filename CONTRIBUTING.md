@@ -35,9 +35,27 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 1. Create a feature branch from `main`
 2. Make your changes
 3. Run `pnpm lint` and `pnpm typecheck` — both must pass
-4. Run `pnpm build` — must succeed
-5. If you added tests, run `pnpm test`
+4. Run `pnpm test` (and `pnpm coverage` when touching logic)
+5. Run `pnpm build` — must succeed
 6. Submit a PR with a clear description of the change
+
+### Testing & Coverage Ratchet
+
+Unit tests run through Vitest (`pnpm test`); `pnpm coverage` additionally
+enforces the thresholds configured in `vitest.config.ts` and fails when
+they are not met (CI runs both).
+
+- Thresholds sit just below the measured baseline of the test suite and
+  act as a **ratchet**: they must be raised — never lowered — whenever
+  new code or tests land.
+- To raise a threshold: after adding a test, measure the new baseline
+  with `pnpm coverage`, then bump the corresponding numbers in
+  `vitest.config.ts` (global block and/or the `src/lib/**` group) to sit
+  just below the new measured values, and include that bump in the same
+  commit as the new tests.
+- Do not game the ratchet by excluding files from `coverage.include` or
+  adding new `coverage.exclude` entries — extensions to the exclude list
+  need a justification comment next to the change.
 
 ### Architecture Notes
 
