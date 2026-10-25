@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
 import { apiError } from '@/lib/api-response';
