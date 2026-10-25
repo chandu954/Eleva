@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase, Plus, Check } from 'lucide-react';
 import { reportAiRun, reportAiDone } from '../_lib/ai-status';
+import { StepLogPanel, type LogEntry } from './_components/step-log-panel';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 type StepStatus = 'idle' | 'pending' | 'running' | 'done' | 'error';
@@ -28,7 +29,6 @@ type StepState = {
   microText?: string;
 };
 
-type LogEntry = { time: string; message: string; status: 'running' | 'done' | 'error'; step?: string };
 
 const STEP_LABELS: Record<string, string> = {
   extract: 'Analyzing the job description',
@@ -74,7 +74,6 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const [letter, setLetter] = useState('');
   const [summary, setSummary] = useState<{ overall: number; previousOverall?: number; matched: number; missing: number; company?: string | null; role?: string | null; keywordsAdded: number; bulletsRewritten: number; compatibility?: number; isLowCompat?: boolean; sectionsModified?: number; resumeId?: string | null; coverLetterId?: string | null; plan?: { rewriteSummary: boolean; rewriteExperience: boolean; rewriteProjects: boolean; rewriteSkills: boolean; keywordsToInject: number; hardTruthNote?: string | null }; sectionConfidence?: { summary: number; skills: number; experience: number; projects: number }; sectionChanges?: { summary: string[]; skills: string[]; experience: string[]; projects: string[] }; quality?: { passed: boolean; issues: string[]; score: number }; review?: { wouldInterview: boolean; score: number; strengths: string[]; weaknesses: string[]; genericAreas: string[]; recommendation: string; confidence: number } } | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [showLogs, setShowLogs] = useState(true);
   const [showErrorDetails, setShowErrorDetails] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState<string | null>(null);
   const [stepTimings, setStepTimings] = useState<Record<string, number>>({});
@@ -530,31 +529,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
             )}
 
             {/* Activity Logs */}
-            {logs.length > 0 && (
-              <div className="mt-4">
-                <button onClick={() => setShowLogs(!showLogs)} className="flex items-center gap-1.5 text-[11px] font-medium h-8 w-full justify-center rounded-lg" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                  {showLogs ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  Activity Log {logs.length > 0 && `(${logs.length})`}
-                </button>
-                <AnimatePresence>
-                  {showLogs && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                      <div className="mt-2 p-3 rounded-lg space-y-1 max-h-36 overflow-y-auto" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                        {logs.map((log, i) => (
-                          <div key={i} className="flex items-start gap-2 text-[11px]">
-                            <span className="shrink-0 font-mono text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{log.time}</span>
-                            <span className="shrink-0 font-mono" style={{ color: log.status === 'done' ? 'rgb(var(--eleva-success))' : log.status === 'error' ? 'rgb(220,38,38)' : 'rgb(var(--eleva-primary))' }}>
-                              {log.status === 'done' ? '✓' : log.status === 'error' ? '✕' : '⟳'}
-                            </span>
-                            <span style={{ color: 'rgb(var(--eleva-fg))' }}>{log.message.replace('✓', '').trim()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
+            <StepLogPanel logs={logs} />
           </div>
         </div>
 
