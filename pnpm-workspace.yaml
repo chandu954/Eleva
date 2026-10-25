@@ -9,3 +9,68 @@ allowBuilds:
   protobufjs: false
   sharp: false
   unrs-resolver: false
+
+# Force transitive dependencies to patched versions with semver-compatible
+# ranges. Each entry clears a high/critical pnpm audit finding caused by a
+# stale resolution. Selectors pin only the vulnerable version ranges so their
+# consumers keep their declared major/minor. Review before removing — see
+# CONTRIBUTING.md (Dependency & audit policy).
+overrides:
+  '@modelcontextprotocol/sdk': ^1.32.0
+  '@grpc/grpc-js': ^1.14.5
+  body-parser: ^2.4.0
+  fast-uri: ^3.1.7
+  form-data: ^4.0.6
+  postcss: ^8.5.18
+  protobufjs: ^7.6.1
+  tar-fs: ^2.1.4
+  # OTel 0.300 train (sdk-node) needs >=1.10 for the `logs` export; the
+  # resolved api@1.9.1 broke the next build with attempted-import errors.
+  '@opentelemetry/api': ^1.10.0
+  # ai@4 + zod-to-json-schema@3.25 import the `zod/v3` subpath that only
+  # exists in zod >= 3.25; the ali peer resolved to 3.24.4 and broke the
+  # next build. Pin one zod 3.x for the whole tree (v4 migration pending).
+  zod: 3.25.76
+  # Exact-version selectors for the remaining stale transitives
+  picomatch@2.3.1: ^2.3.2
+  picomatch@4.0.2: ^4.0.4
+  minimatch@9.0.5: ^9.0.7
+  brace-expansion@2.0.1: ^2.1.6
+  brace-expansion@5.0.7: ^5.0.11
+  nanoid@3.3.11: ^3.3.18
+  browserslist@<4.28.7: ^4.28.7
+  source-map-js@1.2.1: ^1.2.2
+  glob@10.4.5: 10.5.0
+  ws@8.18.2: 8.21.0
+  vite@5.4.21: 6.4.5
+  linkify-it@5.0.0: ^5.0.2
+  markdown-it@14.1.0: ^14.3.3
+  prosemirror-view@1.39.3: ^1.42.3
+  jsondiffpatch@0.6.0: ^0.7.6
+  lodash@<=4.17.23: ^4.17.24
+  # dev-toolchain selectors (eslint / vitest / webpack-analyzer chains)
+  flatted@3.3.3: ^3.4.2
+  js-yaml@4.1.0: ^4.3.2
+  js-yaml@3.14.1: ^3.15.2
+  minimatch@3.1.2: ^3.1.4
+  brace-expansion@1.1.11: 1.1.20
+
+# pnpm audit gate: advisories accepted with documented justification.
+# CI fails on any NEW high/critical advisory. Review quarterly — see
+# CONTRIBUTING.md (Dependency & audit policy).
+#
+# Exemptions:
+# - GHSA-869p-cjfg-cm3x (jws@4.0.0, via @posthog/ai -> @google/genai ->
+#   google-auth-library): no patched release exists upstream; re-evaluate
+#   when @google/genai ships without the vulnerable path or jws fixes it.
+# - GHSA-5gmw-xhrv-c9v3 / GHSA-85c8-ppgw-ccpr (tinypool, vitest test pool,
+#   dev-only): fixed in >=2.1.2 but vitest 3.x declares tinypool ^1; watch
+#   for a vitest release consuming the fixed version.
+# - GHSA-mrhx-c7xc-m3w5 (zod): hardening only exists in zod v4.6.6; the
+#   v3->v4 schema API migration is tracked and pending.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-869p-cjfg-cm3x
+    - GHSA-5gmw-xhrv-c9v3
+    - GHSA-85c8-ppgw-ccpr
+    - GHSA-mrhx-c7xc-m3w5

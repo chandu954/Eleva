@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import path from "path";
 import type { NextConfig } from "next";
 import remarkGfm from "remark-gfm";
 import mdx from "@next/mdx";
@@ -26,6 +27,10 @@ if (process.env.ANALYZE === "true") {
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Pin the tracing root: a stray lockfile in a parent directory made Next
+  // infer the workspace root as the home directory, which relocated the
+  // standalone output folder (breaking the build script's `cp` steps).
+  outputFileTracingRoot: path.join(__dirname),
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   images: {
     loader: "custom",
