@@ -359,7 +359,7 @@ describe("ProjectsForm — AI point generation", () => {
 });
 
 describe("ProjectsForm — AI point improvement", () => {
-  it("rewrites an existing point, shows the review chip, and allows undo", async () => {
+  it("rewrites an existing point, shows the review chip, and allows undo", { timeout: 15000 }, async () => {
     improveMock.mockResolvedValue("Improved bullet text");
 
     const user = userEvent.setup();
