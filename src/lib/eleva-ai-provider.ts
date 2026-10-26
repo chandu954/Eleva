@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { ai } from './ai';
 import type { AITask, ProviderConfig, PipelineTraceStep } from './ai/provider/types';
 import { PROVIDER_COOKIE_NAME, decodeProviderCookie } from './ai/provider/cookie-config';
+import { isMockModeActive } from './ai/provider/providers/mock';
 
 export type AIModelId = string;
 
@@ -130,12 +131,14 @@ function getModel(modelId: string): LanguageModelV1 {
 }
 
 async function getDefaultProviderConfig(): Promise<ProviderConfig> {
-  // AI_MOCK_PROVIDER=true pins ALL default-provider AI traffic to the
-  // deterministic offline mock provider (test/dev only). The check runs
-  // before both the explicit user config and the provider cookie so that
-  // mock mode can never accidentally reach live provider APIs — the flag
-  // must be set deliberately, and when it is, no network call happens.
-  if (process.env.AI_MOCK_PROVIDER === 'true') {
+  // In mock mode ALL default-provider AI traffic is pinned to the
+  // deterministic offline mock provider (test/dev only; never active in a
+  // production NODE_ENV — isMockModeActive is the single tested predicate).
+  // The check runs before both the explicit user config and the provider
+  // cookie so that mock mode can never accidentally reach live provider APIs
+  // — the flag must be set deliberately, and when it is, no network call
+  // happens.
+  if (isMockModeActive()) {
     return { selectedProvider: 'mock', selectedModel: 'mock/default', mode: 'single' as const, fallbackEnabled: false };
   }
   if (userProviderConfig) return userProviderConfig;
@@ -222,9 +225,9 @@ export const AIProvider = {
   async stream(params: StreamTextParams): Promise<ReturnType<typeof vercelStreamText>> {
     // Mock mode must never touch the network: the facade's stream path calls
     // the Vercel SDK directly, bypassing the provider abstraction, so it is
-    // refused while AI_MOCK_PROVIDER is enabled.
-    if (process.env.AI_MOCK_PROVIDER === 'true') {
-      throw new Error('AIProvider.stream() is unavailable while AI_MOCK_PROVIDER=true (deterministic mock mode)');
+    // refused while mock mode is active.
+    if (isMockModeActive()) {
+      throw new Error('AIProvider.stream() is unavailable while AI_MOCK_PROVIDER is active (deterministic mock mode)');
     }
     const { system, prompt, messages, temperature = 0.7, maxTokens = 2048 } = params;
 

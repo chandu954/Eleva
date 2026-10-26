@@ -5,11 +5,27 @@ import type { ModelConfig } from '../models';
 import type { AIProviderResult, GenerateObjectParams, GenerateTextParams, StreamTextParams } from '../types';
 
 /**
+ * Central predicate for mock mode. Mock mode is FULLY off in production:
+ * the AI_MOCK_PROVIDER flag alone is never enough — NODE_ENV must also be
+ * something other than "production". A misconfigured production deploy
+ * (flag leaking from a developer's .env) then falls back to live provider
+ * selection instead of silently scoring resumes with synthesized data.
+ *
+ * Exported so every consumer (provider registry, default-provider pinning,
+ * the stream() facade) gates on one tested predicate instead of repeating
+ * the two-variable check inline.
+ */
+export function isMockModeActive(): boolean {
+  return process.env.AI_MOCK_PROVIDER === 'true' && process.env.NODE_ENV !== 'production';
+}
+
+/**
  * Deterministic offline AI provider (test/dev only).
  *
- * Enabled only when AI_MOCK_PROVIDER === 'true' (wired into
- * vitest.config.ts test.env, docker compose dev, and the eleva-ai-provider
- * default-provider fallback). `generateObject` synthesizes values by walking
+ * Enabled only when AI_MOCK_PROVIDER=true AND NODE_ENV is not "production"
+ * (see isMockModeActive). Wired into vitest.config.ts test.env, docker compose
+ * dev, and the eleva-ai-provider default-provider fallback. `generateObject`
+ * synthesizes values by walking
  * the requested Zod schema, so results always conform to the caller's exact
  * contract: schema-conform, stable across repeated calls, zero network, zero
  * API keys. Field names map to plausible sample strings so downstream code
@@ -228,7 +244,11 @@ function unwrapToBase(schema: z.ZodType): z.ZodType {
 export const mockProvider: AIProvider = {
   id: 'mock',
   name: 'Mock (offline, deterministic)',
-  enabled: process.env.AI_MOCK_PROVIDER === 'true',
+  // Evaluated at access time (not import time): the guard cannot be bypassed
+  // by importing this module before NODE_ENV/flags are final.
+  get enabled() {
+    return isMockModeActive();
+  },
 
   async generateText(params: GenerateTextParams, model: ModelConfig): Promise<AIProviderResult> {
     const start = performance.now();

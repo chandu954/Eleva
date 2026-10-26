@@ -112,7 +112,7 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsStreaming: true, supportsTools: true, supportsVision: false, maxContext: 128000,
   },
 
-  // Mock (deterministic offline provider; active only with AI_MOCK_PROVIDER=true)
+  // Mock (deterministic offline provider; active only in mock mode — never in production)
   'mock/default': {
     id: 'mock/default', provider: 'mock', displayName: 'Mock (offline, deterministic)',
     supportsStreaming: false, supportsTools: false, supportsVision: false, maxContext: 32000,

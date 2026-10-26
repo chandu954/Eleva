@@ -7,7 +7,7 @@ import { ExtractSchema, ScoreSchema } from '@/app/eleva/api/studio/pipeline/cach
 import type { StreamTextParams } from '../types';
 import { getProvider, isProviderAvailable } from '../factory';
 import { getModelsForProvider } from '../models';
-import { mockProvider } from './mock';
+import { isMockModeActive, mockProvider } from './mock';
 
 const model = getModelsForProvider('mock')[0];
 if (!model) throw new Error('mock/default model must be registered in provider/models.ts');
@@ -138,6 +138,81 @@ describe('mock provider — gating', () => {
     } finally {
       if (prev === undefined) delete process.env.AI_MOCK_PROVIDER;
       else process.env.AI_MOCK_PROVIDER = prev;
+      vi.resetModules();
+    }
+  });
+});
+
+describe('mock provider — production guard', () => {
+  // These tests simulate deployment environments, so NODE_ENV must be
+  // assignable here (@types/node marks it readonly on process.env).
+  const mutableEnv = process.env as unknown as { AI_MOCK_PROVIDER?: string; NODE_ENV?: string };
+
+  /** Snapshot/restore of every variable the predicate reads. */
+  function currentEnv() {
+    return { flag: mutableEnv.AI_MOCK_PROVIDER, nodeEnv: mutableEnv.NODE_ENV };
+  }
+
+  function restoreEnv(prev: { flag: string | undefined; nodeEnv: string | undefined }) {
+    if (prev.flag === undefined) delete mutableEnv.AI_MOCK_PROVIDER;
+    else mutableEnv.AI_MOCK_PROVIDER = prev.flag;
+    if (prev.nodeEnv === undefined) delete mutableEnv.NODE_ENV;
+    else mutableEnv.NODE_ENV = prev.nodeEnv;
+  }
+
+  it('isMockModeActive() requires the flag AND a non-production NODE_ENV', () => {
+    const prev = currentEnv();
+    try {
+      mutableEnv.AI_MOCK_PROVIDER = 'true';
+      mutableEnv.NODE_ENV = 'test';
+      expect(isMockModeActive()).toBe(true);
+
+      mutableEnv.NODE_ENV = 'development';
+      expect(isMockModeActive()).toBe(true);
+
+      // The accident this guard exists for: a developer's .env leaking the
+      // flag into a production deployment must NOT arm mock mode, or real
+      // users would receive synthesized scores.
+      mutableEnv.NODE_ENV = 'production';
+      expect(isMockModeActive()).toBe(false);
+    } finally {
+      restoreEnv(prev);
+    }
+  });
+
+  it('never enables the provider in a production NODE_ENV, even with the flag set', async () => {
+    const prev = currentEnv();
+    try {
+      mutableEnv.AI_MOCK_PROVIDER = 'true';
+      mutableEnv.NODE_ENV = 'production';
+      vi.resetModules();
+      const { mockProvider: freshMock } = await import('./mock');
+      expect(freshMock.enabled).toBe(false);
+
+      // End-to-end through the registry: mock must be unusable in production.
+      const { isProviderAvailable: availableNow, getEnabledProviders } = await import('../factory');
+      expect(availableNow('mock')).toBe(false);
+      expect(getEnabledProviders().map((p) => p.id)).not.toContain('mock');
+    } finally {
+      restoreEnv(prev);
+      vi.resetModules();
+    }
+  });
+
+  it('evaluates enabled at access time, so a late environment change still applies', async () => {
+    const prev = currentEnv();
+    try {
+      delete mutableEnv.AI_MOCK_PROVIDER;
+      vi.resetModules();
+      const { mockProvider: freshMock } = await import('./mock');
+      expect(freshMock.enabled).toBe(false);
+
+      mutableEnv.AI_MOCK_PROVIDER = 'true';
+      mutableEnv.NODE_ENV = 'test';
+      // Same module instance, no re-import needed.
+      expect(freshMock.enabled).toBe(true);
+    } finally {
+      restoreEnv(prev);
       vi.resetModules();
     }
   });

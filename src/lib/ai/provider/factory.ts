@@ -15,7 +15,8 @@ export const providers: Record<string, AIProvider> = {
   openrouter: openRouterProvider,
   gemini: geminiProvider,
   ollama: ollamaProvider,
-  // Test/dev only: disabled unless AI_MOCK_PROVIDER=true.
+  // Test/dev only: disabled unless mock mode is active (AI_MOCK_PROVIDER=true
+  // outside production — see isMockModeActive in providers/mock.ts).
   mock: mockProvider,
 };
 
