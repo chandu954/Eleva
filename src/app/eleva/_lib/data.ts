@@ -41,6 +41,13 @@ function last7Days() {
   return days;
 }
 
+/* Row shapes the dashboard helpers read out of the (untyped) Supabase client. */
+type ApplicationRow = { id: string; status: string; created_at: string };
+type AtsScoreRow = { overall: number; created_at: string };
+type ResumeCountRow = { id: string; created_at: string };
+type ActivityLogRow = { kind: string; created_at: string };
+type ResumeNameRow = { id: string; name: string };
+
 export async function getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
   const supabase = await createClient();
   const since = new Date();
@@ -54,7 +61,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
     supabase.from('activity_log').select('kind, created_at').eq('user_id', userId).gte('created_at', sinceIso),
   ]);
 
-  let applicationsRes: { data: any[] | null; count: number | null; error: any } = { data: [], count: 0, error: null };
+  let applicationsRes: { data: ApplicationRow[] | null; count: number | null; error: unknown } = { data: [], count: 0, error: null };
   try {
     const r = await supabase.from('applications').select('id, status, created_at', { count: 'exact' }).eq('user_id', userId);
     applicationsRes = { data: r.data, count: r.count, error: r.error };
@@ -63,7 +70,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   }
 
   const applicationsByStatus: Record<string, number> = {};
-  ((applicationsRes as any).data ?? []).forEach((a: any) => {
+  (applicationsRes.data ?? []).forEach((a) => {
     const s = a.status || 'applied';
     applicationsByStatus[s] = (applicationsByStatus[s] || 0) + 1;
   });
@@ -71,7 +78,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   const days = last7Days();
 
   const atsByDay: Record<string, number[]> = {};
-  (atsRes.data ?? []).forEach((r: any) => {
+  (atsRes.data ?? []).forEach((r: AtsScoreRow) => {
     const d = r.created_at.slice(0, 10);
     (atsByDay[d] ||= []).push(r.overall);
   });
@@ -83,7 +90,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   for (let i = 0; i < atsTrend.length; i++) if (!atsTrend[i]) atsTrend[i] = i > 0 ? atsTrend[i - 1] : 0;
 
   const appsByDay: Record<string, number> = {};
-  ((applicationsRes as any).data ?? []).forEach((a: any) => {
+  (applicationsRes.data ?? []).forEach((a) => {
     const d = a.created_at?.slice(0, 10);
     if (!d) return;
     appsByDay[d] = (appsByDay[d] || 0) + 1;
@@ -92,7 +99,7 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   const applicationsTrend = days.map(d => (cum += appsByDay[d] || 0));
 
   const resByDay: Record<string, number> = {};
-  (resumesRes.data ?? []).forEach((r: any) => {
+  (resumesRes.data ?? []).forEach((r: ResumeCountRow) => {
     const d = r.created_at?.slice(0, 10);
     if (!d) return;
     resByDay[d] = (resByDay[d] || 0) + 1;
@@ -101,22 +108,22 @@ export async function getDashboardMetrics(userId: string): Promise<DashboardMetr
   const resumeGrowth = days.map(d => (cumR += resByDay[d] || 0));
 
   const prodByDay: Record<string, number> = {};
-  (activityRes.data ?? []).forEach((a: any) => {
+  (activityRes.data ?? []).forEach((a: ActivityLogRow) => {
     const d = a.created_at?.slice(0, 10);
     if (!d) return;
     prodByDay[d] = (prodByDay[d] || 0) + 1;
   });
   const weeklyProductivity = days.map(d => prodByDay[d] || 0);
 
-  const atsVals = (atsRes.data ?? []).map((r: any) => r.overall);
+  const atsVals = (atsRes.data ?? []).map((r: AtsScoreRow) => r.overall);
   const avgAts = atsVals.length ? Math.round(atsVals.reduce((a: number, b: number) => a + b, 0) / atsVals.length) : 0;
   const atsDelta = atsVals.length > 1 ? (atsVals[atsVals.length - 1] - atsVals[0]) : 0;
 
-  const interviews = ((applicationsRes as any).data ?? []).filter((a: any) => a.status === 'interview').length;
+  const interviews = (applicationsRes.data ?? []).filter((a) => a.status === 'interview').length;
 
   return {
     resumes: resumesRes.count ?? 0,
-    applications: (applicationsRes as any).count ?? 0,
+    applications: applicationsRes.count ?? 0,
     avgAts,
     coverLetters: coverRes.count ?? 0,
     interviews,
@@ -133,16 +140,19 @@ export async function getRecentActivity(userId: string, limit = 8): Promise<Acti
   const supabase = await createClient();
   const { data } = await supabase.from('activity_log').select('id, kind, title, subtitle, meta, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
   const items = (data ?? []) as ActivityItem[];
-  const resumeIds = Array.from(new Set(items.map((i) => (i.meta as any)?.resumeId).filter(Boolean))) as string[];
+  const resumeIds = Array.from(new Set(items.map((i) => i.meta?.resumeId).filter((id): id is string => typeof id === 'string')));
   let nameMap: Record<string, string> = {};
   if (resumeIds.length) {
     const { data: resumes } = await supabase.from('resumes').select('id, name').in('id', resumeIds);
-    nameMap = Object.fromEntries((resumes ?? []).map((r: any) => [r.id, r.name]));
+    nameMap = Object.fromEntries((resumes ?? []).map((r: ResumeNameRow) => [r.id, r.name]));
   }
-  return items.map((i) => ({
-    ...i,
-    resumeName: ((i.meta as any)?.resumeId && nameMap[(i.meta as any).resumeId]) || null,
-  }));
+  return items.map((i) => {
+    const resumeId = i.meta?.resumeId;
+    return {
+      ...i,
+      resumeName: (typeof resumeId === 'string' && nameMap[resumeId]) || null,
+    };
+  });
 }
 
 export async function getRecentResumes(userId: string, limit = 5) {

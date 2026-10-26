@@ -107,8 +107,8 @@ export async function validateProviderKey(provider: ProviderId) {
     latency = Date.now() - start;
     healthy = res.ok;
     status = healthy ? 'connected' : 'invalid_key';
-  } catch (e: any) {
-    const msg = e.message?.toLowerCase() ?? '';
+  } catch (e) {
+    const msg = (e as { message?: string }).message?.toLowerCase() ?? '';
     if (msg.includes('rate') || msg.includes('429')) status = 'rate_limited';
     else if (msg.includes('auth') || msg.includes('key') || msg.includes('401')) status = 'invalid_key';
     else if (msg.includes('quota')) status = 'quota_exceeded';
