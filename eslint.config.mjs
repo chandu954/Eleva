@@ -28,12 +28,13 @@ const eslintConfig = [
   {
     files: ["src/app/eleva/**/*.ts", "src/app/eleva/**/*.tsx"],
     rules: {
-      // Enforcement point for the any-cleanup sweep: warn everywhere under
-      // src/app/eleva first (this block records the inventory), then raise to
-      // "error" per area once the hits are gone. prompt-studio already runs
-      // the rule as "error" further down; two files there still opt out with
-      // a file-level eslint-disable that this sweep removes.
-      "@typescript-eslint/no-explicit-any": "warn",
+      // Enforcement point for the any-cleanup sweep. Warn was landed as
+      // commit 8145528 with the inventory (103 warnings across 14 files,
+      // plus two prompt-studio files hiding behind file-level disables);
+      // the per-area elimination commits brought it to zero and removed the
+      // disables, so this block is now enforced as error. The prompt-studio
+      // block below additionally keeps its stricter plain no-unused-vars.
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
