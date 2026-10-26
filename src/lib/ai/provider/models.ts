@@ -111,6 +111,12 @@ export const MODELS: Record<string, ModelConfig> = {
     id: 'ollama/phi4', provider: 'ollama', displayName: 'Phi-4 (Local)',
     supportsStreaming: true, supportsTools: true, supportsVision: false, maxContext: 128000,
   },
+
+  // Mock (deterministic offline provider; active only with AI_MOCK_PROVIDER=true)
+  'mock/default': {
+    id: 'mock/default', provider: 'mock', displayName: 'Mock (offline, deterministic)',
+    supportsStreaming: false, supportsTools: false, supportsVision: false, maxContext: 32000,
+  },
 };
 
 export function getModelForProvider(providerId: ProviderId): ModelConfig | undefined {

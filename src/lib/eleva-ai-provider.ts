@@ -130,6 +130,14 @@ function getModel(modelId: string): LanguageModelV1 {
 }
 
 async function getDefaultProviderConfig(): Promise<ProviderConfig> {
+  // AI_MOCK_PROVIDER=true pins ALL default-provider AI traffic to the
+  // deterministic offline mock provider (test/dev only). The check runs
+  // before both the explicit user config and the provider cookie so that
+  // mock mode can never accidentally reach live provider APIs — the flag
+  // must be set deliberately, and when it is, no network call happens.
+  if (process.env.AI_MOCK_PROVIDER === 'true') {
+    return { selectedProvider: 'mock', selectedModel: 'mock/default', mode: 'single' as const, fallbackEnabled: false };
+  }
   if (userProviderConfig) return userProviderConfig;
 
   try {
@@ -212,6 +220,12 @@ export const AIProvider = {
   },
 
   async stream(params: StreamTextParams): Promise<ReturnType<typeof vercelStreamText>> {
+    // Mock mode must never touch the network: the facade's stream path calls
+    // the Vercel SDK directly, bypassing the provider abstraction, so it is
+    // refused while AI_MOCK_PROVIDER is enabled.
+    if (process.env.AI_MOCK_PROVIDER === 'true') {
+      throw new Error('AIProvider.stream() is unavailable while AI_MOCK_PROVIDER=true (deterministic mock mode)');
+    }
     const { system, prompt, messages, temperature = 0.7, maxTokens = 2048 } = params;
 
     const cfg = await getDefaultProviderConfig();

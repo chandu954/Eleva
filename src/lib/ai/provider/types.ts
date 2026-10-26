@@ -1,4 +1,4 @@
-export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'nvidia' | 'ollama';
+export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'nvidia' | 'ollama' | 'mock';
 
 export type AITask =
   | 'resume-rewrite'

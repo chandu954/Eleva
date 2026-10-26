@@ -5,6 +5,7 @@ import { nvidiaProvider } from './providers/nvidia';
 import { openRouterProvider } from './providers/openrouter';
 import { geminiProvider } from './providers/gemini';
 import { ollamaProvider } from './providers/ollama';
+import { mockProvider } from './providers/mock';
 import type { ProviderId } from './types';
 
 export const providers: Record<string, AIProvider> = {
@@ -14,6 +15,8 @@ export const providers: Record<string, AIProvider> = {
   openrouter: openRouterProvider,
   gemini: geminiProvider,
   ollama: ollamaProvider,
+  // Test/dev only: disabled unless AI_MOCK_PROVIDER=true.
+  mock: mockProvider,
 };
 
 export function getProvider(id: string): AIProvider | undefined {
