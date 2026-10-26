@@ -62,6 +62,22 @@ they are not met (CI runs both).
   adding new `coverage.exclude` entries — extensions to the exclude list
   need a justification comment next to the change.
 
+#### Offline test guarantee
+
+The unit suite must pass without network access. AI calls go through the
+deterministic `AI_MOCK_PROVIDER` adapter, and Supabase/PostgREST access is
+stubbed (`src/test/postgrest-stub.ts`, `stubSupabase`). No test may hit a
+live provider, database, or Stripe endpoint. On macOS you can verify the
+whole suite offline with:
+
+```bash
+sandbox-exec -p '(version 1)(allow default)(deny network*)' pnpm test
+```
+
+CI runs `pnpm test` with the same mock provider enabled through
+`vitest.config.ts`; if a new test needs a network-shaped dependency, add a
+stub next to `src/test/` instead of contacting the service.
+
 ### Dependency & Audit Policy
 
 Dependencies are managed with pnpm; the lockfile is committed and CI
