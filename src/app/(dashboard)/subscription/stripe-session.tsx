@@ -1,8 +1,8 @@
 "use server";
 
-import { Stripe } from "stripe";
 import { checkAuth } from "@/app/auth/login/actions";
 import { createOrRetrieveCustomer } from "@/utils/actions/stripe/actions";
+import { getStripeClient } from "@/lib/stripe/client";
 import {
     buildCheckoutIdempotencyKey,
     buildCheckoutSessionMetadata,
@@ -11,10 +11,7 @@ import {
     isMatchingOpenCheckoutSession,
 } from "@/lib/stripe/checkout-guard";
 
-const apiKey = process.env.STRIPE_SECRET_KEY as string;
-const stripe = new Stripe(apiKey, {
-    apiVersion: "2025-04-30.basil",
-});
+const stripe = getStripeClient();
 
 interface NewSessionOptions {
     priceId: string;

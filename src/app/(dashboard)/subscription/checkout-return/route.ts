@@ -2,13 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
-import Stripe from "stripe";
+import { getStripeClient } from "@/lib/stripe/client";
 
 
 function getStripe() {
-  const apiKey = process.env.STRIPE_SECRET_KEY as string;
-  if (!apiKey) throw new Error('STRIPE_SECRET_KEY is not configured');
-  return new Stripe(apiKey);
+  // Resolves to a real client with STRIPE_SECRET_KEY, dev stub otherwise
+  // (throws in production when unconfigured — the fail-loud policy).
+  return getStripeClient();
 }
 
 export const GET = async (request: NextRequest) => {
