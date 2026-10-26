@@ -119,20 +119,45 @@ jobs:
             --values ./helm/resumelm/values.yaml \
             --output-dir /tmp/helm-render
 
-      - name: Set up kubeconform
+      - name: Helm template optional features
         run: |
-          KUBECONFORM_VERSION=v0.6.7
+          mkdir -p /tmp/helm-render-optional
+          helm template resumelm ./helm/resumelm \
+            --set global.basePath=/resumelm \
+            --set studio.enabled=true \
+            --set meta.enabled=true \
+            --set inbucket.enabled=true \
+            --set analytics.enabled=true \
+            --set redisCommander.enabled=true \
+            --set imgproxy.enabled=true \
+            --set ingress.enabled=true \
+            --output-dir /tmp/helm-render-optional
+
+      - name: Cache kubeconform
+        id: kubeconform-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/kubeconform
+          key: kubeconform-${{ runner.os }}-v0.8.0
+
+      - name: Set up kubeconform
+        if: steps.kubeconform-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          KUBECONFORM_VERSION=v0.8.0
           curl -L -o /tmp/kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
           tar -xzf /tmp/kubeconform.tar.gz -C /tmp
-          chmod +x /tmp/kubeconform
-          mv /tmp/kubeconform /usr/local/bin/ || cp /tmp/kubeconform /usr/local/bin/
+          install -m 0755 /tmp/kubeconform "$HOME/.local/bin/kubeconform"
+
+      - name: Add kubeconform to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate rendered manifests
         run: |
-          find /tmp/helm-render -name '*.yaml' -o -name '*.yml' | xargs -r kubeconform -summary -strict -ignore-missing-schemas
+          find /tmp/helm-render /tmp/helm-render-optional \( -name '*.yaml' -o -name '*.yml' \) -print0 | xargs -0 -r kubeconform -summary -strict -ignore-missing-schemas
 
       - name: Run Checkov security scan
-        uses: bridgecrewio/checkov-action@v12
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: helm/resumelm
           quiet: true
