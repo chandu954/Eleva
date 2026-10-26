@@ -59,11 +59,16 @@ export default defineConfig({
       // so the branch floor was corrected to sit just below that value
       // (the realignment floors had been derived the same way). Floor
       // bumps read the checker's reported values, not the table.
+      //
+      // 2026-10-26 third ratchet: applications route handler suite added
+      // (17 tests: auth guard, bodySchema validation, real apiError
+      // envelope, CRUD query derivation, activity logging). Measured
+      // global after it: 10.97 / 80.97 / 72.08. Floors sit just below.
       thresholds: {
-        statements: 10.4,
-        branches: 80.3,
-        functions: 71.3,
-        lines: 10.4,
+        statements: 10.5,
+        branches: 80.5,
+        functions: 71.7,
+        lines: 10.5,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
