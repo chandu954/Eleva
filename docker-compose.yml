@@ -484,7 +484,7 @@ services:
     profiles: ["full"]
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
       target: production
     container_name: resumelm-app
     restart: unless-stopped

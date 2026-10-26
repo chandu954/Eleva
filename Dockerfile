@@ -98,11 +98,10 @@ ENV NEXT_PUBLIC_SUPABASE_URL="__NEXT_PUBLIC_SUPABASE_URL__" \
     NEXT_PUBLIC_BASE_PATH="/__NEXT_BASEPATH_PLACEHOLDER__" \
     NEXT_TELEMETRY_DISABLED=1
 
-# Stripe key for build-time page pre-rendering (use placeholder)
-ENV STRIPE_SECRET_KEY="sk_placeholder_for_build"
-
-# Build the application
-RUN pnpm build
+# Build the application. Redis config is build-only so module-level
+# clients initialize during page-data collection without a live server;
+# runtime values still come from the environment at container start.
+RUN USE_LOCAL_REDIS=true REDIS_URL="redis://localhost:6379" STRIPE_SECRET_KEY="sk_placeholder_for_build" pnpm build
 
 # ==========================================
 # Production stage - minimal runtime image

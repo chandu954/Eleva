@@ -146,7 +146,7 @@ Deploy the Next.js app directly with all required environment variables set in t
 ### Docker
 
 ```bash
-docker build -f docker/Dockerfile -t eleva:latest .
+docker build -f Dockerfile -t eleva:latest .
 docker compose up
 ```
 
