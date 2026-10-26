@@ -64,19 +64,29 @@ export default defineConfig({
       // (17 tests: auth guard, bodySchema validation, real apiError
       // envelope, CRUD query derivation, activity logging). Measured
       // global after it: 10.97 / 80.97 / 72.08. Floors sit just below.
+      //
+      // 2026-10-26 fourth ratchet: eleva-ai-provider facade suite added
+      // (24 tests: task mapping incl. case-sensitivity pins, config
+      // precedence incl. mock-mode pinning, the stream() mock-mode
+      // refusal, DEFAULT_AI_PROVIDER both branches via reimport,
+      // generateObject contract, logging and unsubscribe). Measured
+      // global after it: 11.26 / 81.62 / 72.53; src/lib table
+      // 48.59 / 92.68 / 66.10 — the checker reads src/lib branches as
+      // 83.26 in this composition, so the branch floor sits below that
+      // checker value (82.9), continuing to read checker numbers only.
       thresholds: {
-        statements: 10.5,
-        branches: 80.5,
-        functions: 71.7,
-        lines: 10.5,
+        statements: 10.8,
+        branches: 81.1,
+        functions: 72.1,
+        lines: 10.8,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
         "src/lib/**": {
-          statements: 38.2,
-          branches: 80.5,
-          functions: 51.9,
-          lines: 38.2,
+          statements: 47.0,
+          branches: 82.9,
+          functions: 64.5,
+          lines: 47.0,
         },
       },
     },
