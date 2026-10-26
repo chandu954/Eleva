@@ -14,6 +14,34 @@ import {
   setCachedScore,
 } from './cache';
 import { buildSectionRewriteOutcome, buildTailoredResumeIdentity, countChangedSections, normalizeRoleTitle, summarizeSectionStatus } from './pipeline-utils';
+import {
+  buildSectionContext,
+  type OriginalResumeData,
+  buildExperienceSystemPrompt,
+  buildExperienceUserPrompt,
+  buildExtractSystemPrompt,
+  buildExtractUserPrompt,
+  buildLetterSystemPrompt,
+  buildLetterUserPrompt,
+  buildPlanSystemPrompt,
+  buildPlanUserPrompt,
+  buildProjectsSystemPrompt,
+  buildProjectsUserPrompt,
+  buildQualitySystemPrompt,
+  buildQualityUserPrompt,
+  buildRescoreSystemPrompt,
+  buildRescoreUserPrompt,
+  buildReviewSystemPrompt,
+  buildReviewUserPrompt,
+  buildScoreSystemPrompt,
+  buildScoreUserPrompt,
+  buildSkillsSystemPrompt,
+  buildSkillsUserPrompt,
+  buildSummaryRetrySystemPrompt,
+  buildSummaryRetryUserPrompt,
+  buildSummarySystemPrompt,
+  buildSummaryUserPrompt,
+} from './prompts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 180;
@@ -257,8 +285,8 @@ export async function POST(req: NextRequest) {
         const skillsRaw = cached ?? await withStepTimeout(
           generateObjectWithFallback(
             ExtractSchema,
-            `${AIProvider.getSystemPrompt()}\n\nExtract structured signal from a JD.\n\nCRITICAL OUTPUT RULES:\n- Return ONLY valid JSON.\n- The first character of the response MUST be '{'.\n- The response MUST contain ONLY this JSON object (no surrounding text).\n- Include exactly these keys: company, role, required_skills, nice_to_have, summary.\n- Missing values: company/role = null, required_skills/nice_to_have = [], summary = "".\n- Role title must be concise and job-title-like.\n- Do NOT copy paragraphs, sales copy, or responsibilities into role.\n- GOOD examples: Senior Full Stack Engineer, Backend Engineer, Software Engineer.\n- BAD examples: Lead our full-stack solution is based on modern server...\n`,
-            `Job Description:\n${jobDescription.slice(0, 6000)}`,
+            buildExtractSystemPrompt(AIProvider.getSystemPrompt()),
+            buildExtractUserPrompt(jobDescription),
             900, 0.3,
             () => localExtractFallback(jobDescription),
           ).then(async (data) => {
@@ -280,8 +308,8 @@ export async function POST(req: NextRequest) {
         const score = cachedScore ?? await withStepTimeout(
           generateObjectWithFallback(
             ScoreSchema,
-            `${AIProvider.getSystemPrompt()}\n\nScore this resume vs JD. 0-100 scale on each axis. Missing = technologies/keywords absent from resume. Suggestions must be action-first.`,
-            `Resume:\n${resumeText.slice(0, 6000) || '[No resume attached — score based on JD only]'}\n\nJD:\n${jobDescription.slice(0, 4000)}`,
+            buildScoreSystemPrompt(AIProvider.getSystemPrompt()),
+            buildScoreUserPrompt(resumeText, jobDescription),
             1600, 0.3,
             () => scoreResumeLocally(resumeText, jobDescription),
           ).then((data) => { setCachedScore(resumeText, jobDescription, data); return data; }),
@@ -289,7 +317,7 @@ export async function POST(req: NextRequest) {
         ).catch((e) => { throw Object.assign(e instanceof Error ? e : new Error(String(e)), { _step: 'score', _hasStep: true }); });
         emit('step', { step: 'score', status: 'done', data: score });
 
-        const originalResumeJson: Record<string, unknown> | null = originalResume ? {
+        const originalResumeJson: OriginalResumeData | null = originalResume ? {
           professional_summary: (originalResume.professional_summary as string) ?? '',
           skills: (originalResume.skills ?? []) as any,
           work_experience: (originalResume.work_experience ?? []) as any,
@@ -300,46 +328,6 @@ export async function POST(req: NextRequest) {
 
         const compatScore = estimateCompatibility(originalResumeJson, jobDescription, score);
         const isLowCompat = compatScore < 35;
-
-        /* ─── Step 3: Generate Optimization Plan ─── */
-        emit('step', { step: 'plan', status: 'running' });
-
-        const planSystemPrompt = `${AIProvider.getSystemPrompt()}
-
-You are an optimization strategist for resume tailoring. Analyze the resume, job description, and ATS score, then produce a structured plan.
-
-Determine:
-1. Which resume sections need rewriting (summary, experience, projects, skills)
-2. Which sections to skip (e.g. education if it already matches well)
-3. Keywords to inject — prioritize missing keywords that map to transferable skills in the resume
-4. Transferable skill mappings — for each significant resume skill, map it to a JD-relevant concept with confidence level
-5. A hard truth note — if compatibility is low, explain honestly what cannot be added
-
-Rules:
-- NEVER recommend fabricating technologies absent from the resume
-- Be realistic about transferable skills (SQL → "database expertise" ✓, SQL → "AWS DynamoDB" ✗)
-- For low compatibility (<35%), prioritize honest transferable mapping over keyword injection
-- Keywords to inject should come ONLY from the missing keywords list, filtered by feasibility
-
-Return valid JSON matching the schema. The response must start with '{' and end with '}'.`;
-
-        const planUserPrompt = `ORIGINAL RESUME:
-${JSON.stringify(originalResumeJson, null, 2)}
-
-JOB DESCRIPTION:
-${jobDescription.slice(0, 3000)}
-
-CURRENT ATS SCORE: ${score.overall}%
-KEYWORD SCORE: ${score.keyword}%
-IMPACT SCORE: ${score.impact}%
-
-MATCHED KEYWORDS: ${(score.matched as string[] ?? []).slice(0, 15).join(', ')}
-MISSING KEYWORDS: ${(score.missing as string[] ?? []).slice(0, 20).join(', ')}
-
-COMPATIBILITY: ${compatScore}%
-${isLowCompat ? 'NOTE: This role differs significantly from the resume domain. Focus on transferable skills, not keyword injection.' : ''}
-
-Generate an optimization plan for this resume. Return valid JSON.`;
 
         const localPlanFallback = (): z.infer<typeof PlannerSchema> => ({
           compatibility: compatScore,
@@ -353,8 +341,15 @@ Generate an optimization plan for this resume. Return valid JSON.`;
           hardTruthNote: isLowCompat ? `This resume is for a different role domain. Key missing technologies (${((score.missing as string[]) ?? []).slice(0, 5).join(', ')}) cannot be honestly added.` : null,
         });
 
+        /* ─── Step 3: Generate Optimization Plan ─── */
+        emit('step', { step: 'plan', status: 'running' });
+
         const plan = await withStepTimeout(
-          generateObjectWithFallback(PlannerSchema, planSystemPrompt, planUserPrompt, 800, 0.3, () => localPlanFallback()),
+          generateObjectWithFallback(
+            PlannerSchema,
+            buildPlanSystemPrompt(AIProvider.getSystemPrompt()),
+            buildPlanUserPrompt({ resumeJson: originalResumeJson, jobDescription, score, compatScore, isLowCompat }),
+            800, 0.3, () => localPlanFallback()),
           'plan', emit,
         ).catch((e) => { throw Object.assign(e instanceof Error ? e : new Error(String(e)), { _step: 'plan', _hasStep: true }); });
         emit('step', { step: 'plan', status: 'done', data: plan });
@@ -363,17 +358,13 @@ Generate an optimization plan for this resume. Return valid JSON.`;
         emit('step', { step: 'tailor', status: 'running', progress: 10, micro: 'Rewriting summary...' });
 
         // Shared context for all section agents
-        const sectionCtx = {
-          jd: jobDescription.slice(0, 2000),
-          role: skills.role ?? '',
-          company: skills.company ?? '',
-          jdSummary: skills.summary ?? '',
-          matched: (score.matched as string[] ?? []).slice(0, 15).join(', '),
-          missing: (score.missing as string[] ?? []).slice(0, 15).join(', '),
-          planKeywords: (plan.keywordsToInject as string[]).join(', '),
-          planHardTruth: plan.hardTruthNote ?? '',
-          compatNote: isLowCompat ? 'Note: This role differs from your background. Use transferable skills only.' : '',
-        };
+        const sectionCtx = buildSectionContext({
+          jobDescription,
+          skills,
+          score,
+          plan,
+          isLowCompat,
+        });
 
         // Run section agent with individual timeout + fallback
         function runSection<T>(name: string, schema: z.ZodType<T>, system: string, prompt: string, fallback: () => T): Promise<{ data: T; usedFallback: boolean }> {
@@ -387,98 +378,32 @@ Generate an optimization plan for this resume. Return valid JSON.`;
         }
 
         const summaryAgent = runSection('summary_writer', SummarySchema,
-          `${AIProvider.getSystemPrompt()}
-
-You are a Professional Summary expert. Rewrite the summary for this specific job application.
-
-Rules:
-- Keep it 3-5 sentences
-- Start with years of experience + role alignment
-- Mention 2-3 relevant technologies present in the resume
-- Include business impact language (e.g. "improved X by Y%")
-- Never fabricate experience, metrics, or technologies
-- Use missing keywords only for tone context — inject only what the resume supports`,
-          `ORIGINAL SUMMARY: ${originalResumeJson?.professional_summary ?? ''}
-
-JOB: ${sectionCtx.role} at ${sectionCtx.company}
-JD SUMMARY: ${sectionCtx.jdSummary}
-MATCHED: ${sectionCtx.matched}
-MISSING: ${sectionCtx.missing}
-PLAN KEYWORDS: ${sectionCtx.planKeywords}
-${sectionCtx.compatNote}
-${sectionCtx.planHardTruth ? `HARD TRUTH: ${sectionCtx.planHardTruth}` : ''}
-
-Return JSON: { professional_summary: "rewritten text" }`,
+          buildSummarySystemPrompt(AIProvider.getSystemPrompt()),
+          buildSummaryUserPrompt(originalResumeJson, sectionCtx),
           () => ({ professional_summary: originalResumeJson?.professional_summary ?? '' }),
         );
 
         emit('step', { step: 'tailor', status: 'running', progress: 30, micro: 'Optimizing skills...' });
 
         const skillsAgent = runSection('skills_optimizer', ResumeSkillsSchema,
-          `${AIProvider.getSystemPrompt()}
-
-You are a Skills optimization expert. Reorder and recategorize skills for ATS matching.
-
-Rules:
-- Reorder categories: put JD-relevant ones first (e.g. Programming, Cloud, Data)
-- Within categories, list JD-matched skills first
-- Keep ALL original skills — never remove or rename technologies
-- Never fabricate skills
-- Return the same total skill set, just restructured`,
-          `ORIGINAL SKILLS: ${JSON.stringify(originalResumeJson?.skills ?? [])}
-JOB: ${sectionCtx.role}
-MATCHED: ${sectionCtx.matched}
-MISSING: ${sectionCtx.missing}
-
-Return JSON: { skills: [{ category: string, skills: string[] }] }`,
+          buildSkillsSystemPrompt(AIProvider.getSystemPrompt()),
+          buildSkillsUserPrompt(originalResumeJson, sectionCtx),
           () => ({ skills: (originalResumeJson?.skills as any) ?? [] }),
         );
 
         emit('step', { step: 'tailor', status: 'running', progress: 50, micro: 'Rewriting experience...' });
 
         const experienceAgent = runSection('experience_writer', ResumeExperienceSchema,
-          `${AIProvider.getSystemPrompt()}
-
-You are an Experience section expert. Rewrite each work entry's bullets for this job.
-
-Rules:
-- Every bullet starts with a strong action verb (Designed, Implemented, Led, Optimized)
-- Add measurable impact where possible
-- Weave in matched ATS keywords naturally
-- For transferable skills: describe adjacent concepts honestly
-- NEVER change company, dates, title, or location
-- NEVER add new entries — same number of entries, same companies/positions
-- Return the same structure with improved bullet descriptions`,
-          `ORIGINAL EXPERIENCE: ${JSON.stringify(originalResumeJson?.work_experience ?? [])}
-JOB: ${sectionCtx.role} at ${sectionCtx.company}
-JD SUMMARY: ${sectionCtx.jdSummary}
-MATCHED: ${sectionCtx.matched}
-MISSING (transferable only): ${sectionCtx.missing}
-PLAN KEYWORDS: ${sectionCtx.planKeywords}
-${sectionCtx.compatNote}
-
-Return JSON: { work_experience: [{ company, position, location, start_date, end_date, description, responsibilities }] }`,
+          buildExperienceSystemPrompt(AIProvider.getSystemPrompt()),
+          buildExperienceUserPrompt(originalResumeJson, sectionCtx),
           () => ({ work_experience: (originalResumeJson?.work_experience as any) ?? [] }),
         );
 
         emit('step', { step: 'tailor', status: 'running', progress: 70, micro: 'Rewriting projects...' });
 
         const projectsAgent = runSection('projects_writer', ResumeProjectsSchema,
-          `${AIProvider.getSystemPrompt()}
-
-You are a Projects section expert. Restructure each project for impact.
-
-Rules:
-- Each project: Problem → Solution → Technology → Impact
-- Improve wording and technical depth
-- Never fabricate metrics, names, or technologies
-- Keep same number of projects and same names`,
-          `ORIGINAL PROJECTS: ${JSON.stringify(originalResumeJson?.projects ?? [])}
-JOB: ${sectionCtx.role}
-JD SUMMARY: ${sectionCtx.jdSummary}
-MATCHED: ${sectionCtx.matched}
-
-Return JSON: { projects: [{ name, description: string[], technologies: string[], url }] }`,
+          buildProjectsSystemPrompt(AIProvider.getSystemPrompt()),
+          buildProjectsUserPrompt(originalResumeJson, sectionCtx),
           () => ({ projects: (originalResumeJson?.projects as any) ?? [] }),
         );
 
@@ -495,8 +420,8 @@ Return JSON: { projects: [{ name, description: string[], technologies: string[],
         const summaryInitial = buildSectionRewriteOutcome('Summary', origSummaryText, summaryText, summaryResultRaw.usedFallback ? 'Summary not rewritten' : undefined);
         if (!summaryInitial.changed && !summaryResultRaw.usedFallback && origSummaryText && summaryText.trim() === origSummaryText.trim()) {
           const summaryRetry = await runSection('summary_writer_retry', SummarySchema,
-            `${AIProvider.getSystemPrompt()}\n\nYou are a Professional Summary expert. Rewrite the summary for this specific job application.\n\nRules:\n- Keep it 3-5 sentences\n- Start with years of experience + role alignment\n- Mention 2-3 relevant technologies present in the resume\n- Include business impact language\n- Never fabricate experience, metrics, or technologies\n- Do NOT keep the original wording\n- Make the rewrite obviously different in structure and wording while staying truthful`,
-            `ORIGINAL SUMMARY: ${origSummaryText}\n\nJOB: ${sectionCtx.role} at ${sectionCtx.company}\nJD SUMMARY: ${sectionCtx.jdSummary}\nMATCHED: ${sectionCtx.matched}\nMISSING: ${sectionCtx.missing}\nPLAN KEYWORDS: ${sectionCtx.planKeywords}\n${sectionCtx.compatNote}\n${sectionCtx.planHardTruth ? `HARD TRUTH: ${sectionCtx.planHardTruth}` : ''}\n\nReturn JSON: { professional_summary: "rewritten text" }`,
+            buildSummaryRetrySystemPrompt(AIProvider.getSystemPrompt()),
+            buildSummaryRetryUserPrompt(origSummaryText, sectionCtx),
             () => ({ professional_summary: origSummaryText }),
           );
           summaryText = String(summaryRetry.data.professional_summary || summaryText);
@@ -550,26 +475,8 @@ Return JSON: { projects: [{ name, description: string[], technologies: string[],
         const qualityResult = await withStepTimeout(
           generateObjectWithFallback(
             QualityCheckSchema,
-            `${AIProvider.getSystemPrompt()}
-
-You are a Resume Quality Analyst. Validate this tailored resume.
-
-Check for:
-1. Grammar & spelling errors
-2. Strong action verbs — flag weak verbs like "was", "worked on", "responsible for"
-3. Duplicate or repetitive bullets across entries
-4. ATS compliance (clean formatting, no tables/columns)
-5. Measurable impact in at least 60% of bullets
-6. Consistent tense throughout
-
-Be strict. Set passed=false if major issues found. Score 0-100.`,
-            `ORIGINAL:
-${JSON.stringify(originalResumeJson, null, 2).slice(0, 1500)}
-
-TAILORED:
-${JSON.stringify(tailoredResume as any, null, 2).slice(0, 2500)}
-
-Validate resume quality. Return JSON.`,
+            buildQualitySystemPrompt(AIProvider.getSystemPrompt()),
+            buildQualityUserPrompt(originalResumeJson, tailoredResume),
             600, 0.3,
             () => ({ passed: true, issues: [], score: 85 }),
           ),
@@ -680,8 +587,8 @@ Validate resume quality. Return JSON.`,
         const rescores = cachedRescore ?? await withStepTimeout(
           generateObjectWithFallback(
             ScoreSchema,
-            `${AIProvider.getSystemPrompt()}\n\nRe-score this tailored resume vs JD. Compare improvement. 0-100 scale.`,
-            `Rewritten Resume:\n${rewrittenTail.slice(0, 5000)}\n\nJD:\n${jobDescription.slice(0, 4000)}\n\nPrevious score: ${score.overall}%`,
+            buildRescoreSystemPrompt(AIProvider.getSystemPrompt()),
+            buildRescoreUserPrompt(rewrittenTail, jobDescription, score.overall),
             1600, 0.3,
             () => scoreResumeLocally(rewrittenTail, jobDescription),
           ).then((data) => { setCachedScore(rewrittenTail, jobDescription, data); return data; }),
@@ -692,36 +599,9 @@ Validate resume quality. Return JSON.`,
         /* ─── Step 5: Recruiter Review ─── */
         emit('step', { step: 'review', status: 'running' });
 
-        const reviewSystemPrompt = `${AIProvider.getSystemPrompt()}
+        const reviewSystemPrompt = buildReviewSystemPrompt(AIProvider.getSystemPrompt());
 
-You are a Senior Engineering Manager reviewing a tailored resume. Be brutally honest.
-
-Answer:
-1. Would you interview this candidate? (yes/no)
-2. Rate the resume 0-100 overall
-3. Top strengths (max 6 specific items)
-4. Top weaknesses (max 6 — what's missing, generic, or weak)
-5. What sounds generic or templated (max 5 items)
-6. Overall recommendation (1-2 sentences)
-7. Confidence in assessment 0-100
-
-Be specific. Reference actual resume content. Do not be overly polite — identify real gaps.`;
-
-        const reviewUserPrompt = `JOB: ${skills.role ?? 'Unknown'} at ${skills.company ?? 'Unknown'}
-JD SUMMARY: ${skills.summary ?? ''}
-
-TAILORED RESUME:
-${rewrittenTail.slice(0, 3500)}
-
-ATS RESCORE:
-- Overall: ${rescores.overall}%
-- Keyword: ${rescores.keyword}%
-- Impact: ${rescores.impact}%
-- Readability: ${rescores.readability}%
-- Matched: ${(rescores.matched as string[] ?? []).slice(0, 10).join(', ')}
-- Missing: ${(rescores.missing as string[] ?? []).slice(0, 10).join(', ')}
-
-Review this resume as a Senior Engineering Manager. Return JSON.`;
+        const reviewUserPrompt = buildReviewUserPrompt({ skills, rewrittenTail, rescores });
 
         const localReviewFallback = (): z.infer<typeof RecruiterReviewSchema> => ({
           wouldInterview: rescores.overall >= 70,
@@ -740,28 +620,9 @@ Review this resume as a Senior Engineering Manager. Return JSON.`;
         emit('step', { step: 'review', status: 'done', data: review });
 
         /* ── Step 6: Cover Letter ─── */
-        const letterSystemPrompt = `${AIProvider.getSystemPrompt()}
+        const letterSystemPrompt = buildLetterSystemPrompt(skills.company);
 
-Write a personalized cover letter for this specific job application. Rules:
-- Reference the company and role by name in the opening paragraph
-- Mention 2-3 specific skills or experiences from the tailored resume that are relevant to the role
-- Connect the candidate's background to the company's mission/industry (${skills.company ?? 'the company'})
-- Use a confident, professional tone
-- Never use generic phrases like "I am writing to express interest" — instead start with something specific to the role
-- Keep it 3-4 paragraphs, plain text, no markdown
-- Close with a forward-looking statement about contributing to the team
-- Do not fabricate specific accomplishments if they aren't in the resume`;
-
-        const letterUserPrompt = `Job: ${skills.role ?? 'this role'} at ${skills.company ?? 'this company'}
-JD Summary: ${skills.summary ?? ''}
-Key Skills to Mention: ${rescores.matched?.slice(0, 8).join(', ') ?? ''}
-Missing Skills (do NOT claim): ${rescores.missing?.slice(0, 5).join(', ') ?? ''}
-${isLowCompat ? 'Note: The resume is from a different domain. Focus on transferable skills and enthusiasm for transitioning.' : ''}
-
-Tailored Resume:
-${rewrittenTail.slice(0, 2000)}
-
-Write a personalized cover letter for this application.`;
+        const letterUserPrompt = buildLetterUserPrompt({ skills, rescores, isLowCompat, rewrittenTail });
 
         let letterResult: AIProviderResult;
         try {
