@@ -1,0 +1,40 @@
+{
+  // Dev container for the Eleva Next.js app, backed by the same root
+  // docker-compose.yml that powers the local Supabase + Redis stack
+  // (see docker/DOCKER.md). Node 22 runs inside the compose `dev` service;
+  // Supabase (kong/db/auth/...) and Redis come up as its dependencies.
+  // SCHEMA REF: https://containers.dev/implementors/json_reference/
+  "name": "Eleva (Next.js + Supabase dev stack)",
+  "dockerComposeFile": [
+    "../docker-compose.yml"
+  ],
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  // Run as root: the workspace is a host bind mount whose uid differs across
+  // platforms, and the node user could not write into the container-sized
+  // node_modules volume on native Linux hosts.
+  "remoteUser": "root",
+  // Enables pnpm from the packageManager field, stages a local env file only
+  // when the user has not brought their own, and installs dependencies into
+  // the node_modules volume.
+  "postCreateCommand": "corepack enable && (test -f .env.local || cp .env.example .env.local) && pnpm install",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js dev server",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "typescript.enablePromptUseWorkspaceTsdk": true
+      }
+    }
+  },
+  "shutdownAction": "stopCompose"
+}

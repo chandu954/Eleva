@@ -46,6 +46,16 @@ docker compose --env-file .env.local --profile full up
 
 Access the app at http://localhost:3000
 
+## Dev Container (VS Code / Codespaces)
+
+[.devcontainer/devcontainer.json](../.devcontainer/devcontainer.json) uses this
+same compose file: the `dev` service is a Node 22 container with the repository
+bind-mounted, and Supabase + Redis start as its dependencies. "Reopen in
+Container" enables pnpm, creates `.env.local` from `.env.example` if you have
+none, runs `pnpm install`, and forwards port 3000. Then run `pnpm dev` inside
+the container — the app hot-reloads from the host checkout. The dev profile is
+not started by a plain `docker compose up`.
+
 ## Default Credentials
 
 | Service | Username | Password |

@@ -532,6 +532,64 @@ services:
       - resumelm-network
 
   # ============================================
+  # VS Code Dev Container
+  # ============================================
+  # Hot-reload dev environment for .devcontainer/devcontainer.json. Compose
+  # v2 activates this profile automatically when the dev service is the
+  # target, so normal `docker compose up` (backend stack) never starts it.
+  # The repository is bind-mounted at /workspace; run `pnpm dev` inside the
+  # container and the app hot-reloads from the host checkout.
+  dev:
+    profiles: ["devcontainer"]
+    # Pinned major of the upstream node image (no :latest).
+    image: node:22-bookworm
+    container_name: resumelm-dev
+    working_dir: /workspace
+    # The dev container CLI attaches to this service; the dev server is
+    # started manually inside it so terminal hot-reload is kept visible.
+    command: sleep infinity
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      kong:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/workspace
+      # Keep node_modules in a named volume so host/Users-file-system watch
+      # performance (macOS) does not degrade the container install.
+      - dev-node-modules:/workspace/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://host.docker.internal:54321}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE}
+      - SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q}
+      - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - USE_LOCAL_REDIS=${USE_LOCAL_REDIS:-true}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-}
+      - NEXT_PUBLIC_STRIPE_PRO_PRICE_ID=${NEXT_PUBLIC_STRIPE_PRO_PRICE_ID:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+    networks:
+      - resumelm-network
+
+  # ============================================
   # Database Seeder (runs once on startup)
   # ============================================
   seeder:
@@ -561,6 +619,7 @@ volumes:
   db-data:
   storage-data:
   redis-data:
+  dev-node-modules:
 
 networks:
   resumelm-network:
