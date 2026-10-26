@@ -84,7 +84,9 @@ beforeEach(() => {
 });
 
 describe("WorkExperienceForm", () => {
-  it("adds a new work experience entry", async () => {
+  // Real userEvent interaction; under v8-coverage instrumentation this can
+  // exceed the 5s default, hence the explicit hedge.
+  it("adds a new work experience entry", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     const { onChange } = renderForm();
     await user.click(screen.getByRole("button", { name: /Add Work Experience/i }));
