@@ -1,6 +1,8 @@
 # Eleva Local Development Stack
 # This docker-compose file provides a full local development environment
 # including Supabase (PostgreSQL, Auth, Storage, etc.), Redis, and the Next.js app
+# It lives at the repo root on purpose and is the canonical Compose file;
+# run it from the repository root so the mounted Supabase volumes resolve.
 
 services:
   # ============================================
@@ -45,7 +47,7 @@ services:
       JWT_EXP: 3600
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./supabase/volumes/db/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/supabase/volumes/db/init:/docker-entrypoint-initdb.d:ro
     networks:
       - resumelm-network
 
@@ -122,7 +124,7 @@ services:
       DASHBOARD_USERNAME: supabase
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-supabase}
     volumes:
-      - ./supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro
+      - ./docker/supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro
     healthcheck:
       test: ["CMD", "kong", "health"]
       interval: 10s
@@ -159,7 +161,7 @@ services:
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres-dev-password}@db:5432/postgres
       # Auth redirects must land on the app; override NEXT_PUBLIC_SITE_URL
-      # in ../.env.local when the app is served from a custom domain.
+      # in .env.local when the app is served from a custom domain.
       GOTRUE_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
       GOTRUE_URI_ALLOW_LIST: "*"
       GOTRUE_DISABLE_SIGNUP: false
@@ -481,7 +483,7 @@ services:
   app:
     profiles: ["full"]
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
       target: production
     container_name: resumelm-app
@@ -539,7 +541,7 @@ services:
       auth:
         condition: service_healthy
     volumes:
-      - ./scripts/seed-admin.sh:/seed-admin.sh:ro
+      - ./docker/scripts/seed-admin.sh:/seed-admin.sh:ro
     environment:
       - AUTH_SERVICE_URL=http://auth:9999
       - SUPABASE_URL=http://kong:8000
