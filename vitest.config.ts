@@ -45,19 +45,33 @@ export default defineConfig({
       // just below those measurements; the branches/functions floors are
       // expected to RATCHET back past their previous levels as the
       // remaining provider branches and src/lib action modules gain tests.
+      //
+      // 2026-10-26 second ratchet (start of the Phase 2E unit-test push):
+      // first suite added since the realignment — auth-schemas (login and
+      // signup zod schemas, 100% module coverage). Measured after it:
+      // global 10.74 / 80.61 / 71.66; src/lib 38.66 / 85.05 / 52.17.
+      // Floors sit just below those measurements and continue to ratchet
+      // with each test batch.
+      //
+      // NOTE on which number to trust: the printed table's src/lib line
+      // (85.05 branches) is NOT the number the threshold checker uses —
+      // at this commit the checker reported 80.98 for src/lib branches,
+      // so the branch floor was corrected to sit just below that value
+      // (the realignment floors had been derived the same way). Floor
+      // bumps read the checker's reported values, not the table.
       thresholds: {
-        statements: 8.9,
-        branches: 79.6,
-        functions: 68.6,
-        lines: 8.9,
+        statements: 10.4,
+        branches: 80.3,
+        functions: 71.3,
+        lines: 10.4,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
         "src/lib/**": {
-          statements: 35.9,
-          branches: 76.7,
-          functions: 43.5,
-          lines: 35.9,
+          statements: 38.2,
+          branches: 80.5,
+          functions: 51.9,
+          lines: 38.2,
         },
       },
     },
