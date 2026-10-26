@@ -17,6 +17,7 @@ import { buildSectionRewriteOutcome, buildTailoredResumeIdentity, countChangedSe
 import {
   buildSectionContext,
   type OriginalResumeData,
+  type ScoreData,
   buildExperienceSystemPrompt,
   buildExperienceUserPrompt,
   buildExtractSystemPrompt,
@@ -126,7 +127,9 @@ function withStepTimeout<T>(promise: Promise<T>, stepName: string, emit: (event:
 
 function isRateLimitError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-  const statusCode = (err as any)?.statusCode ?? (err as any)?.status ?? 0;
+  // Upstream SDKs surface the HTTP status as statusCode or status.
+  const fields = err as { statusCode?: number; status?: number };
+  const statusCode = fields.statusCode ?? fields.status ?? 0;
   return statusCode === 429 || msg.includes('rate') || msg.includes('quota') || msg.includes('429');
 }
 
@@ -186,17 +189,26 @@ async function generateObjectWithFallback<T>(
   throw new Error('AI returned invalid response and no fallback available');
 }
 
-function estimateCompatibility(resumeJson: any, jd: string, score: any): number {
+type SkillGroupLike = { category?: string; skills?: string[] | string; items?: string[] };
+type ExperienceLike = { position?: string; company?: string; role?: string; responsibilities?: string[] | string; description?: string };
+type ProjectLike = { name?: string; description?: string[] | string; technologies?: string[] };
+type EducationLike = { degree?: string; field?: string; school?: string };
+/** Mirror of the section schemas' output the fallbacks must emit (asserted from untyped DB rows). */
+type SkillItem = { category: string; skills: string[] };
+type TailoredExperience = { company: string; position: string; location?: string | null; start_date?: string | null; end_date?: string | null; description: string; responsibilities: string[] };
+type TailoredProject = { name: string; description: string[]; technologies: string[]; url?: string | null };
+
+function estimateCompatibility(resumeJson: OriginalResumeData | null, jd: string, score: Pick<ScoreData, 'matched' | 'missing'>): number {
   if (!resumeJson) return 0;
   const jdLower = jd.toLowerCase();
 
   // Extract all resume text
   const resumeText = [
     resumeJson.professional_summary || '',
-    ...(resumeJson.skills || []).flatMap((s: any) => [s.category, ...(s.skills || s.items || [])].filter(Boolean)),
-    ...(resumeJson.work_experience || []).flatMap((w: any) => [w.position, w.company, w.role, ...(w.responsibilities || []), w.description || '']),
-    ...(resumeJson.projects || []).flatMap((p: any) => [p.name, ...(Array.isArray(p.description) ? p.description : [p.description || '']), ...(p.technologies || [])]),
-    ...(resumeJson.education || []).flatMap((e: any) => [e.degree, e.field, e.school]),
+    ...((resumeJson.skills || []) as SkillGroupLike[]).flatMap((s) => [s.category, ...(s.skills || s.items || [])].filter(Boolean)),
+    ...((resumeJson.work_experience || []) as ExperienceLike[]).flatMap((w) => [w.position, w.company, w.role, ...(w.responsibilities || []), w.description || '']),
+    ...((resumeJson.projects || []) as ProjectLike[]).flatMap((p) => [p.name, ...(Array.isArray(p.description) ? p.description : [p.description || '']), ...(p.technologies || [])]),
+    ...((resumeJson.education || []) as EducationLike[]).flatMap((e) => [e.degree, e.field, e.school]),
   ].filter(Boolean).join(' ').toLowerCase();
 
   // Role overlap
@@ -319,11 +331,11 @@ export async function POST(req: NextRequest) {
 
         const originalResumeJson: OriginalResumeData | null = originalResume ? {
           professional_summary: (originalResume.professional_summary as string) ?? '',
-          skills: (originalResume.skills ?? []) as any,
-          work_experience: (originalResume.work_experience ?? []) as any,
-          projects: (originalResume.projects ?? []) as any,
-          education: (originalResume.education ?? []) as any,
-          certifications: (originalResume.certifications ?? []) as any,
+          skills: originalResume.skills ?? [],
+          work_experience: originalResume.work_experience ?? [],
+          projects: originalResume.projects ?? [],
+          education: originalResume.education ?? [],
+          certifications: originalResume.certifications ?? [],
         } : null;
 
         const compatScore = estimateCompatibility(originalResumeJson, jobDescription, score);
@@ -388,7 +400,7 @@ export async function POST(req: NextRequest) {
         const skillsAgent = runSection('skills_optimizer', ResumeSkillsSchema,
           buildSkillsSystemPrompt(AIProvider.getSystemPrompt()),
           buildSkillsUserPrompt(originalResumeJson, sectionCtx),
-          () => ({ skills: (originalResumeJson?.skills as any) ?? [] }),
+          () => ({ skills: (originalResumeJson?.skills as SkillItem[]) ?? [] }),
         );
 
         emit('step', { step: 'tailor', status: 'running', progress: 50, micro: 'Rewriting experience...' });
@@ -396,7 +408,7 @@ export async function POST(req: NextRequest) {
         const experienceAgent = runSection('experience_writer', ResumeExperienceSchema,
           buildExperienceSystemPrompt(AIProvider.getSystemPrompt()),
           buildExperienceUserPrompt(originalResumeJson, sectionCtx),
-          () => ({ work_experience: (originalResumeJson?.work_experience as any) ?? [] }),
+          () => ({ work_experience: (originalResumeJson?.work_experience as TailoredExperience[]) ?? [] }),
         );
 
         emit('step', { step: 'tailor', status: 'running', progress: 70, micro: 'Rewriting projects...' });
@@ -404,7 +416,7 @@ export async function POST(req: NextRequest) {
         const projectsAgent = runSection('projects_writer', ResumeProjectsSchema,
           buildProjectsSystemPrompt(AIProvider.getSystemPrompt()),
           buildProjectsUserPrompt(originalResumeJson, sectionCtx),
-          () => ({ projects: (originalResumeJson?.projects as any) ?? [] }),
+          () => ({ projects: (originalResumeJson?.projects as TailoredProject[]) ?? [] }),
         );
 
         // Run all 4 agents in parallel
@@ -458,8 +470,8 @@ export async function POST(req: NextRequest) {
           skills: skillsResultRaw.data.skills,
           work_experience: experienceResultRaw.data.work_experience,
           projects: projectsResultRaw.data.projects,
-          education: (originalResumeJson?.education as any) ?? [],
-          certifications: (originalResumeJson?.certifications as any) ?? [],
+          education: (originalResumeJson?.education as EducationLike[]) ?? [],
+          certifications: (originalResumeJson?.certifications as EducationLike[]) ?? [],
           meta: {
             keywords_added: [],
             bullets_rewritten: 0,
@@ -491,7 +503,7 @@ export async function POST(req: NextRequest) {
           step: 'tailor',
           status: 'done',
           data: {
-            ...tailoredResume as any,
+            ...tailoredResume,
             quality: qualityResult,
             sectionConfidence: perSectionConfidence,
             sectionChanges: perSectionChanges,
@@ -499,7 +511,15 @@ export async function POST(req: NextRequest) {
         });
 
         /* ─── Build resume text from tailored object ─── */
-        function resumeToText(r: any): string {
+        type ResumeView = {
+          professional_summary?: string;
+          skills?: Array<{ category?: string; skills?: string[] }>;
+          work_experience?: Array<{ position?: string; role?: string; company?: string; employer?: string; description?: unknown; responsibilities?: unknown }>;
+          projects?: Array<{ name?: string; description?: unknown }>;
+          education?: Array<{ school?: string; institution?: string; degree?: string }>;
+        };
+
+        function resumeToText(r: ResumeView): string {
           const parts: string[] = [];
           if (r.professional_summary) parts.push(`Summary:\n${r.professional_summary}`);
           if (r.work_experience?.length) {
@@ -529,13 +549,13 @@ export async function POST(req: NextRequest) {
           return parts.join('\n\n');
         }
 
-        const rewrittenTail = resumeToText(tailoredResume as any);
+        const rewrittenTail = resumeToText(tailoredResume as ResumeView);
 
         /* ─── Compute diff stats ─── */
-        function computeKeywordsAdded(original: any, tailored: any): string[] {
+        function computeKeywordsAdded(original: Record<string, unknown> | null, tailored: { skills: SkillItem[] }): string[] {
           const origSet = new Set<string>();
           if (original?.skills) {
-            for (const s of original.skills as Array<{category?: string; skills?: string[] | string}>) {
+            for (const s of original.skills as Array<SkillGroupLike>) {
               const list = s.skills ?? [];
               for (const skill of list) if (typeof skill === 'string') origSet.add(skill.toLowerCase().trim());
             }
@@ -550,10 +570,10 @@ export async function POST(req: NextRequest) {
           return [...newSet].filter(w => !origSet.has(w));
         }
 
-        function countBulletsRewritten(original: any, tailored: any): number {
+        function countBulletsRewritten(original: Record<string, unknown> | null, tailored: { work_experience: TailoredExperience[] }): number {
           const origBullets = new Set<string>();
           if (original?.work_experience) {
-            for (const w of original.work_experience) {
+            for (const w of original.work_experience as Array<{ description?: unknown; responsibilities?: unknown }>) {
               const resp = safeBullets(w);
               for (const b of resp) origBullets.add(b.trim().toLowerCase());
             }
@@ -570,16 +590,16 @@ export async function POST(req: NextRequest) {
           return count;
         }
 
-        function safeBullets(w: any): string[] {
-          if (Array.isArray(w.responsibilities)) return w.responsibilities;
+        function safeBullets(w: { description?: unknown; responsibilities?: unknown }): string[] {
+          if (Array.isArray(w.responsibilities)) return w.responsibilities as string[];
           if (typeof w.description === 'string') return w.description.split('\n').filter(Boolean);
-          if (Array.isArray(w.description)) return w.description;
+          if (Array.isArray(w.description)) return w.description as string[];
           if (w.description != null) return [String(w.description)];
           return [];
         }
 
-        const keywordsAdded = computeKeywordsAdded(originalResume, tailoredResume as any);
-        const bulletsRewritten = countBulletsRewritten(originalResume, tailoredResume as any);
+        const keywordsAdded = computeKeywordsAdded(originalResume, tailoredResume);
+        const bulletsRewritten = countBulletsRewritten(originalResume, tailoredResume);
 
         /* ─── Step 4: Re-score after tailoring ─── */
         emit('step', { step: 'rescore', status: 'running' });
@@ -667,7 +687,7 @@ export async function POST(req: NextRequest) {
               matched: rescores.matched,
               missing: rescores.missing,
               suggestions: rescores.suggestions,
-              raw: rescores as any,
+              raw: rescores,
             });
           }
 
@@ -680,11 +700,11 @@ export async function POST(req: NextRequest) {
               is_base_resume: false,
                 target_role: tailoredIdentity.target_role,
               professional_summary: tailoredResume.professional_summary,
-              skills: tailoredResume.skills as any,
-              work_experience: tailoredResume.work_experience as any,
-              projects: tailoredResume.projects as any,
-              education: tailoredResume.education as any,
-              certifications: tailoredResume.certifications as any,
+              skills: tailoredResume.skills,
+              work_experience: tailoredResume.work_experience,
+              projects: tailoredResume.projects,
+              education: tailoredResume.education,
+              certifications: tailoredResume.certifications,
             });
             if (tailoredErr) console.warn('[Pipeline] failed to save tailored resume:', tailoredErr.message);
           }
@@ -768,13 +788,13 @@ export async function POST(req: NextRequest) {
           letterBody: letterResult.text,
         });
       } catch (e) {
-        const err = e as Error & { _hasStep?: boolean; _step?: string };
+        const err = e as Error & { _hasStep?: boolean; _step?: string; statusCode?: number; status?: number; response?: { status?: number } };
         const errMsg = err.message || 'Unknown error';
 
         const statusCode =
-          (err as any)?.statusCode ??
-          (err as any)?.status ??
-          (err as any)?.response?.status ??
+          err.statusCode ??
+          err.status ??
+          err.response?.status ??
           0;
 
         const isTimeout = errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('timed out');

@@ -46,7 +46,7 @@ describe('Pipeline route - validation', () => {
       auth: {
         getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
       },
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof createClient>>);
   });
 
   it('rejects missing jobDescription', async () => {
