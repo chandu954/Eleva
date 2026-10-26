@@ -4,13 +4,14 @@ import { useEffect, useState, useTransition } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { User2, Sparkles, Shield, Palette, Bell, Trash2, ExternalLink, Network, Cpu, Bot, Globe, Eye, EyeOff, Loader2, Wifi } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { updateProfile, updatePreferences, deleteAccount } from '../_lib/actions-settings';
 import { createClient } from '@/utils/supabase/client';
 import { saveProviderKey, deleteProviderKey, validateProviderKey } from '../_lib/actions-ai-providers';
 import { PROVIDER_DEFINITIONS, type ProviderId } from '@/lib/ai/provider/registry';
 import { getAiStatus, subscribeAiStatus } from '../_lib/ai-status';
 
-const NAV_GROUPS: { label: string; items: { id: string; label: string; icon: React.ComponentType<any> }[] }[] = [
+const NAV_GROUPS: { label: string; items: { id: string; label: string; icon: LucideIcon }[] }[] = [
   {
     label: 'General',
     items: [
@@ -221,7 +222,7 @@ function ProvidersTab({ providerKeys }: { providerKeys: ProviderKeyEntry[] }) {
   );
 }
 
-const PROVIDER_ICONS: Record<string, React.ComponentType<any>> = {
+const PROVIDER_ICONS: Record<string, LucideIcon> = {
   openai: Sparkles,
   anthropic: Bot,
   gemini: Globe,
@@ -249,8 +250,8 @@ function ProviderCard({ def, saved }: { def: typeof PROVIDER_DEFINITIONS[0]; sav
       await saveProviderKey(def.id, apiKey, { baseUrl: def.requiresBaseUrl ? baseUrl : undefined, providerMode: mode });
       toast.success(`${def.name} saved`);
       setApiKey('');
-    } catch (e: any) {
-      toast.error(e.message ?? 'Save failed');
+    } catch (e) {
+      toast.error((e as { message?: string }).message ?? 'Save failed');
     }
     setSaving(false);
   }
@@ -275,8 +276,8 @@ function ProviderCard({ def, saved }: { def: typeof PROVIDER_DEFINITIONS[0]; sav
       await deleteProviderKey(def.id);
       setStatus('disconnected');
       toast.success(`${def.name} disconnected`);
-    } catch (e: any) {
-      toast.error(e.message ?? 'Delete failed');
+    } catch (e) {
+      toast.error((e as { message?: string }).message ?? 'Delete failed');
     }
   }
 

@@ -1,7 +1,7 @@
 import { WorkspaceShell } from '../_components/workspace-shell';
 import { getUser } from '../_lib/data';
 import { createClient } from '@/utils/supabase/server';
-import { AtsClient } from './ats-client';
+import { AtsClient, type AtsReport, type Resume } from './ats-client';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export default async function AtsPage() {
 
   return (
     <WorkspaceShell>
-      <AtsClient reports={(reportsRes.data ?? []) as any} resumes={(resumesRes.data ?? []) as any} />
+      <AtsClient reports={(reportsRes.data ?? []) as AtsReport[]} resumes={(resumesRes.data ?? []) as Resume[]} />
     </WorkspaceShell>
   );
 }

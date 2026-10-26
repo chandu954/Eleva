@@ -5,14 +5,15 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Trash2, Building2, DollarSign, Calendar, Star, Loader2, GripVertical, Sparkles, Target, FileText, Mail, MapPin, User, ExternalLink, Clock, Edit3, StickyNote, Pin, Archive } from 'lucide-react';
 import { toast } from 'sonner';
-import { DndContext, closestCorners, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, DragOverlay, useDroppable } from '@dnd-kit/core';
+import { DndContext, closestCorners, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent, DragOverlay, useDroppable, type DraggableAttributes, type DraggableSyntheticListeners } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { LucideIcon } from 'lucide-react';
 
 type Status = 'wishlist' | 'applied' | 'interview' | 'offer' | 'rejected' | 'archived';
 type Priority = 'low' | 'medium' | 'high';
 
-type Application = {
+export type Application = {
   id: string;
   company: string;
   role: string;
@@ -224,7 +225,7 @@ function SortableCard({ app, onOpen, onDelete, onToggle, onArchive }: { app: App
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 };
   return (
     <div ref={setNodeRef} style={style}>
-      <Card app={app} onOpen={onOpen} onDelete={onDelete} onToggle={onToggle} onArchive={onArchive} dragHandle={{ ...attributes, ...listeners }} />
+      <Card app={app} onOpen={onOpen} onDelete={onDelete} onToggle={onToggle} onArchive={onArchive} dragAttributes={attributes} dragListeners={listeners} />
     </div>
   );
 }
@@ -237,7 +238,7 @@ function CompanyAvatar({ company }: { company: string }) {
   );
 }
 
-function Card({ app, onOpen, onDelete, onToggle, onArchive, dragHandle, dragging }: { app: Application; onOpen: () => void; onDelete: () => void; onToggle?: (k: 'pinned' | 'favorite') => void; onArchive?: () => void; dragHandle?: any; dragging?: boolean }) {
+function Card({ app, onOpen, onDelete, onToggle, onArchive, dragAttributes, dragListeners, dragging }: { app: Application; onOpen: () => void; onDelete: () => void; onToggle?: (k: 'pinned' | 'favorite') => void; onArchive?: () => void; dragAttributes?: DraggableAttributes; dragListeners?: DraggableSyntheticListeners; dragging?: boolean }) {
   const score = (v?: number | null) => v == null ? null : v;
   const ats = score(app.ats_score);
   const match = score(app.match_score);
@@ -262,7 +263,7 @@ function Card({ app, onOpen, onDelete, onToggle, onArchive, dragHandle, dragging
               <Pin className="w-3.5 h-3.5" fill={app.pinned ? 'rgb(var(--eleva-primary))' : 'none'} style={{ color: app.pinned ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-muted-fg))' }} />
             </button>
           )}
-          <button {...dragHandle} onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity" title="Drag"><GripVertical className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>
+          <button {...(dragAttributes ?? {})} {...(dragListeners ?? {})} onClick={(e) => e.stopPropagation()} className="p-0.5 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity" title="Drag"><GripVertical className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }} /></button>
         </div>
       </div>
       <div className="mt-2 flex items-center gap-1.5 flex-wrap">
@@ -406,11 +407,11 @@ function DetailDrawer({ app, onClose, onEdit, onDelete, onStatus, onToggle }: { 
   );
 }
 
-function Row({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
+function Row({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
   return <div className="flex items-center gap-2" style={{ color: 'rgb(var(--eleva-fg))' }}><Icon className="w-3.5 h-3.5 shrink-0" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />{children}</div>;
 }
 
-function DocLink({ href, icon: Icon, ready, label }: { href: string; icon: any; ready: boolean; label: string }) {
+function DocLink({ href, icon: Icon, ready, label }: { href: string; icon: LucideIcon; ready: boolean; label: string }) {
   return (
     <Link href={href} className="flex items-center justify-between px-3 py-2 rounded-lg text-[12px] hover:opacity-80" style={{ background: 'rgb(var(--eleva-muted))' }}>
       <span className="inline-flex items-center gap-2" style={{ color: 'rgb(var(--eleva-fg))' }}>
@@ -439,7 +440,7 @@ function TimelineItem({ time, label, last }: { time: string; label: string; last
 
 function ApplicationDialog({ editing, saving, onClose, onSave }: { editing: Application | null; saving: boolean; onClose: () => void; onSave: (form: Partial<Application>) => void }) {
   const [form, setForm] = useState<Partial<Application>>(editing ?? { status: 'wishlist', priority: 'medium' });
-  const set = (k: keyof Application, v: any) => setForm((prev) => ({ ...prev, [k]: v }));
+  const set = (k: keyof Application, v: Application[keyof Application]) => setForm((prev) => ({ ...prev, [k]: v }));
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
       <motion.div initial={{ scale: 0.96, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: 'rgb(var(--eleva-card))', border: '1px solid rgb(var(--eleva-border))' }}>

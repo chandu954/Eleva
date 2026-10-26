@@ -8,7 +8,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 
-type AtsReport = {
+export type AtsReport = {
   id: string;
   resume_id: string;
   job_id?: string | null;
@@ -25,7 +25,7 @@ type AtsReport = {
   created_at: string;
 };
 
-type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
+export type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
 
 export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes: Resume[] }) {
   const [items, setItems] = useState<AtsReport[]>(reports);
@@ -55,7 +55,11 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'Score failed');
       const { data: fresh } = await supabase.from('ats_scores').select('*').eq('resume_id', resumeId).order('created_at', { ascending: false }).limit(40);
-      if (fresh) { setItems(fresh as any); setSelectedId((fresh as any)[0]?.id); }
+      if (fresh) {
+        const reports = fresh as AtsReport[];
+        setItems(reports);
+        setSelectedId(reports[0]?.id);
+      }
       toast.success(`Scored ${j.overall}%`);
     } catch (e) { failed = true; toast.error('Score failed', { description: (e as Error).message }); }
     finally { setRunning(false); reportAiDone('ATS score', Date.now() - start, 'ats-score', failed); }
