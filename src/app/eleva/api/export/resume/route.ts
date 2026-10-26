@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
           View,
           { style: styles.contact },
           ...contact.map((c, i) => React.createElement(Text, { key: `c${i}`, style: styles.contactItem }, c!)),
-          ...links.map((l, i) => React.createElement(Link, { key: `l${i}`, src: l!, style: [styles.contactItem, { color: '#2563EB' }] as any }, (l as string).replace(/^https?:\/\//, ''))),
+          ...links.map((l, i) => React.createElement(Link, { key: `l${i}`, src: l!, style: [styles.contactItem, { color: '#2563EB' }] }, (l as string).replace(/^https?:\/\//, ''))),
         ),
       ),
       React.createElement(View, { style: styles.divider }),
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
     )
   );
 
-  const buf = await renderToBuffer(doc as any);
+  const buf = await renderToBuffer(doc);
   return new Response(new Uint8Array(buf), {
     headers: {
       'Content-Type': 'application/pdf',

@@ -23,6 +23,32 @@ function Bullet(text: string) {
   return new Paragraph({ children: [new TextRun({ text })], bullet: { level: 0 }, spacing: { after: 60 } });
 }
 
+/* Row shapes the docx renderer reads off the resume row (jsonb columns from either
+ * the profile editor or the pipeline writer; the `?? '...'` fallbacks cover both). */
+type ExportExperienceRow = { position?: string; company?: string; date?: string; location?: string; description?: string[] };
+type ExportProjectRow = { name?: string; technologies?: string[]; description?: string[] };
+type ExportSkillRow = { category?: string; items?: string[] };
+type ExportEducationRow = { degree?: string; field?: string; school?: string; date?: string; gpa?: string | number };
+type ExportCertificationRow = { name?: string; issuer?: string; date?: string };
+type ResumeExportRow = {
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  email?: string;
+  phone_number?: string;
+  location?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  website?: string;
+  target_role?: string;
+  professional_summary?: string;
+  work_experience?: ExportExperienceRow[];
+  projects?: ExportProjectRow[];
+  skills?: ExportSkillRow[];
+  education?: ExportEducationRow[];
+  certifications?: ExportCertificationRow[];
+};
+
 export async function POST(req: NextRequest) {
   try {
     const parsed = bodySchema.safeParse(await req.json());
@@ -31,7 +57,10 @@ export async function POST(req: NextRequest) {
   const { data: userRes } = await supabase.auth.getUser();
   if (!userRes?.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
 
-  const { data: r, error } = await supabase.from('resumes').select('*').eq('id', parsed.data.resumeId).eq('user_id', userRes.user.id).maybeSingle();
+  const { data: r, error } = (await supabase.from('resumes').select('*').eq('id', parsed.data.resumeId).eq('user_id', userRes.user.id).maybeSingle()) as {
+    data: ResumeExportRow | null;
+    error: { message: string } | null;
+  };
   if (error || !r) return apiError('NOT_FOUND', 'Resume not found');
 
   const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.name || 'Applicant';
@@ -51,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   if (r.work_experience && r.work_experience.length) {
     children.push(Section('Experience'));
-    for (const exp of r.work_experience as any[]) {
+    for (const exp of r.work_experience ?? []) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${exp.position ?? ''}`, bold: true, size: 22 }),
@@ -67,7 +96,7 @@ export async function POST(req: NextRequest) {
 
   if (r.projects && r.projects.length) {
     children.push(Section('Projects'));
-    for (const p of r.projects as any[]) {
+    for (const p of r.projects ?? []) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: p.name ?? '', bold: true, size: 22 }),
@@ -81,7 +110,7 @@ export async function POST(req: NextRequest) {
 
   if (r.skills && r.skills.length) {
     children.push(Section('Skills'));
-    for (const s of r.skills as any[]) {
+    for (const s of r.skills ?? []) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${s.category ?? 'Skills'}:  `, bold: true, size: 20 }),
@@ -94,7 +123,7 @@ export async function POST(req: NextRequest) {
 
   if (r.education && r.education.length) {
     children.push(Section('Education'));
-    for (const e of r.education as any[]) {
+    for (const e of r.education ?? []) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: `${e.degree ?? 'Degree'}${e.field ? ' · ' + e.field : ''}`, bold: true, size: 22 }),
@@ -109,7 +138,7 @@ export async function POST(req: NextRequest) {
 
   if (r.certifications && r.certifications.length) {
     children.push(Section('Certifications'));
-    for (const c of r.certifications as any[]) {
+    for (const c of r.certifications ?? []) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: c.name ?? '', bold: true, size: 20 }),

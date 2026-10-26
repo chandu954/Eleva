@@ -153,10 +153,10 @@ export async function POST(req: NextRequest) {
     console.error('message:', message);
     console.error('stack:', err instanceof Error ? err.stack?.split('\n').slice(0, 5).join('\n') : undefined);
     if (err && typeof err === 'object' && 'response' in err) {
-      console.error('response:', (err as any).response);
+      console.error('response:', err.response);
     }
     if (err && typeof err === 'object' && 'cause' in err) {
-      console.error('cause:', (err as any).cause);
+      console.error('cause:', err.cause);
     }
     return apiError('INTERNAL_ERROR', message);
   }

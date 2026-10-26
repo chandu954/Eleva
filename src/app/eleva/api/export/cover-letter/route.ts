@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    const buf = await renderToBuffer(doc as any);
+    const buf = await renderToBuffer(doc);
     return new Response(new Uint8Array(buf), {
       headers: {
         'Content-Type': 'application/pdf',
