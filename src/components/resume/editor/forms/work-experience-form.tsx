@@ -22,6 +22,7 @@ import { generateWorkExperiencePoints, improveWorkExperience } from "@/utils/act
 import { AIImprovementPrompt } from "../../shared/ai-improvement-prompt";
 import { AIGenerationSettingsTooltip } from "../components/ai-generation-tooltip";
 import { AISuggestions } from "../../shared/ai-suggestions";
+import { reorderIndexMap } from "./form-utils";
 
 
 interface AISuggestion {
@@ -74,26 +75,6 @@ export const WorkExperienceForm = memo(function WorkExperienceFormComponent({
   const [improvementConfig, setImprovementConfig] = useState<ImprovementConfig>({});
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState({ title: '', description: '' });
-
-  const reorderIndexMap = <T,>(map: Record<number, T>, from: number, to: number): Record<number, T> => {
-    const updated: Record<number, T> = {};
-
-    Object.entries(map).forEach(([key, value]) => {
-      const idx = Number(key);
-
-      if (idx === from) {
-        updated[to] = value;
-      } else if (from < to && idx > from && idx <= to) {
-        updated[idx - 1] = value;
-      } else if (from > to && idx >= to && idx < from) {
-        updated[idx + 1] = value;
-      } else {
-        updated[idx] = value;
-      }
-    });
-
-    return updated;
-  };
 
   // Effect to focus textarea when popover opens
   useEffect(() => {
