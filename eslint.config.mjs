@@ -28,7 +28,12 @@ const eslintConfig = [
   {
     files: ["src/app/eleva/**/*.ts", "src/app/eleva/**/*.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      // Enforcement point for the any-cleanup sweep: warn everywhere under
+      // src/app/eleva first (this block records the inventory), then raise to
+      // "error" per area once the hits are gone. prompt-studio already runs
+      // the rule as "error" further down; two files there still opt out with
+      // a file-level eslint-disable that this sweep removes.
+      "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
