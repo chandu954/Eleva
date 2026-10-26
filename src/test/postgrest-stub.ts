@@ -16,6 +16,9 @@ export interface PostgrestStub {
   or(...args: unknown[]): PostgrestStub;
   not(...args: unknown[]): PostgrestStub;
   limit(...args: unknown[]): PostgrestStub;
+  ilike(...args: unknown[]): PostgrestStub;
+  like(...args: unknown[]): PostgrestStub;
+  in(...args: unknown[]): PostgrestStub;
   insert(...args: unknown[]): PostgrestStub;
   update(...args: unknown[]): PostgrestStub;
   upsert(...args: unknown[]): PostgrestStub;
@@ -26,7 +29,7 @@ export interface PostgrestStub {
 }
 
 const BUILDER_METHODS = [
-  'select', 'eq', 'order', 'or', 'not', 'limit',
+  'select', 'eq', 'order', 'or', 'not', 'limit', 'ilike', 'like', 'in',
   'insert', 'update', 'upsert', 'delete',
 ] as const;
 

@@ -74,11 +74,20 @@ export default defineConfig({
       // 48.59 / 92.68 / 66.10 — the checker reads src/lib branches as
       // 83.26 in this composition, so the branch floor sits below that
       // checker value (82.9), continuing to read checker numbers only.
+      //
+      // 2026-10-26 fifth ratchet: search route suite added (6 tests: the
+      // empty-query and signed-out guard shapes, the four Promise.all
+      // group filters with their ilike/or derivations, the faithful
+      // per-group `?? []` error swallow, and the templates catalog
+      // matching incl. the 6-result cap). Also extends the shared
+      // postgrest-stub with the ilike/like/in filter family. Measured
+      // global table after it: 12.02 / 82.16 / 72.56. Floors sit just
+      // below, functions unchanged (72.56 measured, 72.1 floor).
       thresholds: {
-        statements: 10.8,
-        branches: 81.1,
+        statements: 11.4,
+        branches: 81.5,
         functions: 72.1,
-        lines: 10.8,
+        lines: 11.4,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
