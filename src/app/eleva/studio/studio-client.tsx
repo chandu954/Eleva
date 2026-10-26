@@ -8,40 +8,12 @@ import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sparkles, Target, Mail, FileText, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, Download, Clock, BarChart3, Zap, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Lightbulb, Scan, TrendingUp, TrendingDown, GitCompare, Eye, Pencil, FileCode, Star, Briefcase, Plus, Check, type LucideIcon } from 'lucide-react';
-import { reportAiRun, reportAiDone } from '../_lib/ai-status';
-import { StepLogPanel, type LogEntry } from './_components/step-log-panel';
-import type { ExtractedJobData, JobScore, TailoredResume } from './_lib/studio-types';
+import { StepLogPanel } from './_components/step-log-panel';
+import { friendlyError, useStudioPipeline, type MicroStatus } from './_lib/use-studio-pipeline';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
-type StepStatus = 'idle' | 'pending' | 'running' | 'done' | 'error';
-type MicroStatus = 'connecting' | 'sending' | 'waiting' | 'parsing' | 'complete';
-
-type ErrorDetails = { reason?: string; model?: string; provider?: string; attempt?: number; statusCode?: number; elapsed?: string; traceId?: string; rawMessage?: string };
 
 type StudioMilestone = { icon: LucideIcon; label: string; detail: string };
-
-type StepState = {
-  step: string;
-  label: string;
-  status: StepStatus;
-  progress?: number;
-  data?: unknown;
-  error?: string;
-  errorDetails?: ErrorDetails;
-  microStatus?: MicroStatus;
-  microText?: string;
-};
-
-
-const STEP_LABELS: Record<string, string> = {
-  extract: 'Analyzing the job description',
-  score: 'Scoring your resume',
-  plan: 'Planning improvements',
-  tailor: 'Improving your resume',
-  rescore: 'Re-scoring the improved resume',
-  review: 'Reviewing the result',
-  letter: 'Drafting cover letter',
-};
 
 const STAGES = [
   { key: 'job', label: 'Job analyzed', steps: ['extract'] },
@@ -59,37 +31,45 @@ const MICRO_LABELS: Record<MicroStatus, string> = {
   complete: 'Complete',
 };
 
-function friendlyError(reason?: string, message?: string, step?: string): { text: string; diagnosis: string; confidence: string } {
-  const task = step === 'extract' ? "analyze the job description" : step === 'score' ? "score your resume" : "draft your cover letter";
-  if (reason === 'timeout') return { text: `Couldn't ${task}. The selected model didn't respond in time.`, diagnosis: 'Provider timeout', confidence: '93%' };
-  if (reason === 'auth') return { text: `Couldn't ${task}. API key issue.`, diagnosis: 'Authentication failed', confidence: '97%' };
-  if (reason === 'rate_limit') return { text: `Couldn't ${task}. Too many requests.`, diagnosis: 'Rate limit hit', confidence: '95%' };
-  if (reason === 'provider') return { text: `Couldn't ${task}. The AI provider returned an error.`, diagnosis: 'Upstream error', confidence: '88%' };
-  return { text: message || `Couldn't ${task}.`, diagnosis: 'Unknown error', confidence: '—' };
-}
-
 export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const base = resumes.find((r) => r.is_base_resume) ?? resumes[0];
   const [jd, setJd] = useState('');
   const [resumeId, setResumeId] = useState<string | undefined>(base?.id);
-  const [running, setRunning] = useState(false);
-  const [steps, setSteps] = useState<StepState[]>([]);
-  const [letter, setLetter] = useState('');
-  const [summary, setSummary] = useState<{ overall: number; previousOverall?: number; matched: number; missing: number; company?: string | null; role?: string | null; keywordsAdded: number; bulletsRewritten: number; compatibility?: number; isLowCompat?: boolean; sectionsModified?: number; resumeId?: string | null; coverLetterId?: string | null; plan?: { rewriteSummary: boolean; rewriteExperience: boolean; rewriteProjects: boolean; rewriteSkills: boolean; keywordsToInject: number; hardTruthNote?: string | null }; sectionConfidence?: { summary: number; skills: number; experience: number; projects: number }; sectionChanges?: { summary: string[]; skills: string[]; experience: string[]; projects: string[] }; quality?: { passed: boolean; issues: string[]; score: number }; review?: { wouldInterview: boolean; score: number; strengths: string[]; weaknesses: string[]; genericAreas: string[]; recommendation: string; confidence: number } } | null>(null);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showErrorDetails, setShowErrorDetails] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState<string | null>(null);
-  const [stepTimings, setStepTimings] = useState<Record<string, number>>({});
   const [jdCollapsed, setJdCollapsed] = useState(false);
   const [jdParsed, setJdParsed] = useState(false);
-  const [tailoredResume, setTailoredResume] = useState<TailoredResume | null>(null);
-  const [extractData, setExtractData] = useState<ExtractedJobData | null>(null);
-  const [scoreData, setScoreData] = useState<JobScore | null>(null);
-  const [rescoreData, setRescoreData] = useState<JobScore | null>(null);
   const [activeTab, setActiveTab] = useState('resume');
   const [creatingApplication, setCreatingApplication] = useState<'wishlist' | 'applied' | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const startTimeRef = useRef<number>(0);
+
+  const {
+    running,
+    steps,
+    letter,
+    summary,
+    logs,
+    elapsed,
+    stepTimings,
+    tailoredResume,
+    extractData,
+    scoreData,
+    rescoreData,
+    startRun: runPipeline,
+    abort,
+    retryFrom,
+    reset,
+  } = useStudioPipeline({
+    onRunStart: () => {
+      setJdCollapsed(true);
+      setJdParsed(true);
+      setActiveTab('resume');
+      setShowErrorDetails(null);
+    },
+  });
+
+  // The pipeline needs the CURRENT job description and resume selection;
+  // thin adapters keep the call sites below readable.
+  const run = () => runPipeline(jd, resumeId);
+  const retry = (step: string) => retryFrom(step, jd, resumeId);
 
   const hasJd = jd.trim().length >= 20;
 
@@ -124,147 +104,6 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
     } finally {
       setCreatingApplication(null);
     }
-  }
-
-  function updateStep(step: string, patch: Partial<StepState>) {
-    setSteps((prev) => prev.map((s) => (s.step === step ? { ...s, ...patch } : s)));
-  }
-
-  function addLog(message: string, status: LogEntry['status'], step?: string) {
-    const time = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLogs((prev) => [...prev, { time, message, status, step }]);
-  }
-
-  async function run() {
-    if (!jd.trim() || jd.trim().length < 20) {
-      toast.error('Paste a job description first', { description: 'At least 20 characters.' });
-      return;
-    }
-    setRunning(true);
-    setLetter('');
-    setSummary(null);
-    setLogs([]);
-    setShowErrorDetails(null);
-    setElapsed(null);
-    setJdCollapsed(true);
-    setJdParsed(true);
-    setTailoredResume(null);
-    setExtractData(null);
-    setScoreData(null);
-    setRescoreData(null);
-    setActiveTab('resume');
-    setStepTimings({});
-    startTimeRef.current = Date.now();
-    reportAiRun('Analyzing job', 'studio-pipeline');
-    let pipelineFailed = false;
-    let pipelineCompleted = false;
-    const pipelineSteps: StepState[] = [
-      { step: 'extract', label: STEP_LABELS.extract,  status: 'idle', progress: 0 },
-      { step: 'score',   label: STEP_LABELS.score,    status: 'idle', progress: 0 },
-      { step: 'plan',    label: STEP_LABELS.plan,     status: 'idle', progress: 0 },
-      { step: 'tailor',  label: STEP_LABELS.tailor,   status: 'idle', progress: 0 },
-      { step: 'rescore', label: STEP_LABELS.rescore,  status: 'idle', progress: 0 },
-      { step: 'review',  label: STEP_LABELS.review,   status: 'idle', progress: 0 },
-      { step: 'letter',  label: STEP_LABELS.letter,   status: 'idle', progress: 0 },
-    ];
-    setSteps(pipelineSteps);
-
-    const intervalId = setInterval(() => {
-      setSteps((prev) => prev.map((s) => s.status === 'running' ? { ...s, progress: Math.min((s.progress ?? 0) + Math.random() * 25, 90) } : s));
-    }, 400);
-
-    abortRef.current = new AbortController();
-    try {
-      const res = await fetch('/eleva/api/studio/pipeline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobDescription: jd, resumeId }),
-        signal: abortRef.current.signal,
-      });
-      if (!res.ok || !res.body) {
-        const t = await res.text();
-        throw new Error(t || 'Pipeline failed');
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() ?? '';
-        for (const chunk of parts) {
-          const eventLine = chunk.split('\n').find((l) => l.startsWith('event:'));
-          const dataLine  = chunk.split('\n').find((l) => l.startsWith('data:'));
-          if (!eventLine || !dataLine) continue;
-          const event = eventLine.slice(6).trim();
-          const data  = JSON.parse(dataLine.slice(5).trim());
-
-          if (event === 'step') {
-            const micro: MicroStatus = data.micro ? 'waiting' : data.status === 'running' ? 'waiting' : data.status === 'done' ? 'complete' : 'connecting';
-            const stepName = STEP_LABELS[data.step] || data.step;
-            addLog(`${stepName} ${data.status === 'done' ? '✓' : data.status === 'running' ? '⟳' : '✓'}`, data.status === 'done' ? 'done' : data.status === 'running' ? 'running' : 'done', data.step);
-            const patch: Partial<StepState> = { status: data.status, data: data.data, progress: data.status === 'done' ? 100 : typeof data.progress === 'number' ? data.progress : 50, microStatus: micro };
-            if (data.micro) patch.microText = data.micro;
-            updateStep(data.step, patch);
-            if (data.status === 'done') setStepTimings(prev => ({ ...prev, [data.step]: Date.now() - startTimeRef.current }));
-            if (data.status === 'done' && data.data) {
-              if (data.step === 'tailor') setTailoredResume(data.data);
-              if (data.step === 'extract') setExtractData(data.data);
-              if (data.step === 'score') setScoreData(data.data);
-              if (data.step === 'rescore') setRescoreData(data.data);
-            }
-          } else if (event === 'letter-chunk') {
-            setLetter((prev) => prev + data.text);
-          } else if (event === 'done') {
-            pipelineCompleted = true;
-            setSummary({ overall: data.overall, previousOverall: data.previousOverall, matched: data.matched, missing: data.missing, company: data.company, role: data.role, keywordsAdded: data.keywordsAdded ?? 0, bulletsRewritten: data.bulletsRewritten ?? 0, compatibility: data.compatibility, isLowCompat: data.isLowCompat, sectionsModified: data.sectionsModified, plan: data.plan, review: data.review, sectionConfidence: data.sectionConfidence, sectionChanges: data.sectionChanges, quality: data.quality, resumeId: data.resumeId ?? null, coverLetterId: data.coverLetterId ?? null });
-            if (data.letterBody && !letter) setLetter(data.letterBody);
-            const el = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
-            setElapsed(el);
-            addLog(`Tailored resume ready in ${el}s · ATS ${data.overall}% · ${data.matched} keywords matched, ${data.missing} still missing`, 'done');
-            toast.success('Resume ready to apply', { description: data.previousOverall !== undefined ? `ATS ${data.previousOverall} → ${data.overall}` : `ATS ${data.overall}% — resume tailored and cover letter drafted.` });
-          } else if (event === 'error') {
-            pipelineFailed = true;
-            const failedStep = data.step || 'letter';
-            const elapsed = ((Date.now() - startTimeRef.current) / 1000).toFixed(1);
-            const errDetails: ErrorDetails = { reason: data.reason, traceId: data.traceId, elapsed: `${elapsed}s`, rawMessage: data.rawMessage || data.message, provider: data.provider, statusCode: data.statusCode };
-            const { text } = friendlyError(data.reason, data.message, failedStep);
-            addLog(`Failed: ${data.message || 'Unknown error'}`, 'error', failedStep);
-            updateStep(failedStep, { status: 'error', error: text, errorDetails: errDetails, progress: 0 });
-            setSteps((prev) => prev.map((s) => s.status === 'idle' ? { ...s, status: 'pending', progress: 0 } : s));
-            toast('Analysis paused', {
-              description: `${failedStep === 'extract' ? 'Reading the job' : failedStep === 'score' ? 'Scoring' : 'Cover letter'} failed. Nothing was modified.`,
-              duration: 4000,
-            });
-          }
-        }
-      }
-    } catch (e) {
-      if ((e as Error).name === 'AbortError') {
-        addLog('Analysis aborted by user', 'error');
-        toast('Analysis aborted', { description: 'Nothing was modified.', duration: 3000 });
-      } else {
-        const errMsg = (e as Error).message || 'Unknown error';
-        addLog(`Connection error: ${errMsg}`, 'error');
-        toast.error("We couldn't complete this request", { description: errMsg.includes('fetch') ? 'Check your network.' : 'Progress has been saved. Retry the analysis.' });
-      }
-    } finally {
-      clearInterval(intervalId);
-      setSteps((prev) => prev.map((s) => s.status === 'running' ? { ...s, status: 'error', progress: 0, error: 'Pipeline stopped before completing this step.' } : s.status === 'idle' ? { ...s, status: 'pending', progress: 0 } : s));
-      setRunning(false);
-      reportAiDone(pipelineCompleted ? 'Resume optimized' : 'Analysis', Date.now() - startTimeRef.current, 'studio-pipeline', pipelineFailed);
-    }
-  }
-
-  function abort() { abortRef.current?.abort(); }
-
-  function retryFrom(step: string) {
-    const idx = steps.findIndex((s) => s.step === step);
-    if (idx === -1) return;
-    setSteps((prev) => prev.map((s, i) => i < idx ? s : { ...s, status: 'idle', progress: 0, error: undefined, errorDetails: undefined, microStatus: undefined }));
-    run();
   }
 
   async function downloadExport(format: 'pdf' | 'docx') {
@@ -393,7 +232,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                   <ArrowRight className="w-4 h-4" />
                 </button>
               )}
-              <button onClick={() => { setJd(''); setSteps([]); setLetter(''); setSummary(null); setLogs([]); setExtractData(null); setScoreData(null); setRescoreData(null); setTailoredResume(null); setJdParsed(false); setJdCollapsed(false); }} className="eleva-btn-ghost inline-flex items-center gap-2 text-[12px]" disabled={running}>
+              <button onClick={() => { setJd(''); reset(); setJdParsed(false); setJdCollapsed(false); }} className="eleva-btn-ghost inline-flex items-center gap-2 text-[12px]" disabled={running}>
                 <RotateCcw className="w-3 h-3" /> Reset
               </button>
             </div>
@@ -514,7 +353,7 @@ export function StudioClient({ resumes }: { resumes: Resume[] }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => retryFrom(erroredStep.step)} className="inline-flex items-center gap-1.5 text-[11px] font-medium h-7 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-primary))', border: '1px solid rgb(var(--eleva-border))' }}>
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => retry(erroredStep.step)} className="inline-flex items-center gap-1.5 text-[11px] font-medium h-7 px-3 rounded-lg" style={{ background: 'rgb(var(--eleva-card))', color: 'rgb(var(--eleva-primary))', border: '1px solid rgb(var(--eleva-border))' }}>
                     <RefreshCw className="w-3 h-3" /> Retry
                   </motion.button>
                   <button onClick={() => { const d = [erroredStep.errorDetails?.model && `Model: ${erroredStep.errorDetails.model}`, erroredStep.errorDetails?.provider && `Provider: ${erroredStep.errorDetails.provider}`, `Step: ${erroredStep.label}`, `Error: ${erroredStep.error}`, erroredStep.errorDetails?.reason && `Reason: ${erroredStep.errorDetails.reason}`, erroredStep.errorDetails?.traceId && `Trace: ${erroredStep.errorDetails.traceId}`].filter(Boolean).join('\n'); navigator.clipboard.writeText(d); toast('Copied', { duration: 2000 }); }} className="ml-auto inline-flex items-center gap-1 text-[10px] h-7 px-2 rounded-lg" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
