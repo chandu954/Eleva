@@ -69,9 +69,9 @@ describe('Pipeline route - validation', () => {
     const json = await res.json();
     expect(json.error).toBe('INVALID_BODY');
   });
-});
 
   it('rejects body with wrong types', async () => {
     const res = await POST(makeRequest({ jobDescription: 123 }));
     expect(res.status).toBe(400);
   });
+});

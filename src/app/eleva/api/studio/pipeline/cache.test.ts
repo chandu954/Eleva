@@ -1,64 +1,155 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
-import { getCachedExtract, setCachedExtract, getCachedScore, setCachedScore, scoreCacheKey } from './cache';
+import { describe, expect, it, vi } from 'vitest';
 
-describe('pipeline cache', () => {
+import {
+  ExtractSchema,
+  JD_EXTRACT_TTL_MS,
+  ScoreSchema,
+  getCachedExtract,
+  getCachedExtractFromDb,
+  getCachedScore,
+  jdHash,
+  scoreCacheKey,
+  setCachedExtract,
+  setCachedExtractInDb,
+  setCachedScore,
+} from './cache';
+
+const validExtract = ExtractSchema.parse({
+  company: 'Acme',
+  role: 'Engineer',
+  required_skills: ['TypeScript'],
+  nice_to_have: [],
+  summary: 'ok',
+});
+
+const validScore = ScoreSchema.parse({
+  overall: 80,
+  keyword: 70,
+  formatting: 75,
+  readability: 90,
+  impact: 65,
+  recruiter: 72,
+  matched: ['TypeScript'],
+  missing: ['SQL'],
+  suggestions: [],
+  summary: 'ok',
+});
+
+describe('pipeline cache — in-memory', () => {
   it('returns null for cache miss', () => {
-    expect(getCachedExtract('some job description that is long enough to be unique')).toBeNull();
+    expect(getCachedExtract(`unique jd ${Math.random()}`)).toBeNull();
+    expect(getCachedScore('r', `unique jd ${Math.random()}`)).toBeNull();
   });
 
-  it('caches and retrieves extract', () => {
-    const jd = 'a'.repeat(50);
-    const data = { company: 'Test', role: 'Eng' };
-    setCachedExtract(jd, data);
-    expect(getCachedExtract(jd)).toEqual(data);
+  it('stores and retrieves an extract', () => {
+    const jd = `jd ${Math.random()}`;
+    setCachedExtract(jd, validExtract);
+    expect(getCachedExtract(jd)).toEqual(validExtract);
   });
 
-  it('caches and retrieves score with independent keys', () => {
-    const jd1 = 'b'.repeat(50);
-    const jd2 = 'c'.repeat(50);
-    const resume = 'd'.repeat(50);
-    const score1 = { overall: 80 };
-    const score2 = { overall: 90 };
+  it('keeps scores for different JDs independent', () => {
+    const resume = `r ${Math.random()}`;
+    const jd1 = `jd1 ${Math.random()}`;
+    const jd2 = `jd2 ${Math.random()}`;
+    const score1 = { ...validScore, overall: 80 };
+    const score2 = { ...validScore, overall: 90 };
     setCachedScore(resume, jd1, score1);
     setCachedScore(resume, jd2, score2);
     expect(getCachedScore(resume, jd1)).toEqual(score1);
     expect(getCachedScore(resume, jd2)).toEqual(score2);
+    expect(getCachedScore(`other ${Math.random()}`, jd1)).toBeNull();
   });
 
-  it('produces different keys for different content', () => {
+  it('distinguishes resumes within the same JD', () => {
+    const jd = `jd ${Math.random()}`;
+    const a = { ...validScore, overall: 10 };
+    const b = { ...validScore, overall: 20 };
+    setCachedScore('resume a', jd, a);
+    setCachedScore('resume b', jd, b);
+    expect(getCachedScore('resume a', jd)).toEqual(a);
+    expect(getCachedScore('resume b', jd)).toEqual(b);
+  });
+
+  it('expires entries older than the TTL', () => {
+    vi.useFakeTimers({ now: Date.now() });
+    try {
+      const jd = `ttl jd ${Math.random()}`;
+      setCachedExtract(jd, validExtract);
+      expect(getCachedExtract(jd)).toEqual(validExtract);
+      // Advance just past the 24h TTL.
+      vi.advanceTimersByTime(JD_EXTRACT_TTL_MS + 1);
+      expect(getCachedExtract(jd)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('evicts the oldest entry beyond the 200-entry cap', () => {
+    const firstJd = `first ${Math.random()}`;
+    setCachedExtract(firstJd, validExtract);
+    let latest = '';
+    for (let i = 0; i < 200; i++) {
+      latest = `filler ${i} ${Math.random()}`;
+      setCachedExtract(latest, validExtract);
+    }
+    // The very first entry has been evicted; the most recent one is intact.
+    expect(getCachedExtract(firstJd)).toBeNull();
+    expect(getCachedExtract(latest)).toEqual(validExtract);
+  });
+});
+
+describe('pipeline cache — keys and hashing', () => {
+  it('produces distinct keys for distinct content and identical keys for repeats', () => {
     const k1 = scoreCacheKey('resume1', 'jd1');
     const k2 = scoreCacheKey('resume1', 'jd2');
     const k3 = scoreCacheKey('resume2', 'jd1');
     expect(k1).not.toBe(k2);
     expect(k1).not.toBe(k3);
-  });
-});
-
-  it('handles cache with different job descriptions', () => {
-    const jd1 = 'x'.repeat(60);
-    const jd2 = 'y'.repeat(60);
-    setCachedExtract(jd1, { test: 1 });
-    setCachedExtract(jd2, { test: 2 });
-    expect(getCachedExtract(jd1)).toEqual({ test: 1 });
-    expect(getCachedExtract(jd2)).toEqual({ test: 2 });
+    expect(scoreCacheKey('resume1', 'jd1')).toBe(k1);
   });
 
-  it('scoreCacheKey is deterministic', () => {
-    const k1 = scoreCacheKey('resume text', 'job desc');
-    const k2 = scoreCacheKey('resume text', 'job desc');
-    expect(k1).toBe(k2);
+  it('keys only depend on the first 2000 characters (preserved behavior)', () => {
+    const prefix = 'same prefix '.repeat(167);
+    expect(jdHash(prefix)).toBe(jdHash(prefix + ' tail never consulted'));
   });
 
-  it('handles empty strings', () => {
-    expect(getCachedExtract('')).toBeNull();
-    expect(getCachedScore('', '')).toBeNull();
-  });
-
-  it('scoreCacheKey handles long inputs', () => {
-    const longResume = 'a'.repeat(5000);
-    const longJD = 'b'.repeat(5000);
-    const key = scoreCacheKey(longResume, longJD);
+  it('handles long inputs', () => {
+    const key = scoreCacheKey('a'.repeat(5000), 'b'.repeat(5000));
     expect(typeof key).toBe('string');
     expect(key.length).toBeGreaterThan(0);
   });
+});
+
+describe('pipeline cache — DB-backed extraction', () => {
+  function supabaseWith(payload: unknown, error: unknown = null) {
+    const eq = vi.fn().mockReturnThis();
+    const gte = vi.fn().mockReturnThis();
+    const maybeSingle = vi.fn().mockResolvedValue({ data: payload ? { payload, created_at: new Date().toISOString() } : null, error });
+    return {
+      from: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ eq, gte, maybeSingle }) }),
+    } as unknown as Parameters<typeof getCachedExtractFromDb>[0];
+  }
+
+  it('reads the cached payload', async () => {
+    const supabase = supabaseWith(validExtract);
+    await expect(getCachedExtractFromDb(supabase, 'some job description')).resolves.toEqual(validExtract);
+  });
+
+  it('treats a malformed payload as a miss instead of propagating junk', async () => {
+    const supabase = supabaseWith({ company: { deep: 'wrong' } });
+    await expect(getCachedExtractFromDb(supabase, 'some other description')).resolves.toBeNull();
+  });
+
+  it('treats supabase errors and empty rows as misses', async () => {
+    await expect(getCachedExtractFromDb(supabaseWith(null), 'jd')).resolves.toBeNull();
+    await expect(getCachedExtractFromDb(supabaseWith(null, new Error('db down')), 'jd')).resolves.toBeNull();
+  });
+
+  it('upserts the payload keyed by hash', async () => {
+    const upsert = vi.fn().mockResolvedValue({});
+    const supabase = { from: vi.fn().mockReturnValue({ upsert }) } as unknown as Parameters<typeof setCachedExtractInDb>[0];
+    await setCachedExtractInDb(supabase, 'another description', validExtract);
+    expect(upsert).toHaveBeenCalledWith(expect.objectContaining({ payload: validExtract }), { onConflict: 'jd_hash' });
+  });
+});

@@ -3,6 +3,16 @@ import { AIProvider, z, type AIProviderResult } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
 import { apiError } from '@/lib/api-response';
 import { scoreResumeLocally, localExtractFallback } from './local-scorer';
+import {
+  ExtractSchema,
+  ScoreSchema,
+  getCachedExtract,
+  getCachedExtractFromDb,
+  getCachedScore,
+  setCachedExtract,
+  setCachedExtractInDb,
+  setCachedScore,
+} from './cache';
 import { buildSectionRewriteOutcome, buildTailoredResumeIdentity, countChangedSections, normalizeRoleTitle, summarizeSectionStatus } from './pipeline-utils';
 
 export const runtime = 'nodejs';
@@ -13,31 +23,6 @@ const bodySchema = z.object({
   resumeId: z.string().uuid().optional(),
   company: z.string().optional(),
   role: z.string().optional(),
-});
-
-const ExtractSchema = z.object({
-  company: z.string().nullable(),
-  role: z.string().nullable(),
-  required_skills: z.array(z.string()).max(30),
-  nice_to_have: z.array(z.string()).max(20),
-  summary: z.string(),
-});
-
-const ScoreSchema = z.object({
-  overall: z.number().int().min(0).max(100),
-  keyword: z.number().int().min(0).max(100),
-  formatting: z.number().int().min(0).max(100),
-  readability: z.number().int().min(0).max(100),
-  impact: z.number().int().min(0).max(100),
-  recruiter: z.number().int().min(0).max(100),
-  matched: z.array(z.string()).max(30),
-  missing: z.array(z.string()).max(30),
-  suggestions: z.array(z.object({
-    type: z.enum(['success', 'warning', 'primary']),
-    text: z.string(),
-    action: z.string(),
-  })).max(8),
-  summary: z.string(),
 });
 
 const PlannerSchema = z.object({
@@ -97,8 +82,6 @@ const QualityCheckSchema = z.object({
 });
 
 const STEP_TIMEOUT_MS = 90_000; // per-step deadline
-const JD_EXTRACT_TTL_MS = 86_400_000; // 24h
-const SCORE_CACHE_TTL_MS = 86_400_000; // 24h
 
 function withStepTimeout<T>(promise: Promise<T>, stepName: string, emit: (event: string, data: unknown) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -111,86 +94,6 @@ function withStepTimeout<T>(promise: Promise<T>, stepName: string, emit: (event:
       .then((v) => { clearTimeout(timer); resolve(v); })
       .catch((e) => { clearTimeout(timer); reject(e); });
   });
-}
-
-// Simple in-memory JD extraction cache (keyed by JD hash)
-const jdCache = new Map<string, { data: any; ts: number }>();
-
-function jdHash(text: string): string {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) { h = ((h << 5) - h + text.charCodeAt(i)) | 0; }
-  return `jd_${h}`;
-}
-
-function getCachedExtract(jd: string): any | null {
-  const key = jdHash(jd.slice(0, 2000));
-  const entry = jdCache.get(key);
-  if (entry && Date.now() - entry.ts < JD_EXTRACT_TTL_MS) return entry.data;
-  jdCache.delete(key);
-  return null;
-}
-
-function setCachedExtract(jd: string, data: any) {
-  const key = jdHash(jd.slice(0, 2000));
-  jdCache.set(key, { data, ts: Date.now() });
-  if (jdCache.size > 200) {
-    const oldest = [...jdCache.entries()].sort(([, a], [, b]) => a.ts - b.ts)[0];
-    if (oldest) jdCache.delete(oldest[0]);
-  }
-}
-
-// ─── Score Cache ──────────────────────────────────────────────────────────────────
-
-const scoreCache = new Map<string, { data: any; ts: number }>();
-
-function scoreCacheKey(resumeText: string, jd: string): string {
-  const h1 = jdHash(jd.slice(0, 2000));
-  const h2 = jdHash(resumeText.slice(0, 2000));
-  return `score_${h1}_${h2}`;
-}
-
-function getCachedScore(resumeText: string, jd: string): any | null {
-  const key = scoreCacheKey(resumeText, jd);
-  const entry = scoreCache.get(key);
-  if (entry && Date.now() - entry.ts < SCORE_CACHE_TTL_MS) return entry.data;
-  scoreCache.delete(key);
-  return null;
-}
-
-function setCachedScore(resumeText: string, jd: string, data: any) {
-  const key = scoreCacheKey(resumeText, jd);
-  scoreCache.set(key, { data, ts: Date.now() });
-  if (scoreCache.size > 200) {
-    const oldest = [...scoreCache.entries()].sort(([, a], [, b]) => a.ts - b.ts)[0];
-    if (oldest) scoreCache.delete(oldest[0]);
-  }
-}
-
-async function getCachedExtractFromDb(supabase: Awaited<ReturnType<typeof createClient>>, jd: string): Promise<any | null> {
-  const jd_hash = jdHash(jd.slice(0, 2000));
-  const cutoff = new Date(Date.now() - JD_EXTRACT_TTL_MS).toISOString();
-
-  const { data, error } = await supabase
-    .from('jd_extract_cache')
-    .select('payload,created_at')
-    .eq('jd_hash', jd_hash)
-    .gte('created_at', cutoff)
-    .maybeSingle();
-
-  if (error) return null;
-  if (!data) return null;
-  return data.payload;
-}
-
-async function setCachedExtractInDb(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  jd: string,
-  payload: any,
-) {
-  const jd_hash = jdHash(jd.slice(0, 2000));
-  await supabase
-    .from('jd_extract_cache')
-    .upsert({ jd_hash, payload }, { onConflict: 'jd_hash' });
 }
 
 function isRateLimitError(err: unknown): boolean {
