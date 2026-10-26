@@ -14,6 +14,11 @@ import {
   saveSkills, saveEducation, saveCertifications, saveAchievements,
   saveLanguages, savePreferences,
 } from '../_lib/actions-career';
+import type {
+  ExperienceRow, ProjectRow, SkillCategory, EducationRow,
+  CertificationRow, AchievementRow, LanguageRow, PreferencesRow,
+} from '../_lib/actions-career';
+import type { LucideIcon } from 'lucide-react';
 
 type Profile = {
   user_id?: string;
@@ -32,14 +37,14 @@ type Profile = {
   twitter_url?: string | null;
   professional_summary?: string | null;
   photo_url?: string | null;
-  work_experience?: any[];
-  education?: any[];
-  skills?: any[];
-  projects?: any[];
-  certifications?: any[];
-  achievements?: any[];
-  languages?: any[];
-  preferences?: Record<string, any>;
+  work_experience?: ExperienceRow[];
+  education?: EducationRow[];
+  skills?: SkillCategory[];
+  projects?: ProjectRow[];
+  certifications?: CertificationRow[];
+  achievements?: AchievementRow[];
+  languages?: LanguageRow[];
+  preferences?: Partial<PreferencesRow>;
   profile_completion?: number;
 };
 
@@ -349,7 +354,7 @@ function SummarySection({ data }: { data: Profile }) {
   );
 }
 
-function AIAction({ icon: Icon, label }: { icon: any; label: string }) {
+function AIAction({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   return (
     <button
       className="text-[11px] font-medium px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors hover:opacity-80"
@@ -365,14 +370,14 @@ function AIAction({ icon: Icon, label }: { icon: any; label: string }) {
 // ─── Section: Experience ────────────────────────────────────────────────────────
 
 function ExperienceSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.work_experience || []);
+  const [items, setItems] = useState<ExperienceRow[]>(data.work_experience || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => {
     setItems([...items, { company: '', position: '', location: '', date: '', end_date: '', current: false, description: [], achievements: [''], technologies: [] }]);
   };
 
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof ExperienceRow, value: ExperienceRow[keyof ExperienceRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);
@@ -394,7 +399,7 @@ function ExperienceSection({ data }: { data: Profile }) {
 
   const removeAchievement = (idx: number, aIdx: number) => {
     const copy = [...items];
-    copy[idx] = { ...copy[idx], achievements: (copy[idx].achievements || []).filter((_: any, i: number) => i !== aIdx) };
+    copy[idx] = { ...copy[idx], achievements: (copy[idx].achievements || []).filter((_, i: number) => i !== aIdx) };
     setItems(copy);
   };
 
@@ -477,11 +482,11 @@ function ExperienceSection({ data }: { data: Profile }) {
 // ─── Section: Projects ──────────────────────────────────────────────────────────
 
 function ProjectsSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.projects || []);
+  const [items, setItems] = useState<ProjectRow[]>(data.projects || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => setItems([...items, { name: '', description: [''], technologies: [], url: '', github_url: '', date: '' }]);
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof ProjectRow, value: ProjectRow[keyof ProjectRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);
@@ -534,7 +539,7 @@ function ProjectsSection({ data }: { data: Profile }) {
 const DEFAULT_CATEGORIES = ['Languages', 'Frameworks', 'Cloud & Infrastructure', 'Databases', 'AI & ML', 'DevOps & Tools', 'Design'];
 
 function SkillsSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.skills || []);
+  const [items, setItems] = useState<SkillCategory[]>(data.skills || []);
   const [pending, setPending] = useState(false);
 
   const addCategory = (cat: string) => {
@@ -551,7 +556,7 @@ function SkillsSection({ data }: { data: Profile }) {
 
   const removeSkill = (idx: number, sIdx: number) => {
     const copy = [...items];
-    copy[idx] = { ...copy[idx], items: (copy[idx].items || []).filter((_: any, i: number) => i !== sIdx) };
+    copy[idx] = { ...copy[idx], items: (copy[idx].items || []).filter((_, i: number) => i !== sIdx) };
     setItems(copy);
   };
 
@@ -622,11 +627,11 @@ function SkillInput({ onAdd, placeholder }: { onAdd: (s: string) => void; placeh
 // ─── Section: Education ─────────────────────────────────────────────────────────
 
 function EducationSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.education || []);
+  const [items, setItems] = useState<EducationRow[]>(data.education || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => setItems([...items, { school: '', degree: '', field: '', location: '', date: '', gpa: '', achievements: [] }]);
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof EducationRow, value: EducationRow[keyof EducationRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);
@@ -672,11 +677,11 @@ function EducationSection({ data }: { data: Profile }) {
 // ─── Section: Certifications ────────────────────────────────────────────────────
 
 function CertificationsSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.certifications || []);
+  const [items, setItems] = useState<CertificationRow[]>(data.certifications || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => setItems([...items, { name: '', issuer: '', date: '', url: '' }]);
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof CertificationRow, value: CertificationRow[keyof CertificationRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);
@@ -720,11 +725,11 @@ function CertificationsSection({ data }: { data: Profile }) {
 // ─── Section: Achievements ──────────────────────────────────────────────────────
 
 function AchievementsSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.achievements || []);
+  const [items, setItems] = useState<AchievementRow[]>(data.achievements || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => setItems([...items, { title: '', description: '', date: '', type: 'achievement' }]);
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof AchievementRow, value: AchievementRow[keyof AchievementRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);
@@ -784,11 +789,11 @@ function AchievementsSection({ data }: { data: Profile }) {
 const PROFICIENCIES = ['native', 'fluent', 'advanced', 'intermediate', 'basic'];
 
 function LanguagesSection({ data }: { data: Profile }) {
-  const [items, setItems] = useState<any[]>(data.languages || []);
+  const [items, setItems] = useState<LanguageRow[]>(data.languages || []);
   const [pending, setPending] = useState(false);
 
   const addItem = () => setItems([...items, { language: '', proficiency: 'native' }]);
-  const updateItem = (idx: number, field: string, value: any) => {
+  const updateItem = (idx: number, field: keyof LanguageRow, value: LanguageRow[keyof LanguageRow]) => {
     const copy = [...items];
     copy[idx] = { ...copy[idx], [field]: value };
     setItems(copy);

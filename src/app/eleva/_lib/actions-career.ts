@@ -202,6 +202,18 @@ const preferencesSchema = z.object({
   target_industries: z.array(z.string()).optional(),
 });
 
+/* Row shapes inferred from the saving schemas above; the career client's
+ * local Profile type and section editors are typed against these so the
+ * editors cannot drift from what the actions actually persist. */
+export type ExperienceRow = z.infer<typeof experienceItemSchema>;
+export type ProjectRow = z.infer<typeof projectSchema>;
+export type SkillCategory = z.infer<typeof skillCategorySchema>;
+export type EducationRow = z.infer<typeof educationSchema>;
+export type CertificationRow = z.infer<typeof certificationSchema>;
+export type AchievementRow = z.infer<typeof achievementSchema>;
+export type LanguageRow = z.infer<typeof languageSchema>;
+export type PreferencesRow = z.infer<typeof preferencesSchema>;
+
 export async function savePreferences(data: z.infer<typeof preferencesSchema>) {
   const userId = await getUid();
   const supabase = await createClient();
