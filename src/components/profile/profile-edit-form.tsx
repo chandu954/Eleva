@@ -1,6 +1,6 @@
 'use client';
 
-import { Profile, WorkExperience, Education, Project } from "@/lib/types";
+import { Profile } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +33,7 @@ import { ProUpgradeButton } from "@/components/settings/pro-upgrade-button";
 import { AlertTriangle } from "lucide-react";
 import { importResume, updateProfile } from "@/utils/actions/profiles/actions";
 import { cn, withBasePath } from "@/lib/utils";
+import { normalizeImportedProfile } from "@/components/profile/profile-import-normalizer";
 import pdfToText from "react-pdftotext";
 
 interface ProfileEditFormProps {
@@ -166,68 +167,8 @@ export function ProfileEditForm({ profile: initialProfile }: ProfileEditFormProp
       });
       
       if (result) {
-        // Clean and transform the data to match our database schema
-        const cleanedProfile: Partial<Profile> = {
-          first_name: result.first_name || null,
-          last_name: result.last_name || null,
-          email: result.email || null,
-          phone_number: result.phone_number || null,
-          location: result.location || null,
-          website: result.website || null,
-          linkedin_url: result.linkedin_url || null,
-          github_url: result.github_url || null,
-          work_experience: Array.isArray(result.work_experience) 
-            ? result.work_experience.map((exp: Partial<WorkExperience>) => ({
-                company: exp.company || '',
-                position: exp.position || '',
-                location: exp.location || '',
-                date: exp.date || '',
-                description: Array.isArray(exp.description) 
-                  ? exp.description 
-                  : [exp.description || ''],
-                technologies: Array.isArray(exp.technologies) 
-                  ? exp.technologies 
-                  : []
-              }))
-            : [],
-          education: Array.isArray(result.education)
-            ? result.education.map((edu: Partial<Education>) => ({
-                school: edu.school || '',
-                degree: edu.degree || '',
-                field: edu.field || '',
-                location: edu.location || '',
-                date: edu.date || '',
-                gpa: edu.gpa ? parseFloat(edu.gpa.toString()) : undefined,
-                achievements: Array.isArray(edu.achievements) 
-                  ? edu.achievements 
-                  : []
-              }))
-            : [],
-          skills: Array.isArray(result.skills)
-            ? result.skills.map((skill: { category: string; skills?: string[]; items?: string[] }) => ({
-                category: skill.category || '',
-                items: Array.isArray(skill.skills) 
-                  ? skill.skills 
-                  : Array.isArray(skill.items) 
-                    ? skill.items 
-                    : []
-              }))
-            : [],
-          projects: Array.isArray(result.projects)
-            ? result.projects.map((proj: Partial<Project>) => ({
-                name: proj.name || '',
-                description: Array.isArray(proj.description) 
-                  ? proj.description 
-                  : [proj.description || ''],
-                technologies: Array.isArray(proj.technologies) 
-                  ? proj.technologies 
-                  : [],
-                url: proj.url || undefined,
-                github_url: proj.github_url || undefined,
-                date: proj.date || ''
-              }))
-            : []
-        };
+        // The AI result is defensively normalized to the database schema.
+        const cleanedProfile = normalizeImportedProfile(result);
         
         await importResume(cleanedProfile);
         
