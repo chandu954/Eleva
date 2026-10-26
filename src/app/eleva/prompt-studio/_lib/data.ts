@@ -1,7 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from '@/utils/supabase/server';
 import type { AIPrompt, PromptCategory, PromptVersion, PromptExecution, PromptAnalytics, PromptTag } from '../types';
 import { BUILTIN_CATEGORIES, fallbackBuiltinPrompts, isBuiltinFallbackId, getBuiltinPresetByKey, builtinToPrompt } from './builtin-presets';
+
+/* The ai_prompts row as PostgREST returns it for the favorite-tagged queries:
+ * `is_favorite` is the prompt_favorites!left(user_id) embed — an array of
+ * favorite rows — not the boolean AIPrompt carries after mapping. */
+type FavoriteRow = { user_id?: string | null };
+type PromptWithFavoriteEmbed = AIPrompt & { is_favorite?: FavoriteRow[] };
 
 export async function getPromptCategories(): Promise<PromptCategory[]> {
   const supabase = await createClient();
@@ -29,10 +34,13 @@ export async function getPrompts(categorySlug?: string, search?: string): Promis
   }
 
   const { data } = await query;
-  const mapped = (data ?? []).map((r: any) => ({
-    ...r,
-    is_favorite: Array.isArray(r.is_favorite) ? r.is_favorite.some((f: any) => f?.user_id === user.user?.id) : !!r.is_favorite,
-  })) as AIPrompt[];
+  const mapped = ((data ?? []) as PromptWithFavoriteEmbed[]).map((r) => {
+    const fav = r.is_favorite;
+    return {
+      ...r,
+      is_favorite: Array.isArray(fav) ? fav.some((f) => f?.user_id === user.user?.id) : !!fav,
+    };
+  });
 
   const hasBuiltins = mapped.some((p) => p.is_builtin);
   if (hasBuiltins) return mapped;
@@ -63,10 +71,11 @@ export async function getPrompt(id: string): Promise<AIPrompt | null> {
     .eq('id', id)
     .single();
   if (!data) return null;
+  const row = data as PromptWithFavoriteEmbed;
   return {
-    ...data,
-    is_favorite: Array.isArray((data as any).is_favorite) ? (data as any).is_favorite.some((f: any) => f?.user_id === user.user?.id) : !!(data as any).is_favorite,
-  } as AIPrompt;
+    ...row,
+    is_favorite: Array.isArray(row.is_favorite) ? row.is_favorite.some((f) => f?.user_id === user.user?.id) : !!row.is_favorite,
+  };
 }
 
 export async function getPromptByKey(key: string): Promise<AIPrompt | null> {

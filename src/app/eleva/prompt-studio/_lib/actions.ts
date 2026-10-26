@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
 import { builtinToPrompt, getBuiltinPresetByKey, isBuiltinFallbackId } from './builtin-presets';
+import type { AIPrompt } from '../types';
 
 export async function createPrompt(formData: FormData) {
   const supabase = await createClient();
@@ -39,7 +39,7 @@ export async function updatePrompt(id: string, formData: FormData) {
   const supabase = await createClient();
   const body = JSON.parse(formData.get('body') as string);
 
-  const updates: Record<string, any> = {
+  const updates: Partial<AIPrompt> = {
     title: body.title,
     description: body.description,
     system_prompt: body.system_prompt,
@@ -83,13 +83,13 @@ export async function duplicatePrompt(id: string) {
   const { data: user } = await supabase.auth.getUser();
   if (!user.user) return { error: 'Not authenticated' };
 
-  let original: any = null;
+  let original: AIPrompt | null = null;
   if (isBuiltinFallbackId(id)) {
     const preset = getBuiltinPresetByKey(id.slice('builtin:'.length));
     original = preset ? builtinToPrompt(preset) : null;
   } else {
     const { data } = await supabase.from('ai_prompts').select('*').eq('id', id).single();
-    original = data;
+    original = data as AIPrompt | null;
   }
   if (!original) return { error: 'Prompt not found' };
 
@@ -176,13 +176,13 @@ export async function runPrompt(formData: FormData) {
   const body = JSON.parse(formData.get('body') as string);
   const { promptId, variables, temperature, maxTokens } = body;
 
-    let prompt: any = null;
+    let prompt: AIPrompt | null = null;
     if (isBuiltinFallbackId(promptId)) {
       const preset = getBuiltinPresetByKey(promptId.slice('builtin:'.length));
       prompt = preset ? builtinToPrompt(preset) : null;
     } else {
       const { data } = await supabase.from('ai_prompts').select('*').eq('id', promptId).single();
-      prompt = data;
+      prompt = data as AIPrompt | null;
     }
     if (!prompt) return { error: 'Prompt not found' };
 
@@ -241,7 +241,8 @@ export async function runPrompt(formData: FormData) {
     }
 
     return { output, latency, tokensIn, tokensOut, cost, model: prompt.model };
-  } catch (err: any) {
+  } catch (err) {
+    const message = (err as { message?: string }).message;
     if (!isBuiltinFallbackId(promptId)) {
       await supabase.from('prompt_executions').insert({
         prompt_id: promptId,
@@ -257,12 +258,12 @@ export async function runPrompt(formData: FormData) {
         latency_ms: Date.now() - startTime,
         cost: 0,
         success: false,
-        error_message: err.message,
+        error_message: message,
       });
 
       await updatePromptStats(promptId, 0, 0, 0, false);
     }
-    return { error: err.message };
+    return { error: message };
   }
 }
 
