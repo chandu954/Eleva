@@ -25,6 +25,12 @@ export type RedisMode = "local" | "upstash" | "stub" | "unconfigured";
 export function redisMode(env: Record<string, string | undefined> = process.env): RedisMode {
   if (env.USE_LOCAL_REDIS === "true" && env.REDIS_URL) return "local";
   if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) return "upstash";
+  // `next build` imports route modules to collect page data with
+  // NODE_ENV=production, but runtime credentials are intentionally absent in
+  // CI and many build environments. No requests are served during the build,
+  // so use the no-network stub there; the runtime guard below still fails
+  // loudly when a deployed server has no Redis configured.
+  if (env.NEXT_PHASE === "phase-production-build") return "stub";
   return env.NODE_ENV === "production" ? "unconfigured" : "stub";
 }
 

@@ -28,6 +28,17 @@ describe('redisMode', () => {
     // Even with the local/off flag present: missing REDIS_URL is enough.
     expect(redisMode({ NODE_ENV: 'production', USE_LOCAL_REDIS: 'true' })).toBe('unconfigured');
   });
+
+  it('uses the stub during the production build phase', () => {
+    expect(redisMode({ NODE_ENV: 'production', NEXT_PHASE: 'phase-production-build' })).toBe('stub');
+    // A configured Redis still wins during the build.
+    expect(redisMode({
+      NODE_ENV: 'production',
+      NEXT_PHASE: 'phase-production-build',
+      UPSTASH_REDIS_REST_URL: 'https://e',
+      UPSTASH_REDIS_REST_TOKEN: 't',
+    })).toBe('upstash');
+  });
 });
 
 describe('InMemoryRedis semantics', () => {
@@ -90,7 +101,7 @@ describe('module default export', () => {
   const mutableEnv = process.env as unknown as Record<string, string | undefined>;
 
   function snapshot() {
-    const keys = ['NODE_ENV', 'USE_LOCAL_REDIS', 'REDIS_URL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
+    const keys = ['NODE_ENV', 'NEXT_PHASE', 'USE_LOCAL_REDIS', 'REDIS_URL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
     return Object.fromEntries(keys.map((k) => [k, mutableEnv[k]]));
   }
 
@@ -112,6 +123,21 @@ describe('module default export', () => {
       // Verify behaviorally instead.
       expect(await fresh.default.hset('fresh-import-key', { ok: '1' })).toBe(1);
       expect(await fresh.default.hgetall('fresh-import-key')).toEqual({ ok: '1' });
+    } finally {
+      restore(prev);
+      vi.resetModules();
+    }
+  });
+
+  it('boots with the stub while Next.js collects page data during a production build', async () => {
+    const prev = snapshot();
+    try {
+      for (const k of ['USE_LOCAL_REDIS', 'REDIS_URL', 'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']) delete mutableEnv[k];
+      mutableEnv.NODE_ENV = 'production';
+      mutableEnv.NEXT_PHASE = 'phase-production-build';
+      vi.resetModules();
+      const fresh = await import('./redis');
+      expect(await fresh.default.hset('build-phase-key', { ok: '1' })).toBe(1);
     } finally {
       restore(prev);
       vi.resetModules();
