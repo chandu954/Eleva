@@ -163,3 +163,69 @@ jobs:
           quiet: true
           soft_fail: false
           framework: kubernetes,helm
+
+  terraform:
+    name: Terraform validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+
+      - name: Terraform format
+        run: terraform fmt -check -recursive terraform
+
+      - name: Terraform init
+        working-directory: terraform/envs/production
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Terraform validate
+        working-directory: terraform/envs/production
+        run: terraform validate
+
+      - name: Set up TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.55.0
+
+      - name: TFLint init
+        run: tflint --init --config="$GITHUB_WORKSPACE/.tflint.hcl"
+
+      - name: TFLint
+        run: tflint --recursive --config="$GITHUB_WORKSPACE/.tflint.hcl"
+
+      - name: Run Checkov Terraform scan
+        uses: bridgecrewio/checkov-action@v12.1347.0
+        with:
+          directory: terraform
+          framework: terraform
+          quiet: true
+          soft_fail: false
+
+      # Read-only plan. Requires provider credentials; skipped on forks and
+      # repositories that have not configured the secrets yet.
+      - name: Terraform plan (read-only)
+        working-directory: terraform/envs/production
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+          UPSTASH_EMAIL: ${{ secrets.UPSTASH_EMAIL }}
+          UPSTASH_API_KEY: ${{ secrets.UPSTASH_API_KEY }}
+        if: env.VERCEL_API_TOKEN != ''
+        run: |
+          terraform plan -refresh=false -input=false -lock=false \
+            -var="vercel_api_token=$VERCEL_API_TOKEN" \
+            -var="upstash_email=$UPSTASH_EMAIL" \
+            -var="upstash_api_key=$UPSTASH_API_KEY" \
+            -out=/tmp/eleva.tfplan
+
