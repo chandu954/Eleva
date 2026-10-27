@@ -14,6 +14,7 @@ import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ResumePDFDocument } from './resume-pdf-document';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { logger } from '@/lib/logger';
 
 // Import required CSS for react-pdf
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -35,14 +36,17 @@ const CACHE_CLEANUP_INTERVAL = 5 * 60 * 1000;
 const CACHE_EXPIRATION_TIME = 30 * 60 * 1000;
 
 /**
- * Generate a simple hash from the resume content
- * This is used as a cache key for PDF generation
+ * Generate a simple hash from the resume content and rendered variant.
+ * This is used as a cache key for PDF generation — the variant must be part
+ * of the key because base and tailored previews are rendered separately.
  */
-function generateResumeHash(resume: Resume): string {
+function generateResumeHash(resume: Resume, variant: 'base' | 'tailored'): string {
   const content = JSON.stringify({
+    variant,
     basic: {
       name: `${resume.first_name} ${resume.last_name}`,
       contact: [resume.email, resume.phone_number, resume.location, resume.website, resume.linkedin_url, resume.github_url],
+      role: resume.target_role,
     },
     sections: {
       skills: resume.skills,
@@ -111,6 +115,8 @@ interface ResumePreviewProps {
 export const ResumePreview = memo(function ResumePreview({ resume, variant = 'base', containerWidth }: ResumePreviewProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
+  const [failedCacheKey, setFailedCacheKey] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const debouncedWidth = useDebouncedValue(containerWidth, 100);
   
 
@@ -120,8 +126,8 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
     return ((debouncedWidth));
   }, [debouncedWidth]);
 
-  // Generate resume hash for caching
-  const resumeHash = useMemo(() => generateResumeHash(resume), [resume]);
+  // Generate a variant-aware resume hash for caching
+  const cacheKey = useMemo(() => generateResumeHash(resume, variant), [resume, variant]);
 
   // Add styles to document head
   useEffect(() => {
@@ -135,46 +141,59 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
 
   // Generate or retrieve PDF from cache
   useEffect(() => {
+    let cancelled = false;
     let currentUrl: string | null = null;
 
     async function generatePDF() {
       // Check cache first
-      const cached = pdfCache.get(resumeHash);
+      const cached = pdfCache.get(cacheKey);
       if (cached) {
         currentUrl = cached.url;
+        setFailedCacheKey(null);
         setUrl(cached.url);
         return;
       }
 
-      // Generate new PDF if not in cache
-      const blob = await pdf(<ResumePDFDocument resume={resume} variant={variant} />).toBlob();
-      const newUrl = URL.createObjectURL(blob);
-      currentUrl = newUrl;
-      
-      // Store in cache with timestamp
-      pdfCache.set(resumeHash, { url: newUrl, timestamp: Date.now() });
-      setUrl(newUrl);
+      try {
+        // Generate new PDF if not in cache
+        const blob = await pdf(<ResumePDFDocument resume={resume} variant={variant} />).toBlob();
+        if (cancelled) return;
+
+        const newUrl = URL.createObjectURL(blob);
+        currentUrl = newUrl;
+
+        // Store in cache with timestamp
+        pdfCache.set(cacheKey, { url: newUrl, timestamp: Date.now() });
+        setFailedCacheKey(null);
+        setUrl(newUrl);
+      } catch (error) {
+        if (cancelled) return;
+        logger.error('resume.preview.pdf_generation_failed', { error });
+        setUrl(null);
+        setFailedCacheKey(cacheKey);
+      }
     }
 
     generatePDF();
 
     // Cleanup function
     return () => {
-      if (currentUrl && !pdfCache.has(resumeHash)) {
+      cancelled = true;
+      if (currentUrl && !pdfCache.has(cacheKey)) {
         URL.revokeObjectURL(currentUrl);
       }
     };
-  }, [resumeHash, variant, resume]);
+  }, [cacheKey, variant, resume, retryToken]);
 
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
       // Final cleanup of this component's URL if not in cache
-      if (url && !pdfCache.has(resumeHash)) {
+      if (url && !pdfCache.has(cacheKey)) {
         URL.revokeObjectURL(url);
       }
     };
-  }, [resumeHash, url]);
+  }, [cacheKey, url]);
 
   // Add state for text layer visibility
   const [shouldRenderTextLayer, setShouldRenderTextLayer] = useState(false);
@@ -189,7 +208,37 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
   // Disable text layer during updates
   useEffect(() => {
     setShouldRenderTextLayer(false);
-  }, [resumeHash, variant]);
+  }, [cacheKey]);
+
+  // Show a recoverable error instead of an endless loading skeleton when
+  // pdf().toBlob() rejects (worker failure, out-of-memory, bad document).
+  if (failedCacheKey === cacheKey) {
+    return (
+      <div
+        role="alert"
+        className="w-full aspect-[8.5/11] bg-white shadow-lg flex flex-col items-center justify-center gap-4 p-8 text-center"
+      >
+        <div>
+          <p className="text-sm font-semibold text-gray-900">
+            We couldn&apos;t generate the resume preview.
+          </p>
+          <p className="mt-1 text-sm text-gray-600">
+            Your data is safe. Try again to rebuild the PDF.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setFailedCacheKey(null);
+            setRetryToken((token) => token + 1);
+          }}
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   // Show loading state while PDF is being generated
   if (!url) {

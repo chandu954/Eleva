@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { Resume } from "@/lib/types";
@@ -237,6 +237,63 @@ describe("ResumePreview — PDF generation", () => {
         "blob:second-pdf"
       )
     );
+  });
+
+  it("caches base and tailored variants separately", async () => {
+    createObjectURLMock
+      .mockReturnValueOnce("blob:base-pdf")
+      .mockReturnValueOnce("blob:tailored-pdf");
+
+    const resume = makeResume("variant-cache");
+    const { rerender } = renderPreview(resume, { variant: "base" });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pdf-document")).toHaveAttribute(
+        "data-file",
+        "blob:base-pdf"
+      )
+    );
+
+    rerender(<ResumePreview resume={resume} variant="tailored" containerWidth={612} />);
+
+    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByTestId("pdf-document")).toHaveAttribute(
+        "data-file",
+        "blob:tailored-pdf"
+      )
+    );
+
+    // Switching back to the base variant reuses its cached PDF.
+    rerender(<ResumePreview resume={resume} variant="base" containerWidth={612} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("pdf-document")).toHaveAttribute(
+        "data-file",
+        "blob:base-pdf"
+      )
+    );
+    expect(pdfMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a retryable error when PDF generation fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    toBlobMock.mockRejectedValueOnce(new Error("worker failed"));
+
+    renderPreview(makeResume("generation-error"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/couldn't generate the resume preview/i);
+    expect(screen.queryByTestId("pdf-document")).not.toBeInTheDocument();
+    expect(pdfMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+    const document = await screen.findByTestId("pdf-document");
+    expect(document).toHaveAttribute("data-file", "blob:generated-pdf");
+    expect(pdfMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    consoleError.mockRestore();
   });
 });
 
