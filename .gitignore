@@ -128,3 +128,14 @@ node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
 # Track template files despite the .env* rule above — never ignore the real .env.local
 .env*
 !.env.example
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+!.terraform.lock.hcl
+terraform/envs/*/terraform.tfvars
+!terraform/envs/*/terraform.tfvars.example

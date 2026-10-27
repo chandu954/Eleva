@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in real values. Never commit the result.
+vercel_api_token    = "replace-me"
+vercel_team_id      = null
+project_name        = "eleva"
+github_repository   = "chandu954/Eleva"
+production_branch   = "main"
+custom_domain       = null
+upstash_email       = "replace-me@example.com"
+upstash_api_key     = "replace-me"
+redis_name          = "eleva-rate-limiter"
+redis_region        = "us-east-1"
+
+# Application secrets are injected from the operator's secret manager.
+environment_variables = {
+  NEXT_PUBLIC_SUPABASE_URL      = { value = "https://example.supabase.co", sensitive = false }
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = { value = "replace-me", sensitive = true }
+  SUPABASE_SERVICE_ROLE_KEY     = { value = "replace-me", sensitive = true }
+  OPENAI_API_KEY                = { value = "replace-me", sensitive = true }
+  STRIPE_SECRET_KEY             = { value = "replace-me", sensitive = true }
+  STRIPE_WEBHOOK_SECRET         = { value = "replace-me", sensitive = true }
+  SENTRY_DSN                    = { value = "replace-me", sensitive = true }
+}

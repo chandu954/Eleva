@@ -1,0 +1,11 @@
+# Copy to backend.tf to use remote state. Local state is the default.
+#
+# terraform {
+#   backend "s3" {
+#     bucket         = "eleva-terraform-state"
+#     key            = "production/terraform.tfstate"
+#     region         = "us-east-1"
+#     dynamodb_table = "eleva-terraform-locks"
+#     encrypt        = true
+#   }
+# }
