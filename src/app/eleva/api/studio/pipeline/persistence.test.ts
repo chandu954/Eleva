@@ -141,7 +141,12 @@ describe('persistPipelineResults', () => {
 
     await expect(persistPipelineResults({ ...baseArgs, supabase: client, uid: 'user-1' }))
       .resolves.toEqual({ savedCoverLetterId: 'cl-1' });
-    expect(console.warn).toHaveBeenCalledWith('[Pipeline] failed to save tailored resume:', 'duplicate');
+    const warn = vi.mocked(console.warn).mock.calls.at(-1)?.[0];
+    expect(JSON.parse(String(warn))).toMatchObject({
+      level: 'warn',
+      message: 'pipeline.persistence.tailored_resume_failed',
+      error: 'duplicate',
+    });
   });
 
   it('swallows notification failures', async () => {

@@ -1,4 +1,5 @@
 import type { createClient } from '@/utils/supabase/server';
+import { logger } from '@/lib/logger';
 
 import { buildTailoredResumeIdentity } from './pipeline-utils';
 import type { ScoreData } from './prompts';
@@ -71,7 +72,11 @@ export async function persistPipelineResults({
       education: tailoredResume.education,
       certifications: tailoredResume.certifications,
     });
-    if (tailoredErr) console.warn('[Pipeline] failed to save tailored resume:', tailoredErr.message);
+    if (tailoredErr) {
+      logger.warn('pipeline.persistence.tailored_resume_failed', {
+        error: tailoredErr.message,
+      });
+    }
   }
 
   const { data: cl } = await supabase.from('cover_letters').insert({

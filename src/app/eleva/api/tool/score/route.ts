@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
 import { apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (e) {
-      console.warn('[ats.save] failed', e);
+      logger.warn('tool.score.save_failed', { error: e });
     }
   }
 

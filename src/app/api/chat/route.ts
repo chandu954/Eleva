@@ -4,6 +4,7 @@ import { Resume, Job } from '@/lib/types';
 import { type AIConfig } from '@/utils/ai-tools';
 import { AI_ASSISTANT_SYSTEM_MESSAGE } from '@/lib/prompts';
 import { AIUsageError } from '@/lib/ai/usage-ledger';
+import { logger } from '@/lib/logger';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error in chat route:', error);
+    logger.error('api.chat.failed', { error });
     if (error instanceof AIUsageError) {
       const retryAfter = error.code === 'rate_limited'
         ? parseInt(error.message.match(/(\d+) seconds/)?.[1] ?? '60', 10)

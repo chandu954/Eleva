@@ -12,6 +12,7 @@ import type {
 import { MODELS, AUTO_MODE_CHAINS, getModelsForProvider } from './models';
 import { getProvider, isProviderAvailable } from './factory';
 import { getMaxRetries, runWithRetry, shouldRetryError, shouldRetryResult } from './retry';
+import { logger } from '@/lib/logger';
 
 const metrics: ProviderMetrics[] = [];
 const MAX_METRICS = 1000;
@@ -113,7 +114,13 @@ export async function routeGenerateText(
       isRetryableError: shouldRetryError,
       maxRetries,
       onRetry: (attempt, reason) => {
-        console.warn(`[AI Router] ${task} failed, retrying ${attempt}/${maxRetries}: ${reason}`);
+        logger.warn('ai.router.retry', {
+          task,
+          attempt,
+          maxRetries,
+          reason,
+          operation: 'generateText',
+        });
       },
     });
     const latency = Math.round(performance.now() - start);
@@ -223,7 +230,13 @@ export async function routeObject(
       isRetryableError: shouldRetryError,
       maxRetries,
       onRetry: (attempt, reason) => {
-        console.warn(`[AI Router] ${task} object failed, retrying ${attempt}/${maxRetries}: ${reason}`);
+        logger.warn('ai.router.retry', {
+          task,
+          attempt,
+          maxRetries,
+          reason,
+          operation: 'generateObject',
+        });
       },
     });
     const latency = Math.round(performance.now() - start);

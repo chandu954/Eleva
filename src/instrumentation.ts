@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { reportEnvValidation, validateEnv } from "./lib/env";
+import { logger } from "./lib/logger";
 
 function initSentry() {
   Sentry.init({
@@ -12,6 +13,11 @@ function initSentry() {
 
 export async function register() {
   initSentry();
+
+  logger.info("app.instrumentation.registered", {
+    runtime: process.env.NEXT_RUNTIME,
+    sentryEnabled: process.env.NODE_ENV === "production",
+  });
 
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     reportEnvValidation(validateEnv());

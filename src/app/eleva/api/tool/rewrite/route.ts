@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
 import { buildRewritePrompt, makeSafeLocalRewrite, type RewriteMode, summarizeRewriteAttempts } from './rewrite-utils';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     if (!rewritten) {
       const latency = Date.now() - startTime;
-      console.error('[rewrite] failed', JSON.stringify({ latency, attempts: summarizeRewriteAttempts(attempts) }));
+      logger.error('tool.rewrite.failed', { latency, attempts: summarizeRewriteAttempts(attempts) });
       return Response.json({
         success: false,
         error: lastError || 'AI could not rewrite this bullet right now. Please try again.',
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const latency = Date.now() - startTime;
     const message = err instanceof Error ? err.message : 'Internal server error';
-    console.error('[rewrite] error', { latency, error: message });
+    logger.error('tool.rewrite.error', { latency, error: message });
     return Response.json({
       success: false,
       error: message,

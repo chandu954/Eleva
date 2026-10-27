@@ -1,4 +1,5 @@
 import { AIProvider, z } from '@/lib/eleva-ai-provider';
+import { logger } from '@/lib/logger';
 
 import type { OriginalResumeData, ScoreData } from './prompts';
 
@@ -41,8 +42,8 @@ export function runSectionWithFallback<T>(
   return withStepTimeout(
     generateObjectWithFallback(schema, system, prompt, 2000, 0.4, guardedFallback),
     name, emit,
-  ).then((data) => ({ data, usedFallback })).catch(() => {
-    console.warn(`[Pipeline] Section "${name}" failed — using fallback`);
+  ).then((data) => ({ data, usedFallback })).catch((error) => {
+    logger.warn('pipeline.section.fallback', { section: name, error });
     return { data: guardedFallback(), usedFallback: true };
   });
 }
@@ -93,7 +94,7 @@ export async function generateObjectWithFallback<T>(
       // Text-based parsing failed too — use the local fallback.
     }
 
-    console.warn('[Pipeline] AI response invalid — using local fallback');
+    logger.warn('pipeline.ai.invalid_response', { stage: 'generateObjectWithFallback' });
     return fallback();
   }
 

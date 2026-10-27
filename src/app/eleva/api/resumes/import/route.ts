@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { AIProvider } from '@/lib/eleva-ai-provider';
 import { createClient } from '@/utils/supabase/server';
 import { apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -83,7 +84,9 @@ export async function POST(req: NextRequest) {
       });
       parsedResult = result as z.infer<typeof ResumeSchema>;
     } catch (objectErr) {
-      console.warn('[Resume Import] generateObject failed, falling back to generate:', objectErr instanceof Error ? objectErr.message : String(objectErr));
+      logger.warn('resume.import.generate_object_failed', {
+        error: objectErr instanceof Error ? objectErr.message : String(objectErr),
+      });
 
       const result = await AIProvider.generate({
         system: `${system}\n\nReturn ONLY valid JSON matching this schema, no markdown, no preamble, no code fences:\n${JSON.stringify(ResumeSchema.shape, null, 2)}`,
@@ -93,7 +96,7 @@ export async function POST(req: NextRequest) {
       });
 
       if (!result.text?.trim()) {
-        console.error('[Resume Import] AI returned empty response');
+        logger.error('resume.import.empty_ai_response');
         return apiError('AI_EXTRACTION_FAILED', 'AI returned empty response');
       }
 
@@ -106,8 +109,10 @@ export async function POST(req: NextRequest) {
         parsedResult = ResumeSchema.parse(json);
       } catch (parseErr) {
         const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-        console.error('[Resume Import] JSON parse / schema validation failed:', msg);
-        console.error('[Resume Import] Raw AI text:', result.text);
+        logger.error('resume.import.parse_failed', {
+          error: msg,
+          raw: result.text.slice(0, 500),
+        });
         return apiError('AI_EXTRACTION_FAILED', msg, { detail: { raw: result.text.slice(0, 500) } });
       }
     }
@@ -147,17 +152,13 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ resume: inserted });
   } catch (err) {
-    console.error('========== IMPORT ERROR ==========');
-    console.error(err);
     const message = err instanceof Error ? err.message : 'Internal server error';
-    console.error('message:', message);
-    console.error('stack:', err instanceof Error ? err.stack?.split('\n').slice(0, 5).join('\n') : undefined);
-    if (err && typeof err === 'object' && 'response' in err) {
-      console.error('response:', err.response);
-    }
-    if (err && typeof err === 'object' && 'cause' in err) {
-      console.error('cause:', err.cause);
-    }
+    logger.error('resume.import.failed', {
+      error: err,
+      message,
+      response: err && typeof err === 'object' && 'response' in err ? err.response : undefined,
+      cause: err && typeof err === 'object' && 'cause' in err ? err.cause : undefined,
+    });
     return apiError('INTERNAL_ERROR', message);
   }
 }

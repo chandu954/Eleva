@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from './logger';
+
 export type ApiErrorCode =
   | 'BAD_REQUEST'
   | 'INVALID_BODY'
@@ -50,7 +52,13 @@ export function apiError(
   const requestId = opts?.requestId ?? nextRequestId();
 
   if (status >= 500) {
-    console.error(`[API] ${code} (${requestId}): ${message}`, opts?.detail ?? '');
+    logger.error('api.request.failed', {
+      code,
+      message,
+      status,
+      requestId,
+      ...(opts?.detail !== undefined ? { detail: opts.detail } : {}),
+    });
   }
 
   return NextResponse.json(

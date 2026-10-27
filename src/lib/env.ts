@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 export const REQUIRED_ENV = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
@@ -32,12 +34,12 @@ export function validateEnv(env: Record<string, string | undefined> = process.en
 
 export function reportEnvValidation(result: EnvValidation): void {
   if (result.missingRequired.length > 0) {
-    console.error(`[Startup] Missing required env vars: ${result.missingRequired.join(', ')}`);
+    logger.error('startup.env.missing_required', { missing: result.missingRequired });
   } else {
-    console.log('[Startup] All required env vars present');
+    logger.info('startup.env.required_present');
   }
 
   if (result.missingOptional.length > 0) {
-    console.warn(`[Startup] Optional env vars not set: ${result.missingOptional.join(', ')}`);
+    logger.warn('startup.env.missing_optional', { missing: result.missingOptional });
   }
 }

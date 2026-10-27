@@ -6,6 +6,7 @@ import { manageSubscriptionStatusChange } from '@/utils/actions/stripe/actions'
 import { createServiceClient } from '@/utils/supabase/server'
 import { AnalyticsEvents } from '@/lib/analytics/events'
 import { captureServerAnalyticsEvent } from '@/lib/analytics/server'
+import { logger } from '@/lib/logger'
 import type { Subscription } from '@/lib/types'
 
 function getStripe() {
@@ -128,10 +129,8 @@ async function handleSubscriptionChange(
     
     return subscriptionData;
   } catch (error) {
-    console.error('❌ Subscription Update Failed:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      errorObject: error,
-      timestamp: new Date().toISOString(),
+    logger.error('stripe.subscription_update_failed', {
+      error,
       customerId: stripeCustomerId,
       subscriptionId,
     });
@@ -186,7 +185,7 @@ export async function POST(req: Request) {
     const signature = (await headers()).get('stripe-signature')
 
     if (!signature) {
-      console.error('❌ Missing Stripe Signature Header');
+      logger.warn('stripe.webhook.signature_missing');
       return new Response(
         JSON.stringify({ error: 'Missing stripe-signature header' }),
         { 
@@ -201,11 +200,7 @@ export async function POST(req: Request) {
       event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err: unknown) {
       const error = err as Error
-      console.error('❌ Webhook signature verification failed:', {
-        error: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
+      logger.error('stripe.webhook.signature_invalid', { error });
       return new Response(
         JSON.stringify({ error: error.message }),
         { 
@@ -332,7 +327,7 @@ export async function POST(req: Request) {
             },
           });
         } catch (error) {
-          console.error('❌ Failed to clear Stripe customer data:', error);
+          logger.error('stripe.webhook.customer_cleanup_failed', { error });
           throw error;
         }
         break;
@@ -354,12 +349,7 @@ export async function POST(req: Request) {
     )
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error('🔥 Webhook handler failed:', {
-      error: error.message,
-      stack: error.stack,
-      type: error.name,
-      timestamp: new Date().toISOString()
-    });
+    logger.error('stripe.webhook.failed', { error });
     
     return new Response(
       JSON.stringify({ error: 'Webhook handler failed' }),
