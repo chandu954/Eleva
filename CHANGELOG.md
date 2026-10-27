@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docker image builds** now copy `pnpm-workspace.yaml` and `.npmrc` into the
+  dependency stages. `pnpm install --frozen-lockfile` needs the workspace
+  overrides/`allowBuilds` that the lockfile was resolved with, so the build
+  previously failed before compiling the app.
 - **Stripe webhook configuration failures now return 500** instead of a 400
   signature error. Missing `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` is
   resolved before signature verification and logged as

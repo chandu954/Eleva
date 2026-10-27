@@ -30,8 +30,10 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # ==========================================
 FROM build-base AS deps
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy package files and pnpm configuration. pnpm-workspace.yaml carries the
+# overrides/allowBuilds the lockfile was resolved with; omitting it makes
+# `pnpm install --frozen-lockfile` fail inside the image.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 # Install all dependencies (including devDependencies for build)
 RUN pnpm install --frozen-lockfile
@@ -47,7 +49,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy package files (needed for pnpm commands)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 # Copy config files (changes less frequently = better caching)
 COPY next.config.ts tsconfig.json tailwind.config.ts postcss.config.mjs ./
@@ -76,7 +78,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy package files (needed for pnpm build)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 
 # Copy config files (changes less frequently = better caching)
 COPY next.config.ts tsconfig.json tailwind.config.ts postcss.config.mjs ./
