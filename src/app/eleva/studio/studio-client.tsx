@@ -7,26 +7,10 @@ import { toast } from 'sonner';
 import { Sparkles, CheckCircle2, Loader2, Copy, RotateCcw, ArrowRight, X, ChevronDown, ChevronUp, ChevronRight, AlertTriangle, RefreshCw, Scan } from 'lucide-react';
 import { StepLogPanel } from './_components/step-log-panel';
 import { StudioResults } from './_components/studio-results';
-import { friendlyError, useStudioPipeline, type MicroStatus } from './_lib/use-studio-pipeline';
+import { friendlyError, useStudioPipeline } from './_lib/use-studio-pipeline';
+import { MICRO_LABELS, STAGES } from './_lib/studio-constants';
 
 type Resume = { id: string; name: string; target_role: string | null; is_base_resume: boolean };
-
-
-const STAGES = [
-  { key: 'job', label: 'Job analyzed', steps: ['extract'] },
-  { key: 'analyze', label: 'Resume analysis', steps: ['score'] },
-  { key: 'improve', label: 'Improve', steps: ['plan', 'tailor'] },
-  { key: 'review', label: 'Review', steps: ['rescore', 'review'] },
-  { key: 'apply', label: 'Ready to Apply', steps: ['letter'] },
-];
-
-const MICRO_LABELS: Record<MicroStatus, string> = {
-  connecting: 'Connecting to model…',
-  sending: 'Sending request…',
-  waiting: 'Waiting for AI…',
-  parsing: 'Parsing response…',
-  complete: 'Complete',
-};
 
 export function StudioClient({ resumes }: { resumes: Resume[] }) {
   const base = resumes.find((r) => r.is_base_resume) ?? resumes[0];
