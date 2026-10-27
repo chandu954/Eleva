@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Security headers** (`src/lib/security-headers.ts`, wired in `next.config.ts`):
+  a tested CSP allowlisting only Supabase, Stripe, PostHog, Sentry, Buy Me a
+  Coffee and blob PDF workers, plus HSTS, `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy` and a restrictive `Permissions-Policy`.
+  Development keeps `'unsafe-eval'` and HMR websockets; production adds
+  `upgrade-insecure-requests` and one year of HSTS.
+- **CodeQL and secret scanning** (`.github/workflows/codeql.yml`,
+  `.github/workflows/security.yml`): CodeQL `security-and-quality` analysis on
+  pushes, PRs and a weekly schedule, and a pinned gitleaks full-history scan
+  with documented allowlists for Helm demo keys and Stripe test fixtures.
 - **Quality-gating CI** (`.github/workflows/ci.yml`): jobs on PRs and pushes to `main` —
   `quality` (lint, typecheck, unit tests, enforced coverage thresholds), `e2e`
   (Playwright smoke tests), `audit` (`pnpm audit --audit-level=high` with documented
@@ -50,6 +60,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Coverage floors ratcheted to 60% statements/lines, 83% branches and 79%
+  functions** (measured baseline 64.94 / 84.51 / 80.11) now that the Phase 2E
+  suites are on `main`.
 - Extracted editor state and view components from `editor/page.tsx` (1,221 → 460 lines);
   every extracted file is under 500 lines and covered by 24 hook tests.
 - Dependency refresh with no breaking majors: Next.js 15.1.11 → 15.5.28, `ai` 4.0 → 4.3.19,
@@ -61,6 +74,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Stripe webhook configuration failures now return 500** instead of a 400
+  signature error. Missing `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` is
+  resolved before signature verification and logged as
+  `stripe.webhook.config_error`, so Stripe retries a misconfigured deployment
+  instead of treating it as a bad client request.
+- **Export errors no longer leak database or renderer internals**: resume PDF
+  and DOCX lookups return a generic 404 (with the real PostgREST/RLS error
+  logged server-side), and all four export routes return a generic
+  `EXPORT_FAILED` message.
+- **Resume preview failures are recoverable**: a rejected `pdf().toBlob()` now
+  shows an alert with a retry button instead of an endless skeleton, and the
+  PDF cache key includes the `base`/`tailored` variant (plus target role) so
+  variants cannot collide.
 - Technology **Enter-to-add** in ProjectsForm was dead code: React 19 removed
   `onKeyPress`; now handled via `onKeyDown`.
 - ProjectsForm update handlers mutated shared project objects in place, which the memo
@@ -73,6 +99,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Browser hardening headers (CSP with explicit third-party allowlists, HSTS,
+  `nosniff`, frame denial, referrer and permissions policies) are sent on
+  every route; the policy is covered by unit tests.
+- CodeQL (`security-and-quality`) and a pinned gitleaks full-history scan run
+  in CI on every push/PR and weekly, alongside the existing credential grep and
+  dependency audit.
+- API export routes and the Stripe webhook no longer echo internal error
+  details to callers; database/renderer errors are logged server-side with
+  structured context.
 - `pnpm-workspace.yaml` audit policy documents 4 accepted high advisories
   (`jws`, `tinypool` ×2 dev-only, `zod`) with removal criteria; CI fails on any new
   high/critical advisory.
