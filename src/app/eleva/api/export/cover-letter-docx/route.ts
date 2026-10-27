@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from 'docx';
 import { z } from 'zod';
 import { apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return apiError('EXPORT_FAILED', message);
+    logger.error('export.cover_letter_docx.failed', { error: err });
+    return apiError('EXPORT_FAILED', 'Failed to export cover letter');
   }
 }

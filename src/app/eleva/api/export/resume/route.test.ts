@@ -164,7 +164,7 @@ describe('resume export route', () => {
       expect(resumes.calls.maybeSingle).toHaveLength(1);
     });
 
-    it('passes database lookup errors through as 404 NOT_FOUND', async () => {
+    it('returns a generic 404 and logs database lookup errors', async () => {
       const resumes = stubTable({ data: null, error: { message: 'row-level security' } });
       installClient(authed, { resumes });
 
@@ -173,7 +173,9 @@ describe('resume export route', () => {
       expect(res.status).toBe(404);
       const json = (await res.json()) as { code: string; message: string };
       expect(json.code).toBe('NOT_FOUND');
-      expect(json.message).toBe('row-level security');
+      expect(json.message).toBe('Resume not found');
+      expect(JSON.stringify(json)).not.toContain('row-level security');
+      expect(console.error).toHaveBeenCalled();
       expect(mockRenderToBuffer).not.toHaveBeenCalled();
     });
   });
@@ -248,7 +250,7 @@ describe('resume export route', () => {
       expect(mockRenderToBuffer).toHaveBeenCalledTimes(1);
     });
 
-    it('returns 500 EXPORT_FAILED when the PDF renderer throws', async () => {
+    it('returns a sanitized 500 EXPORT_FAILED when the PDF renderer throws', async () => {
       mockRenderToBuffer.mockRejectedValue(new Error('font missing'));
       installClient(authed, {
         resumes: stubTable({ data: fullResume, error: null }),
@@ -259,7 +261,8 @@ describe('resume export route', () => {
       expect(res.status).toBe(500);
       const json = (await res.json()) as { code: string; message: string };
       expect(json.code).toBe('EXPORT_FAILED');
-      expect(json.message).toBe('font missing');
+      expect(json.message).toBe('Failed to export resume');
+      expect(JSON.stringify(json)).not.toContain('font missing');
     });
   });
 });

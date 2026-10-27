@@ -3,6 +3,7 @@ import { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } from
 import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
 import { apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -61,7 +62,15 @@ export async function POST(req: NextRequest) {
     data: ResumeExportRow | null;
     error: { message: string } | null;
   };
-  if (error || !r) return apiError('NOT_FOUND', 'Resume not found');
+  if (error || !r) {
+    if (error) {
+      logger.error('export.resume_docx.lookup_failed', {
+        error,
+        resumeId: parsed.data.resumeId,
+      });
+    }
+    return apiError('NOT_FOUND', 'Resume not found');
+  }
 
   const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ') || r.name || 'Applicant';
   const contact = [r.email, r.phone_number, r.location].filter(Boolean).join(' • ');
@@ -165,7 +174,7 @@ export async function POST(req: NextRequest) {
     },
   });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return apiError('EXPORT_FAILED', message);
+    logger.error('export.resume_docx.failed', { error: err });
+    return apiError('EXPORT_FAILED', 'Failed to export resume');
   }
 }

@@ -4,6 +4,7 @@ import React from 'react';
 import { z } from 'zod';
 import { createClient } from '@/utils/supabase/server';
 import { apiError } from '@/lib/api-response';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -65,7 +66,17 @@ export async function POST(req: NextRequest) {
     if (!userRes?.user) return apiError('UNAUTHENTICATED', 'Not authenticated');
 
   const { data: r, error } = await supabase.from('resumes').select('*').eq('id', parsed.data.resumeId).eq('user_id', userRes.user.id).maybeSingle();
-  if (error || !r) return apiError('NOT_FOUND', error?.message ?? 'Resume not found');
+  if (error || !r) {
+    if (error) {
+      // A PostgREST/RLS error must not reach the client: it can disclose
+      // policy names, column names and other schema internals.
+      logger.error('export.resume.lookup_failed', {
+        error,
+        resumeId: parsed.data.resumeId,
+      });
+    }
+    return apiError('NOT_FOUND', 'Resume not found');
+  }
 
   const resume = r as ResumeRow;
   const fullName = [resume.first_name, resume.last_name].filter(Boolean).join(' ') || resume.name || 'Applicant';
@@ -206,7 +217,7 @@ export async function POST(req: NextRequest) {
     },
   });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return apiError('EXPORT_FAILED', message);
+    logger.error('export.resume.failed', { error: err });
+    return apiError('EXPORT_FAILED', 'Failed to export resume');
   }
 }
