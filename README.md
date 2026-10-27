@@ -49,11 +49,13 @@ flowchart TD
 - ✅ Rate Limiting — leaky-bucket via Redis (Upstash or local)
 - ✅ Caching — AI response cache layer
 - ✅ Monitoring — Sentry error tracking + PostHog analytics + OpenTelemetry spans
+- ✅ Structured Logging — dependency-free JSON logger with request context and credential redaction
 - ✅ Health Endpoint — `GET /api/health` (database + env checks)
 - ✅ Audit Logging — `activity_log` for key user actions
 - ✅ Startup Env Validation — fails fast on missing configuration
-- ✅ Tests — Vitest unit + component tests with enforced coverage thresholds + Playwright e2e
-- ✅ CI/CD — GitHub Actions quality gate (lint, typecheck, tests, coverage) + dependency audit + Docker/Helm publish
+- ✅ Tests — Vitest unit/component suites with a coverage ratchet + Playwright smoke tests
+- ✅ CI/CD — quality, e2e, audit, Helm/Kubernetes, and Terraform gates + Docker/Helm publish
+- ✅ Infrastructure as Code — Terraform modules for Vercel and Upstash Redis with plan/policy scanning
 - ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
 
 ## Tech stack
@@ -75,20 +77,37 @@ pnpm dev
 
 Visit [http://localhost:3000](http://localhost:3000).
 
+### Dev container
+
+The repo ships a [dev container](.devcontainer/devcontainer.json) backed by
+the same `docker-compose.yml` as the local stack (Node 22, Supabase, Redis),
+with Playwright/Vitest/Terraform editor integrations. Open the folder in VS
+Code → **Reopen in Container**, then run `pnpm dev`. Ports 3000 (app) and 4000
+(Playwright) are forwarded automatically.
+
 ### Testing & Quality Gates
 
 ```bash
 pnpm lint       # ESLint
 pnpm typecheck  # tsc --noEmit (strict mode)
-pnpm test       # Vitest unit suite (jsdom, Testing Library)
+pnpm test       # Vitest unit/component suite (jsdom, Testing Library)
 pnpm coverage   # Tests + enforced coverage thresholds (ratchet policy)
+pnpm test:e2e   # Playwright smoke tests (Chromium)
 pnpm build      # Next.js production build
 ```
 
-CI (`.github/workflows/ci.yml`) runs two jobs on every PR and push to
-`main`: **quality** (lint, typecheck, unit tests, coverage thresholds)
-and **audit** (`pnpm audit --audit-level=high` with documented
-exemptions). Conventions and the coverage-ratchet rule live in
+The unit suite runs fully offline: AI calls use the deterministic mock
+provider and Supabase/PostgREST access is stubbed under `src/test/`. The
+Playwright suite also runs without secrets — `playwright.config.ts` points
+Supabase at a closed local port and forces the mock AI provider, so the smoke
+tests only exercise public routing, login redirects, and the health endpoint.
+
+CI (`.github/workflows/ci.yml`) runs five jobs on every PR and push to `main`:
+**quality** (lint, typecheck, unit tests, coverage thresholds), **e2e**
+(Playwright smoke suite), **audit** (`pnpm audit --audit-level=high` with
+documented exemptions), **infrastructure** (Helm lint, rendered-manifest
+validation, Checkov), and **terraform** (fmt, validate, TFLint, Checkov, and
+an optional read-only plan). Conventions and the coverage-ratchet rule live in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Database Setup
@@ -135,13 +154,57 @@ All API errors use a consistent envelope:
 }
 ```
 
+## Observability
+
+Server code logs through `src/lib/logger.ts`, a dependency-free JSON logger
+that works in both the Node.js and Edge runtimes. Every line is one JSON
+object, so log drains can index fields without regex parsing:
+
+```json
+{"timestamp":"2026-10-27T13:44:10.740Z","level":"warn","service":"eleva","environment":"production","message":"pipeline.section.fallback","section":"summary","requestId":"m3x8f0-1f-a1b2c3"}
+```
+
+- `LOG_LEVEL` controls verbosity (`debug`, `info`, `warn`, `error`; default `info`).
+- `logger.child({ requestId })` binds per-request context.
+- Credential-shaped keys (`authorization`, `apiKey`, `password`, `token`, …)
+  are redacted at any nesting depth, and `Error` objects keep their stack.
+- Sentry captures unhandled errors; the structured log line is the searchable
+  audit trail around them.
+
+## Infrastructure as Code
+
+Production infrastructure is managed with Terraform under `terraform/`:
+
+```
+terraform/
+├── modules/
+│   ├── vercel-project/   # Vercel project, git link, env vars, custom domain
+│   └── upstash-redis/    # Upstash Redis database for rate limiting
+└── envs/
+    └── production/       # Composition, lockfile, example tfvars
+```
+
+```bash
+cd terraform/envs/production
+cp terraform.tfvars.example terraform.tfvars   # fill in real values
+terraform init
+terraform plan
+terraform apply
+```
+
+The provider lockfile is committed for reproducible installs. CI enforces
+`terraform fmt -check`, `terraform validate`, TFLint, and a Checkov policy
+scan; a read-only `terraform plan` runs only when provider credentials are
+configured as repository secrets. See [terraform/README.md](terraform/README.md)
+for bootstrap and remote-state guidance.
+
 ## Deployment
 
 ### Vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
 
-Deploy the Next.js app directly with all required environment variables set in the Vercel dashboard.
+Deploy the Next.js app directly with all required environment variables set in the Vercel dashboard, or provision the project and its environment through the Terraform stack in `terraform/envs/production`.
 
 ### Docker
 
@@ -180,7 +243,12 @@ src/
 │   ├── analytics/         # PostHog analytics
 │   └── supabase/          # Supabase clients
 ├── hooks/                 # Custom React hooks
+├── test/                  # Shared Vitest setup and stubs
+├── e2e/                   # Playwright smoke specs (*.e2e.test.ts)
 └── utils/                 # Server actions and utilities
+
+terraform/                 # Vercel + Upstash infrastructure as code
+helm/                      # Kubernetes chart
 ```
 
 ## Environment Variables
@@ -192,6 +260,14 @@ All environment variables are documented in `.env.example`. Key variables:
 - `SUPABASE_SERVICE_ROLE_KEY` — Server-side database access
 - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` — Payment processing
 - `PROVIDER_KEY_ENCRYPTION_SECRET` — Encryption for user BYOK feature
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the security model, supported versions, and
+private vulnerability reporting. In short: never commit `.env*` values, all
+user data is scoped by Supabase RLS, Stripe webhooks verify signatures, and CI
+blocks high/critical dependency advisories plus credential-shaped strings in
+tracked files.
 
 ## Roadmap
 

@@ -18,18 +18,25 @@
   // when the user has not brought their own, and installs dependencies into
   // the node_modules volume.
   "postCreateCommand": "corepack enable && (test -f .env.local || cp .env.example .env.local) && pnpm install",
-  "forwardPorts": [3000],
+  "forwardPorts": [3000, 4000],
   "portsAttributes": {
     "3000": {
       "label": "Next.js dev server",
       "onAutoForward": "openBrowser"
+    },
+    "4000": {
+      "label": "Playwright web server",
+      "onAutoForward": "silent"
     }
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "vitest.explorer",
+        "ms-playwright.playwright",
+        "hashicorp.terraform"
       ],
       "settings": {
         "typescript.enablePromptUseWorkspaceTsdk": true

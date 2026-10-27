@@ -18,6 +18,10 @@
 - Import types with `type` prefix: `import type { Foo } from './bar'`
 - Prefer `interface` over `type` for object types
 - Avoid enums; use `const` objects or string unions
+- Log through `src/lib/logger.ts` (`logger.info/warn/error`) in server code;
+  do not add bare `console.*` calls. Pass structured context instead of
+  interpolated strings, and use `logger.child({ requestId })` for request-scoped
+  logs. Credential-shaped context keys are redacted automatically.
 
 ### Commit Messages
 
@@ -35,7 +39,9 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 1. Create a feature branch from `main`
 2. Make your changes
 3. Run `pnpm lint` and `pnpm typecheck` — both must pass
-4. Run `pnpm test` (and `pnpm coverage` when touching logic)
+4. Run `pnpm test` (and `pnpm coverage` when touching logic); run
+   `pnpm test:e2e` when touching public routing, auth redirects, or the health
+   endpoint
 5. Run `pnpm build` — must succeed
 6. Submit a PR with a clear description of the change
 
@@ -77,6 +83,41 @@ sandbox-exec -p '(version 1)(allow default)(deny network*)' pnpm test
 CI runs `pnpm test` with the same mock provider enabled through
 `vitest.config.ts`; if a new test needs a network-shaped dependency, add a
 stub next to `src/test/` instead of contacting the service.
+
+#### End-to-end smoke tests
+
+Playwright specs live next to the app under `src/e2e/` with the
+`*.e2e.test.ts` suffix (Vitest excludes that pattern). They run against a real
+Next.js server and must stay credential-free:
+
+```bash
+pnpm test:e2e
+```
+
+`playwright.config.ts` injects dummy Supabase credentials and
+`AI_MOCK_PROVIDER=true` into the web server, so the suite only asserts public
+routing, signed-out redirects, login rendering, and the health endpoint. Do not
+add specs that require live Supabase, Stripe, Redis, or LLM accounts; mock the
+boundary or keep the assertion at the public-contract level.
+
+#### Infrastructure checks
+
+Terraform changes must pass the same gates CI runs:
+
+```bash
+terraform fmt -check -recursive terraform
+cd terraform/envs/production
+terraform init -backend=false
+terraform validate
+tflint --init --config="$PWD/../../.tflint.hcl"
+tflint --recursive --config="$PWD/../../.tflint.hcl"
+uvx --from checkov checkov -d terraform --framework terraform
+```
+
+Never commit `terraform.tfvars`, state, or plan files (`.gitignore` covers
+them); `terraform.tfvars.example` documents the expected inputs. A real
+`terraform plan` needs provider credentials and is gated in CI behind the
+`VERCEL_API_TOKEN`/`UPSTASH_*` secrets.
 
 ### Dependency & Audit Policy
 

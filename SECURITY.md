@@ -33,3 +33,34 @@ The following are out of scope:
 - Missing security headers
 - Self-XSS
 - Social engineering attacks
+
+## Supported versions
+
+Eleva is developed on `main`; security fixes land there first and are
+backported only when a supported release line exists.
+
+| Version | Supported |
+| --- | --- |
+| `main` | ✅ |
+| `v1.0.x` | ✅ |
+| older tags | ❌ |
+
+## Security model
+
+- **Authentication** — Supabase Auth (Google OAuth + email/password) with SSR
+  session refresh in `src/utils/supabase/middleware.ts`.
+- **Authorization** — Row Level Security on every user-owned table; API routes
+  re-check the session and scope queries by `user_id`.
+- **Input validation** — Zod schemas validate API bodies and AI output before
+  persistence. File imports are size/type constrained.
+- **Secrets** — credentials live only in environment variables. `.env*` files
+  are gitignored; `.env.example` documents the shape without real values.
+  Credential-shaped log context is redacted by `src/lib/logger.ts`.
+- **Rate limiting** — Redis-backed limiter (Upstash or local) guards AI and
+  write endpoints; missing production config fails closed at startup.
+- **Webhooks** — Stripe signatures are verified before any subscription state
+  is changed.
+- **Dependencies** — `pnpm audit --audit-level=high` runs in CI; accepted
+  advisories are documented in `pnpm-workspace.yaml` with removal criteria.
+- **Infrastructure** — Terraform state and `terraform.tfvars` are never
+  committed; CI runs TFLint and Checkov policy scans on infrastructure changes.

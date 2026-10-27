@@ -21,7 +21,11 @@ updates:
           - "ai"
           - "@ai-sdk/*"
   - package-ecosystem: "docker"
-    directory: "/docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+  - package-ecosystem: "terraform"
+    directory: "/terraform/envs/production"
     schedule:
       interval: "monthly"
   - package-ecosystem: "github-actions"

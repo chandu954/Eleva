@@ -9,12 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Quality-gating CI** (`.github/workflows/ci.yml`): two jobs on PRs and pushes to `main` —
-  `quality` (lint, typecheck, unit tests, enforced coverage thresholds) and
-  `audit` (`pnpm audit --audit-level=high` with documented exemptions).
-- **Coverage thresholds with a ratchet policy** (`vitest.config.ts`): floors sit just under
-  the measured baseline and only move up (or are re-baselined with justification when new
-  code enters the measured set). Policy documented in `CONTRIBUTING.md`.
+- **Quality-gating CI** (`.github/workflows/ci.yml`): jobs on PRs and pushes to `main` —
+  `quality` (lint, typecheck, unit tests, enforced coverage thresholds), `e2e`
+  (Playwright smoke tests), `audit` (`pnpm audit --audit-level=high` with documented
+  exemptions), `infrastructure` (Helm/kubeconform/Checkov), and `terraform`
+  (fmt, validate, TFLint, Checkov, optional read-only plan).
+- **Structured JSON logging** (`src/lib/logger.ts`): dependency-free logger that works in
+  Node.js and Edge runtimes, with per-request child context, `LOG_LEVEL` filtering,
+  credential redaction, and Error/stack serialization. API routes, startup validation,
+  the AI router, analytics, the Stripe webhook, and pipeline helpers now emit structured
+  events instead of bare `console.*` calls, with 12 unit tests.
+- **Terraform infrastructure** (`terraform/`): reusable Vercel project and Upstash Redis
+  modules composed in `envs/production`, a committed provider lockfile, and TFLint/Checkov
+  configuration. Vercel project/environment provisioning no longer depends on dashboard
+  clicks.
+- **Playwright smoke suite** (`src/e2e/`): landing redirect, public landing, signed-out
+  workspace redirect, login/signup rendering, and the health-endpoint contract, running
+  against dummy Supabase credentials and the mock AI provider with no externals.
+- **Dev container** (`.devcontainer/devcontainer.json`) and **SECURITY.md**: compose-backed
+  onboarding with Playwright/Vitest/Terraform editor integrations, plus a documented
+  vulnerability disclosure process and security model.
+- **Coverage expansion**: 92 test files / 1,044 tests, adding suites for the chatbot,
+  dashboard resumes section, tailored-job card/dialog, admin users table, resume PDF,
+  provider selector, base-resume dialog, jobs AI and AI-provider actions, dashboard data,
+  Supabase middleware, tools, usage ledger, API-key hook, description points, and the
+  document-settings extraction. The global statement/line floor now sits at 44.0%
+  (branches 81.0%, functions 75.0%) with the ratchet policy enforced in CI.
 - **ProjectsForm test suite** (16 RTL tests): project CRUD and reordering, technology
   add/dedupe/remove, description-point add/edit/delete, AI point generation with error
   dialogs, and AI point improvement with undo.
