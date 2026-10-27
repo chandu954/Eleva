@@ -109,8 +109,8 @@ terraform fmt -check -recursive terraform
 cd terraform/envs/production
 terraform init -backend=false
 terraform validate
-tflint --init --config="$PWD/../../.tflint.hcl"
-tflint --recursive --config="$PWD/../../.tflint.hcl"
+tflint --init --config="$(git rev-parse --show-toplevel)/.tflint.hcl"
+tflint --recursive --config="$(git rev-parse --show-toplevel)/.tflint.hcl"
 uvx --from checkov checkov -d terraform --framework terraform
 ```
 
