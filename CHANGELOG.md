@@ -33,8 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dashboard resumes section, tailored-job card/dialog, admin users table, resume PDF,
   provider selector, base-resume dialog, jobs AI and AI-provider actions, dashboard data,
   Supabase middleware, tools, usage ledger, API-key hook, description points, and the
-  document-settings extraction. The global statement/line floor now sits at 44.0%
-  (branches 81.0%, functions 75.0%) with the ratchet policy enforced in CI.
+  document-settings extraction. Measured coverage is 44.0% statements/lines
+  (branches 82.0%, functions 76.0%); the enforced global statement/line floor is
+  35.0% to leave CI headroom, with the ratchet policy documented in CONTRIBUTING.
 - **ProjectsForm test suite** (16 RTL tests): project CRUD and reordering, technology
   add/dedupe/remove, description-point add/edit/delete, AI point generation with error
   dialogs, and AI point improvement with undo.
