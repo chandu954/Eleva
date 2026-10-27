@@ -99,11 +99,19 @@ export default defineConfig({
       // and asserted (20 tests), lifting the checker to 20.46 statements /
       // 78.15 branches / 67.55 functions. Statement/line floors bump to
       // 20.1; branch/function floors stay put below the new measurement.
+      //
+      // 2026-10-26 eighth ratchet (coverage push to the user's 25% target):
+      // added resume + admin server-action suites (auth/quota/CRUD/error
+      // paths), resume AI action suites, and full render/edit coverage for
+      // settings-client and profile-edit-form plus career section editing.
+      // Measured global after them: 25.69 statements / 78.73 branches /
+      // 71.50 functions. All four global floors move up together; src/lib
+      // floors are unchanged because this batch targeted app/actions code.
       thresholds: {
-        statements: 20.1,
-        branches: 77.7,
-        functions: 67.2,
-        lines: 20.1,
+        statements: 25.3,
+        branches: 78.4,
+        functions: 71.1,
+        lines: 25.3,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
