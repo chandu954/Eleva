@@ -3,9 +3,10 @@ import { expect, test } from "@playwright/test";
 /**
  * Public-surface smoke tests.
  *
- * These run against a real `next dev` server (see playwright.config.ts) but
- * stay offline: Supabase points at a closed local port and the mock AI
- * provider is forced on, so no credentials or network services are required.
+ * They run against a production `next start` server (see
+ * playwright.config.ts) but stay offline: Supabase points at a closed local
+ * port and the mock AI provider is forced on, so no credentials or network
+ * services are required.
  */
 
 test.describe("public pages", () => {
@@ -21,7 +22,7 @@ test.describe("public pages", () => {
   test("landing page exposes the primary calls to action", async ({ page }) => {
     await page.goto("/eleva");
 
-    await expect(page.getByRole("link", { name: /Enter workspace/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Enter workspace/i }).first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
 
     await page.getByRole("link", { name: "Sign in" }).first().click();
@@ -43,7 +44,9 @@ test.describe("public pages", () => {
     await page.goto("/eleva/auth/login");
 
     await page.getByRole("link", { name: /Create an account/i }).click();
-    await expect(page).toHaveURL(/\/eleva\/auth\/signup/);
+    // The first client-side navigation can include a cold RSC render; keep a
+    // generous timeout so CI runners do not race the default 5s assertion.
+    await expect(page).toHaveURL(/\/eleva\/auth\/signup/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 });
