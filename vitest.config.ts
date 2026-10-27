@@ -125,11 +125,22 @@ export default defineConfig({
       // refactors have room before the gate trips. Actual coverage remains
       // the source of truth; re-ratchet once the god-file splits settle.
       // Branch/function floors stay at their measured 81/75 levels.
+      //
+      // 2026-10-27 eleventh ratchet (coverage push to the user's 50% target):
+      // added offline suites for the editor/studio/cover-letter pages, prompt
+      // studio, Stripe webhook, Eleva server actions, export/pipeline routes,
+      // auth form, shared selectors, settings/jobs/pricing, resume forms and
+      // preview, profile forms, landing demos, sidebar/copilot, root layout,
+      // loading shell, blog post page, resume health and keyword heatmap.
+      // Measured global table after them: 64.94 statements / 84.51 branches /
+      // 80.11 functions / 64.94 lines; src/lib table: 94.29 / 93.87 / 82.66 /
+      // 94.29. The global statement/line floor moves to 50.0, the user's
+      // requested target, leaving ~15 points of CI headroom.
       thresholds: {
-        statements: 35.0,
+        statements: 50.0,
         branches: 81.0,
         functions: 75.0,
-        lines: 35.0,
+        lines: 50.0,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).

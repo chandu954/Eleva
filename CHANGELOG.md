@@ -29,13 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dev container** (`.devcontainer/devcontainer.json`) and **SECURITY.md**: compose-backed
   onboarding with Playwright/Vitest/Terraform editor integrations, plus a documented
   vulnerability disclosure process and security model.
-- **Coverage expansion**: 92 test files / 1,044 tests, adding suites for the chatbot,
+- **Coverage expansion**: 129 test files / 1,469 tests, adding suites for the chatbot,
   dashboard resumes section, tailored-job card/dialog, admin users table, resume PDF,
   provider selector, base-resume dialog, jobs AI and AI-provider actions, dashboard data,
-  Supabase middleware, tools, usage ledger, API-key hook, description points, and the
-  document-settings extraction. Measured coverage is 44.0% statements/lines
-  (branches 82.0%, functions 76.0%); the enforced global statement/line floor is
-  35.0% to leave CI headroom, with the ratchet policy documented in CONTRIBUTING.
+  Supabase middleware, tools, usage ledger, API-key hook, description points, the
+  document-settings extraction, editor/studio/cover-letter pages, prompt studio, Stripe
+  webhook, Eleva server actions, export/pipeline routes, auth form, settings/jobs/pricing,
+  resume and profile forms, landing demos, sidebar/copilot, root layout, blog post page,
+  resume health and keyword heatmap. Measured coverage is 64.94% statements/lines
+  (branches 84.51%, functions 80.11%); the enforced global statement/line floor is
+  50.0%, with the ratchet policy documented in CONTRIBUTING.
 - **ProjectsForm test suite** (16 RTL tests): project CRUD and reordering, technology
   add/dedupe/remove, description-point add/edit/delete, AI point generation with error
   dialogs, and AI point improvement with undo.
