@@ -208,8 +208,11 @@ export function ProfileWorkExperienceForm({ experiences, onChange }: ProfileWork
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const updated = [...experiences];
-                        updated[index].description = [...updated[index].description, ""];
+                        const updated = experiences.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, description: [...item.description, ""] }
+                            : item
+                        );
                         onChange(updated);
                       }}
                       className="text-cyan-600 hover:text-cyan-700 transition-colors h-7 text-xs"
@@ -225,8 +228,16 @@ export function ProfileWorkExperienceForm({ experiences, onChange }: ProfileWork
                           <Input
                             value={desc}
                             onChange={(e) => {
-                              const updated = [...experiences];
-                              updated[index].description[descIndex] = e.target.value;
+                              const updated = experiences.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? {
+                                      ...item,
+                                      description: item.description.map((point, pointIndex) =>
+                                        pointIndex === descIndex ? e.target.value : point
+                                      ),
+                                    }
+                                  : item
+                              );
                               onChange(updated);
                             }}
                             placeholder="Start with a strong action verb"
@@ -240,8 +251,14 @@ export function ProfileWorkExperienceForm({ experiences, onChange }: ProfileWork
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            const updated = [...experiences];
-                            updated[index].description = updated[index].description.filter((_, i) => i !== descIndex);
+                            const updated = experiences.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    description: item.description.filter((_, pointIndex) => pointIndex !== descIndex),
+                                  }
+                                : item
+                            );
                             onChange(updated);
                           }}
                           className="text-gray-400 hover:text-red-500 transition-colors duration-300 h-8 w-8"

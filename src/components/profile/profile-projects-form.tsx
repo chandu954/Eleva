@@ -209,8 +209,11 @@ export function ProfileProjectsForm({ projects, onChange }: ProfileProjectsFormP
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        const updated = [...projects];
-                        updated[index].description = [...updated[index].description, ""];
+                        const updated = projects.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, description: [...item.description, ""] }
+                            : item
+                        );
                         onChange(updated);
                       }}
                       className="text-violet-600 hover:text-violet-700 transition-colors h-7 text-xs"
@@ -226,8 +229,16 @@ export function ProfileProjectsForm({ projects, onChange }: ProfileProjectsFormP
                           <Input
                             value={desc}
                             onChange={(e) => {
-                              const updated = [...projects];
-                              updated[index].description[descIndex] = e.target.value;
+                              const updated = projects.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? {
+                                      ...item,
+                                      description: item.description.map((point, pointIndex) =>
+                                        pointIndex === descIndex ? e.target.value : point
+                                      ),
+                                    }
+                                  : item
+                              );
                               onChange(updated);
                             }}
                             placeholder="Describe a key feature or achievement"
@@ -241,8 +252,14 @@ export function ProfileProjectsForm({ projects, onChange }: ProfileProjectsFormP
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            const updated = [...projects];
-                            updated[index].description = updated[index].description.filter((_, i) => i !== descIndex);
+                            const updated = projects.map((item, itemIndex) =>
+                              itemIndex === index
+                                ? {
+                                    ...item,
+                                    description: item.description.filter((_, pointIndex) => pointIndex !== descIndex),
+                                  }
+                                : item
+                            );
                             onChange(updated);
                           }}
                           className="text-gray-400 hover:text-red-500 transition-colors duration-300 h-8 w-8"
