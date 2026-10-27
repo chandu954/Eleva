@@ -68,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   owns suggestion generation, point rewriting, undo/review state and the shared
   error dialog. All 16 existing behavior tests pass unchanged; two new tests
   cover accepting an improvement and clearing review state on manual edits.
+- Split `profile-edit-form.tsx` (800 → 390 lines) into a reusable
+  `ProfileImportDialog` (PDF drop/paste, error panel) and `ProfileEditorTabs`
+  (the five section cards). Three new tests cover pasted-text import, dropped
+  PDFs and the API-key error panel.
 - Extracted editor state and view components from `editor/page.tsx` (1,221 → 460 lines);
   every extracted file is under 500 lines and covered by 24 hook tests.
 - Dependency refresh with no breaking majors: Next.js 15.1.11 → 15.5.28, `ai` 4.0 → 4.3.19,

@@ -22,7 +22,8 @@ vi.mock('react-pdftotext', () => ({
   default: vi.fn().mockResolvedValue('resume text'),
 }));
 
-import { updateProfile } from '@/utils/actions/profiles/actions';
+import { updateProfile, importResume } from '@/utils/actions/profiles/actions';
+import { formatProfileWithAI } from '@/utils/actions/profiles/ai';
 import { toast } from 'sonner';
 import { ProfileEditForm } from './profile-edit-form';
 
@@ -88,5 +89,61 @@ describe('ProfileEditForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Unable to save'), expect.anything()));
+  }, 30000);
+
+  it('imports pasted text through the text dialog', async () => {
+    render(<ProfileEditForm profile={profile} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Import From Text/ }));
+    const textarea = await screen.findByPlaceholderText('Paste your text content here...');
+    fireEvent.change(textarea, { target: { value: 'Senior engineer with 10 years...' } });
+    fireEvent.click(screen.getByRole('button', { name: /Process with AI/ }));
+
+    await waitFor(() =>
+      expect(formatProfileWithAI).toHaveBeenCalledWith('Senior engineer with 10 years...', {
+        model: 'gpt-5.4-nano',
+        apiKeys: [],
+      }),
+    );
+    await waitFor(() => expect(importResume).toHaveBeenCalled());
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining('Content imported'),
+      expect.anything(),
+    );
+  }, 30000);
+
+  it('extracts text from a dropped PDF into the import textarea', async () => {
+    render(<ProfileEditForm profile={profile} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Import From Text/ }));
+    const dropZone = (await screen.findByText('Drop your PDF file here')).closest('label');
+    expect(dropZone).not.toBeNull();
+
+    const file = new File(['pdf-bytes'], 'resume.pdf', { type: 'application/pdf' });
+    fireEvent.drop(dropZone as HTMLElement, { dataTransfer: { files: [file] } });
+
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText('Paste your text content here...')).toHaveValue(
+        'resume text',
+      ),
+    );
+  }, 30000);
+
+  it('shows the API key panel when import is rejected for a missing key', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(formatProfileWithAI).mockRejectedValueOnce(new Error('Invalid API key'));
+
+    render(<ProfileEditForm profile={profile} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Resume Upload/ }));
+    const textarea = await screen.findByPlaceholderText('Paste your resume content here...');
+    fireEvent.change(textarea, { target: { value: 'resume body' } });
+    fireEvent.click(screen.getByRole('button', { name: /Process with AI/ }));
+
+    expect(await screen.findByText('API Key Required')).toBeInTheDocument();
+    expect(screen.getByText(/Please add your OpenAI API key/)).toBeInTheDocument();
+    expect(importResume).not.toHaveBeenCalled();
+
+    consoleError.mockRestore();
   }, 30000);
 });
