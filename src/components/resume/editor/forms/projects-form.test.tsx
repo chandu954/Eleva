@@ -393,4 +393,35 @@ describe("ProjectsForm — AI point improvement", () => {
     await waitFor(() => expect(screen.getByRole("alertdialog")).toBeInTheDocument());
     expect(screen.getByText(/Failed to improve point/i)).toBeInTheDocument();
   });
+
+  it("accepts an improvement with the check button, keeping the improved text", async () => {
+    improveMock.mockResolvedValue("Improved bullet text");
+
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(iconButton(pointRowButtons("Built a Raft-consensus scheduler."), "sparkles"));
+    await waitFor(() => expect(screen.getByText("AI Suggestion")).toBeInTheDocument());
+
+    await user.click(iconButton(pointRowButtons("Improved bullet text"), "check"));
+
+    await waitFor(() => expect(screen.queryByText("AI Suggestion")).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Improved bullet text")).toBeInTheDocument();
+  });
+
+  it("clears the review state when the improved point is edited manually", async () => {
+    improveMock.mockResolvedValue("Improved bullet text");
+
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(iconButton(pointRowButtons("Built a Raft-consensus scheduler."), "sparkles"));
+    await waitFor(() => expect(screen.getByText("AI Suggestion")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("Improved bullet text"), {
+      target: { value: "Hand-edited bullet" },
+    });
+
+    await waitFor(() => expect(screen.queryByText("AI Suggestion")).not.toBeInTheDocument());
+  });
 });

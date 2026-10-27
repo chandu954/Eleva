@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Coverage floors ratcheted to 60% statements/lines, 83% branches and 79%
   functions** (measured baseline 64.94 / 84.51 / 80.11) now that the Phase 2E
   suites are on `main`.
+- Split `projects-form.tsx` (855 → 238 lines) into a presentational
+  `projects/ProjectCard` (457 lines) and a `useProjectAI` hook (306 lines) that
+  owns suggestion generation, point rewriting, undo/review state and the shared
+  error dialog. All 16 existing behavior tests pass unchanged; two new tests
+  cover accepting an improvement and clearing review state on manual edits.
 - Extracted editor state and view components from `editor/page.tsx` (1,221 → 460 lines);
   every extracted file is under 500 lines and covered by 24 hook tests.
 - Dependency refresh with no breaking majors: Next.js 15.1.11 → 15.5.28, `ai` 4.0 → 4.3.19,
