@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 import remarkGfm from "remark-gfm";
 import mdx from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { buildSecurityHeaders } from "./src/lib/security-headers";
 
 const withMDX = mdx({
   extension: /\.mdx?$/,
@@ -39,6 +40,17 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   reactStrictMode: true,
   poweredByHeader: false,
+  // Baseline browser hardening (CSP, HSTS, nosniff, frame denial, referrer
+  // and permissions policies). The allowlists live in
+  // src/lib/security-headers.ts and are unit-tested.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: buildSecurityHeaders(),
+      },
+    ];
+  },
 };
 
 const config = withMDX(nextConfig);

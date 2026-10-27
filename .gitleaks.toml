@@ -1,0 +1,16 @@
+# Gitleaks configuration for the full-history CI scan.
+#
+# The default ruleset is kept; only documented, non-secret placeholders are
+# allowlisted. Real credentials must never be added here.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Self-hosted Supabase demo keys and Stripe test placeholders that ship in Helm defaults and unit fixtures"
+paths = [
+  '''helm/resumelm/values\.yaml''',
+]
+regexes = [
+  '''sk_test_placeholder''',
+  '''sk_test_configured(_client)?''',
+]

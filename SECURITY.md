@@ -30,7 +30,7 @@ The following are in scope:
 
 The following are out of scope:
 - Rate limiting issues
-- Missing security headers
+- Security-header findings that do not demonstrate an exploitable bypass
 - Self-XSS
 - Social engineering attacks
 
@@ -55,11 +55,19 @@ backported only when a supported release line exists.
   persistence. File imports are size/type constrained.
 - **Secrets** — credentials live only in environment variables. `.env*` files
   are gitignored; `.env.example` documents the shape without real values.
-  Credential-shaped log context is redacted by `src/lib/logger.ts`.
+  Credential-shaped log context is redacted by `src/lib/logger.ts`. A pinned
+  gitleaks full-history scan runs in CI (`.github/workflows/security.yml`).
+- **Security headers** — `src/lib/security-headers.ts` (wired in
+  `next.config.ts`) sends a CSP with explicit allowlists for Supabase, Stripe,
+  PostHog, Sentry, Buy Me a Coffee and blob PDF workers, plus HSTS, `nosniff`,
+  frame denial, referrer and permissions policies.
+- **Static analysis** — CodeQL `security-and-quality` runs on pushes, PRs and a
+  weekly schedule (`.github/workflows/codeql.yml`).
 - **Rate limiting** — Redis-backed limiter (Upstash or local) guards AI and
   write endpoints; missing production config fails closed at startup.
 - **Webhooks** — Stripe signatures are verified before any subscription state
-  is changed.
+  is changed; missing webhook configuration fails closed with a 500 so Stripe
+  retries instead of the handler reporting a client signature error.
 - **Dependencies** — `pnpm audit --audit-level=high` runs in CI; accepted
   advisories are documented in `pnpm-workspace.yaml` with removal criteria.
 - **Infrastructure** — Terraform state and `terraform.tfvars` are never
