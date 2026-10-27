@@ -79,6 +79,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Infrastructure Checkov job** now uses `checkov-action` v12.3135.0
+  (Checkov 3.3.30) instead of the 2022-era v12.1347.0 image, which failed
+  before scanning. The Helm scan still reports vendor Supabase findings with
+  `soft_fail: true`; the Terraform scan remains strict.
 - **Docker image builds** now copy `pnpm-workspace.yaml` and `.npmrc` into the
   dependency stages. `pnpm install --frozen-lockfile` needs the workspace
   overrides/`allowBuilds` that the lockfile was resolved with, so the build

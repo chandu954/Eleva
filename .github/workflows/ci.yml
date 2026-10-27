@@ -201,7 +201,7 @@ jobs:
           find /tmp/helm-render /tmp/helm-render-optional \( -name '*.yaml' -o -name '*.yml' \) -print0 | xargs -0 -r kubeconform -summary -strict -ignore-missing-schemas
 
       - name: Run Checkov security scan
-        uses: bridgecrewio/checkov-action@v12.1347.0
+        uses: bridgecrewio/checkov-action@v12.3135.0
         with:
           directory: helm/resumelm
           quiet: true
@@ -256,7 +256,7 @@ jobs:
         run: tflint --recursive --config="$GITHUB_WORKSPACE/.tflint.hcl"
 
       - name: Run Checkov Terraform scan
-        uses: bridgecrewio/checkov-action@v12.1347.0
+        uses: bridgecrewio/checkov-action@v12.3135.0
         with:
           directory: terraform
           framework: terraform
