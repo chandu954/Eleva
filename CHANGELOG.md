@@ -72,6 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ProfileImportDialog` (PDF drop/paste, error panel) and `ProfileEditorTabs`
   (the five section cards). Three new tests cover pasted-text import, dropped
   PDFs and the API-key error panel.
+- Split `work-experience-form.tsx` (750 → 192 lines) into a presentational
+  `WorkExperienceCard` (401 lines) and a work-experience AI adapter. The AI
+  state machine is now one shared `useResumeAI` hook (316 lines) used by both
+  projects and work experience, with thin per-form adapters; five new tests
+  cover reordering, point editing, generation/approval, rewriting/undo and
+  failure reporting.
 - Extracted editor state and view components from `editor/page.tsx` (1,221 → 460 lines);
   every extracted file is under 500 lines and covered by 24 hook tests.
 - Dependency refresh with no breaking majors: Next.js 15.1.11 → 15.5.28, `ai` 4.0 → 4.3.19,
