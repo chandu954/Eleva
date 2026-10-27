@@ -77,20 +77,27 @@ export async function updateSession(request: NextRequest) {
   // Debug logging
   devLog('👤 User authenticated:', !!user, 'user_id:', user?.id)
 
+  // Preserve any session cookies written by Supabase during getUser() (token
+  // refresh) before replacing the response to enrich the request headers.
+  // Dropping them would desync the browser cookie jar and can log users out
+  // when the refresh token rotates.
+  const refreshedCookies = supabaseResponse.cookies.getAll()
+
   // Create a new headers object with the existing headers
   // Given an incoming request...
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-pathname', pathname)
 
   // Recreate the response with the enriched request headers so the header
-  // propagates to the page, without writing a cookie on every request
-  // (Set-Cookie on navigation disables bfcache).
+  // propagates to the page. Only re-emit cookies when Supabase actually
+  // refreshed the session, so ordinary navigations stay bfcache-friendly.
   supabaseResponse = NextResponse.next({
     request: {
       ...request,
       headers: requestHeaders,
     },
   })
+  refreshedCookies.forEach((cookie) => supabaseResponse.cookies.set(cookie))
   // Check if user is authenticated and redirect if needed
   if (!user) {
     // Allow access to public routes without a session (avoid redirect loops on '/')
