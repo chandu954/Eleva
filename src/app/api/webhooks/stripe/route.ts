@@ -15,7 +15,11 @@ function getStripe() {
   return new Stripe(key, { apiVersion: '2025-04-30.basil' });
 }
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+function getWebhookSecret() {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
+  return secret;
+}
 
 const relevantEvents = new Set([
   'checkout.session.completed',
@@ -181,6 +185,26 @@ async function captureSubscriptionLifecycleEvent(input: {
 
 export async function POST(req: Request) {
   try {
+    // Resolve configuration before touching the payload: a missing secret is
+    // a server error (500), not a bad signature (400). Reporting it as a
+    // client error hides the outage and can mark the endpoint unhealthy.
+    let stripe: Stripe
+    let webhookSecret: string
+    try {
+      stripe = getStripe()
+      webhookSecret = getWebhookSecret()
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+      logger.error('stripe.webhook.config_error', { error })
+      return new Response(
+        JSON.stringify({ error: 'Webhook is not configured' }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
     const body = await req.text()
     const signature = (await headers()).get('stripe-signature')
 
@@ -197,7 +221,7 @@ export async function POST(req: Request) {
 
     let event: Stripe.Event
     try {
-      event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
     } catch (err: unknown) {
       const error = err as Error
       logger.error('stripe.webhook.signature_invalid', { error });

@@ -244,25 +244,47 @@ describe('stripe webhook route', () => {
       );
     });
 
-    it('reports a missing Stripe secret as a signature failure (current behavior)', async () => {
+    it('reports a missing Stripe secret as a 500 configuration error', async () => {
       const previousKey = process.env.STRIPE_SECRET_KEY;
       delete process.env.STRIPE_SECRET_KEY;
       try {
         const res = await callWebhook();
-        // BUG: getStripe() throws inside the constructEvent try block, so a
-        // server misconfiguration is reported as a 400 client signature
-        // error instead of a 500.
-        expect(res.status).toBe(400);
+
+        expect(res.status).toBe(500);
         await expect(res.json()).resolves.toEqual({
-          error: 'STRIPE_SECRET_KEY is not configured',
+          error: 'Webhook is not configured',
         });
         expect(mocks.constructEvent).not.toHaveBeenCalled();
         expect(mockLogger.error).toHaveBeenCalledWith(
-          'stripe.webhook.signature_invalid',
+          'stripe.webhook.config_error',
           expect.objectContaining({ error: expect.any(Error) }),
+        );
+        expect(mockLogger.error).not.toHaveBeenCalledWith(
+          'stripe.webhook.signature_invalid',
+          expect.anything(),
         );
       } finally {
         process.env.STRIPE_SECRET_KEY = previousKey;
+      }
+    });
+
+    it('reports a missing webhook secret as a 500 configuration error', async () => {
+      const previousSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      delete process.env.STRIPE_WEBHOOK_SECRET;
+      try {
+        const res = await callWebhook();
+
+        expect(res.status).toBe(500);
+        await expect(res.json()).resolves.toEqual({
+          error: 'Webhook is not configured',
+        });
+        expect(mocks.constructEvent).not.toHaveBeenCalled();
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          'stripe.webhook.config_error',
+          expect.objectContaining({ error: expect.any(Error) }),
+        );
+      } finally {
+        process.env.STRIPE_WEBHOOK_SECRET = previousSecret;
       }
     });
   });
