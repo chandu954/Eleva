@@ -7,11 +7,17 @@ import { vi } from 'vitest';
  * or calling single()/maybeSingle() — resolves to the configured
  * { data, error } pair, like the real fetch would.
  */
-export type StubResult = { data: unknown; error: unknown };
+export type StubResult = {
+  data: unknown;
+  error: unknown;
+  /** Present on `select(..., { count: 'exact' })` responses. */
+  count?: number | null;
+};
 
 export interface PostgrestStub {
   select(...args: unknown[]): PostgrestStub;
   eq(...args: unknown[]): PostgrestStub;
+  gte(...args: unknown[]): PostgrestStub;
   order(...args: unknown[]): PostgrestStub;
   or(...args: unknown[]): PostgrestStub;
   not(...args: unknown[]): PostgrestStub;
@@ -31,7 +37,7 @@ export interface PostgrestStub {
 }
 
 const BUILDER_METHODS = [
-  'select', 'eq', 'order', 'or', 'not', 'limit', 'ilike', 'like', 'in', 'contains', 'range',
+  'select', 'eq', 'gte', 'order', 'or', 'not', 'limit', 'ilike', 'like', 'in', 'contains', 'range',
   'insert', 'update', 'upsert', 'delete',
 ] as const;
 
