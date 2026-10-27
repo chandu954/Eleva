@@ -405,8 +405,8 @@ export function ResumesSection({
                     size="icon"
                     variant="ghost"
                     onClick={() => {
-                      startTransition(() => {
-                        handleCopyResume(resume);
+                      startTransition(async () => {
+                        await handleCopyResume(resume);
                       });
                     }}
                     disabled={isDeleting || isCopying}
@@ -481,8 +481,8 @@ export function ResumesSection({
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  startTransition(() => {
-                    handleDeleteResume(resume.id, resume.name);
+                  startTransition(async () => {
+                    await handleDeleteResume(resume.id, resume.name);
                   });
                 }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

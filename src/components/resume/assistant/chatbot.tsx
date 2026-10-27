@@ -529,6 +529,24 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
                               );
 
                             case 'result':
+                              // `getResume` has no entry in toolConfig, so handle its
+                              // completed bubble before the config lookup below.
+                              if (toolName === 'getResume') {
+                                return (
+                                  <div key={toolCallId} className="mt-2 w-[90%]">
+                                    <div className="flex justify-start">
+                                      <div className={cn(
+                                        "rounded-2xl px-4 py-2 max-w-[90%] text-sm",
+                                        "bg-white/60 border border-purple-200/60",
+                                        "shadow-sm backdrop-blur-sm"
+                                      )}>
+                                        <p>Read Resume ({args.sections?.join(', ') || 'all'}) ✅</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               // Map tool names to resume sections and handle suggestions
                               const toolConfig = {
                                 suggest_work_experience_improvement: {
@@ -560,23 +578,6 @@ export default function ChatBot({ resume, onResumeChange, job }: ChatBotProps) {
                               const config = toolConfig[toolName as keyof typeof toolConfig];
 
                               if (!config) return null;
-
-                              // Handle specific tool results
-                              if (toolName === 'getResume') {
-                                return (
-                                  <div key={toolCallId} className="mt-2 w-[90%]">
-                                    <div className="flex justify-start">
-                                      <div className={cn(
-                                        "rounded-2xl px-4 py-2 max-w-[90%] text-sm",
-                                        "bg-white/60 border border-purple-200/60",
-                                        "shadow-sm backdrop-blur-sm"
-                                      )}>
-                                        <p>Read Resume ({args.sections?.join(', ') || 'all'}) ✅</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              }
 
                               if (config.type === 'whole_resume') {
                                 return (
