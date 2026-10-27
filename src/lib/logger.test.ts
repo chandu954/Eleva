@@ -139,8 +139,8 @@ describe('createLogger', () => {
     const deep = { a: { b: { c: { d: { e: { f: { g: 'too deep' } } } } } } };
     instance.info('long', { value: 'x'.repeat(2_100), deep });
 
-    const entry = JSON.parse(lines[0]!.line) as Record<string, any>;
-    expect((entry.value as string).endsWith('…')).toBe(true);
+    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
+    expect(((entry.value as string) ?? '').endsWith('…')).toBe(true);
     expect((entry.value as string).length).toBe(2_001);
     expect(JSON.stringify(entry.deep)).toContain('[MaxDepth]');
   });

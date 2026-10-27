@@ -107,19 +107,30 @@ export default defineConfig({
       // Measured global after them: 25.69 statements / 78.73 branches /
       // 71.50 functions. All four global floors move up together; src/lib
       // floors are unchanged because this batch targeted app/actions code.
+      //
+      // 2026-10-27 ninth ratchet (repo-quality push): added suites for the
+      // chatbot, resumes section, tailored-job card/dialog, admin users table,
+      // resume PDF document, provider selector, base-resume dialog, jobs AI
+      // actions, AI-provider actions, dashboard data, Supabase middleware,
+      // tools, usage ledger, API-key hook, description points, and the
+      // document-settings extraction, plus Playwright smoke tests. Measured
+      // global table: 43.98 statements / 82.03 branches / 75.98 functions /
+      // 43.98 lines; src/lib table: 92.75 / 93.64 / 81.33 / 92.75. The
+      // per-glob checker composition is stricter (src/lib 84.75 statements/
+      // lines), so the glob floors use the checker values with a buffer.
       thresholds: {
-        statements: 25.3,
-        branches: 78.4,
-        functions: 71.1,
-        lines: 25.3,
+        statements: 43.0,
+        branches: 81.0,
+        functions: 75.0,
+        lines: 43.0,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
         "src/lib/**": {
-          statements: 47.0,
+          statements: 84.0,
           branches: 82.9,
           functions: 64.5,
-          lines: 47.0,
+          lines: 84.0,
         },
       },
     },
