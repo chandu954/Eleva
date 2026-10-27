@@ -136,11 +136,20 @@ export default defineConfig({
       // 80.11 functions / 64.94 lines; src/lib table: 94.29 / 93.87 / 82.66 /
       // 94.29. The global statement/line floor moves to 50.0, the user's
       // requested target, leaving ~15 points of CI headroom.
+      //
+      // 2026-10-27 twelfth ratchet (Phase 1 hardening): security headers moved
+      // into a tested module (src/lib/security-headers.ts) and the preview /
+      // webhook / export fixes added regression tests. Global floors move up
+      // to 60/83/79 against the same measured baseline (64.94 / 84.51 /
+      // 80.11), keeping roughly five points of statement headroom while
+      // raising the branch and function gates toward their measured values.
+      // src/lib floors stay unchanged: the new module is fully covered, so
+      // the existing 84/82.9/64.5 gate remains appropriate.
       thresholds: {
-        statements: 50.0,
-        branches: 81.0,
-        functions: 75.0,
-        lines: 50.0,
+        statements: 60.0,
+        branches: 83.0,
+        functions: 79.0,
+        lines: 60.0,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
