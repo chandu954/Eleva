@@ -129,7 +129,8 @@ configured, with landing and editor visual snapshots. Lighthouse budgets
 
 Separate CodeQL, security, and Scorecard workflows scan code, image, and
 repository posture and upload an SPDX source SBOM. Docker publishing scans
-each platform image digest and emits BuildKit provenance. Every GitHub Action reference is pinned to a full
+each platform image digest, emits BuildKit provenance, and signs published
+tags keylessly with Cosign. Every GitHub Action reference is pinned to a full
 commit SHA with its release tag noted in the workflow. Terraform apply and
 drift workflows use protected GitHub environments and an S3 remote state
 backend; enabling them requires the bucket, environment variables, and
