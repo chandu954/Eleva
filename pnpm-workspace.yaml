@@ -34,6 +34,8 @@ overrides:
   # exists in zod >= 3.25; the ali peer resolved to 3.24.4 and broke the
   # next build. Pin one zod 3.x for the whole tree (v4 migration pending).
   zod: 3.25.76
+  # Knip uses Zod 4's core API; keep that isolated from the app's Zod 3 pin.
+  'knip>zod': ^4.1.11
   # Exact-version selectors for the remaining stale transitives
   picomatch@2.3.1: ^2.3.2
   picomatch@4.0.2: ^4.0.4

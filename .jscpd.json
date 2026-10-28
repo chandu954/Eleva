@@ -1,0 +1,13 @@
+{
+  "minLines": 5,
+  "minTokens": 50,
+  "format": ["typescript", "tsx"],
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.e2e.*",
+    "src/test/**",
+    "**/* 2.*"
+  ],
+  "reporters": ["console"]
+}

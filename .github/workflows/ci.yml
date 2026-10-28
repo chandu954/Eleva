@@ -56,6 +56,12 @@ jobs:
       - name: Enforce production source file size limit
         run: pnpm check:source-loc
 
+      - name: Check unused production files and dependencies
+        run: pnpm check:dead-code
+
+      - name: Prevent new production code clones
+        run: pnpm check:duplication
+
       - name: Typecheck
         run: pnpm typecheck
 

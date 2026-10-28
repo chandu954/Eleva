@@ -97,12 +97,15 @@ pnpm test:e2e   # Playwright smoke tests (Chromium)
 pnpm build      # Next.js production build
 pnpm check:source-loc  # Enforce the 500 LOC production TypeScript file limit
 pnpm check:bundles     # Check compressed route bundles after a production build
+pnpm check:dead-code   # Enforce the current production file/dependency debt ceiling
+pnpm check:duplication # Block clones that are absent from the checked-in baseline
 ```
 
 The global coverage floors are 75% statements, 85% branches, 80% functions,
 and 75% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
-The CI quality job also checks dependency cycles and the production source-size
-limit.
+The CI quality job also checks dependency cycles, the production source-size
+limit, unused production files/dependencies against a fixed issue ceiling, and
+new production-code clones against the checked-in jscpd baseline.
 
 The unit suite runs fully offline: AI calls use the deterministic mock
 provider and Supabase/PostgREST access is stubbed under `src/test/`. The
