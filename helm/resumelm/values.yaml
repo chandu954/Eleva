@@ -399,6 +399,11 @@ app:
   podDisruptionBudget:
     enabled: false
     minAvailable: 1
+  networkPolicy:
+    enabled: false
+    # Add namespaceSelector or podSelector entries for the ingress controller
+    # and other callers. An enabled policy with no entries denies all ingress.
+    ingressFrom: []
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault

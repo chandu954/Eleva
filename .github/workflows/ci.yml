@@ -215,6 +215,7 @@ jobs:
             --set studio.enabled=true \
             --set app.autoscaling.enabled=true \
             --set app.podDisruptionBudget.enabled=true \
+            --set app.networkPolicy.enabled=true \
             --set meta.enabled=true \
             --set inbucket.enabled=true \
             --set analytics.enabled=true \
