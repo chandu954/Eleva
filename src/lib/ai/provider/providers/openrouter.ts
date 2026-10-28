@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
+import { mapFinishReason } from '../base';
 import { AI_PROVIDER_TIMEOUT_MS, normalizeError, ProviderBusyError } from '../errors';
 
 const KV_KEY = 'OPENROUTER_API_KEY';
@@ -28,15 +29,6 @@ const OR_MODEL_MAP: Record<string, string> = {
   'openrouter/llama-3.3-70b': 'meta-llama/llama-3.3-70b-instruct',
   'openrouter/mistral-large': 'mistralai/mistral-large',
 };
-
-function mapFinishReason(raw: string | null | undefined): FinishReason {
-  if (!raw) return 'unknown';
-  const l = raw.toLowerCase();
-  if (l === 'stop') return 'stop';
-  if (l === 'length') return 'length';
-  if (l === 'content_filter') return 'content_filter';
-  return 'other';
-}
 
 async function openRouterCompletion(
   client: OpenAI,
