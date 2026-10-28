@@ -236,7 +236,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             <h1 className="font-display text-xl font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>
               {heading}
             </h1>
-            <p className="mt-1 text-[13px] mb-6" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            <p className="mt-1 text-[13px] mb-6" style={{ color: '#334155' }}>
               {subtext}
             </p>
 
