@@ -62,6 +62,9 @@ export default withSentryConfig(withBundleAnalyzer(config), {
   silent: process.env.NODE_ENV !== "production",
   telemetry: false,
   widenClientFileUpload: true,
-  sourcemaps: { disable: true },
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN || !process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT,
+    deleteSourcemapsAfterUpload: true,
+  },
   tunnelRoute: "/monitoring",
 });

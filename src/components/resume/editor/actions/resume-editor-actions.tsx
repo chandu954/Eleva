@@ -4,13 +4,12 @@ import { Resume } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Save } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { pdf } from '@react-pdf/renderer';
 import { TextImport } from "../../text-import";
-import { ResumePDFDocument } from "../preview/resume-pdf-document";
 import { cn } from "@/lib/utils";
 import { useResumeContext } from "../resume-editor-context";
 
 import { updateResume } from "@/utils/actions/resumes/actions";
+import { downloadResumePdf } from "@/lib/resume/download-pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState } from "react";
@@ -115,15 +114,7 @@ export function ResumeEditorActions({
                   try {
                     // Download Resume if selected
                     if (downloadOptions.resume) {
-                      const blob = await pdf(<ResumePDFDocument resume={resume} />).toBlob();
-                      const url = URL.createObjectURL(blob);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = `${resume.first_name}_${resume.last_name}_Resume.pdf`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      URL.revokeObjectURL(url);
+                      await downloadResumePdf(resume.id, `${resume.first_name}_${resume.last_name}_Resume.pdf`);
                     }
 
                     // Download Cover Letter if selected and exists
@@ -242,4 +233,4 @@ export function ResumeEditorActions({
       </div>
     </div>
   );
-} 
+}

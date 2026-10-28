@@ -11,8 +11,6 @@
 import { Resume } from "@/lib/types";
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useState, useEffect, memo, useMemo, useCallback } from 'react';
-import { pdf } from '@react-pdf/renderer';
-import { ResumePDFDocument } from './resume-pdf-document';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { logger } from '@/lib/logger';
 
@@ -155,8 +153,15 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
       }
 
       try {
-        // Generate new PDF if not in cache
-        const blob = await pdf(<ResumePDFDocument resume={resume} variant={variant} />).toBlob();
+        // Render the current, possibly unsaved editor state on the server.
+        // The @react-pdf/renderer runtime stays in the route bundle.
+        const response = await fetch('/eleva/api/export/resume-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeId: resume.id, resume }),
+        });
+        if (!response.ok) throw new Error('Resume preview generation failed');
+        const blob = await response.blob();
         if (cancelled) return;
 
         const newUrl = URL.createObjectURL(blob);
@@ -211,7 +216,7 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
   }, [cacheKey]);
 
   // Show a recoverable error instead of an endless loading skeleton when
-  // pdf().toBlob() rejects (worker failure, out-of-memory, bad document).
+  // server-side PDF rendering or PDF.js loading fails.
   if (failedCacheKey === cacheKey) {
     return (
       <div
@@ -387,4 +392,4 @@ export const ResumePreview = memo(function ResumePreview({ resume, variant = 'ba
     prevProps.variant === nextProps.variant &&
     prevProps.containerWidth === nextProps.containerWidth
   );
-}); 
+});

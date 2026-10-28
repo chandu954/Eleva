@@ -132,7 +132,7 @@ export async function getJobListings({
     jobs,
     totalCount: count ?? 0,
     currentPage: page,
-    totalPages: Math.ceil((count ?? 0) / pageSize)
+    totalPages: Math.max(1, Math.ceil((count ?? 0) / pageSize))
   };
 }
 

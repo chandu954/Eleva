@@ -1,0 +1,38 @@
+name: Production uptime check
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check application health endpoint
+        id: health
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          test -n "$APP_URL"
+          if curl --fail --silent --show-error --max-time 20 "${APP_URL%/}/api/health" >/tmp/health.json; then
+            cat /tmp/health.json
+          else
+            echo "health=failed" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+      - name: Open or update incident issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --state open --search "Uptime check failed in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "The scheduled uptime check failed again at $(date -u +%FT%TZ). See the [workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+          else
+            gh issue create --title "Uptime check failed" --body "The app health endpoint did not return success. See the [workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) and follow docs/operations/runbook.md."
+          fi

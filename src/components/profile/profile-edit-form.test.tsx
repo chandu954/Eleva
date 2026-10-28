@@ -18,8 +18,8 @@ vi.mock('@/utils/actions/profiles/actions', () => ({
   updateProfile: vi.fn().mockResolvedValue({ success: true }),
 }));
 
-vi.mock('react-pdftotext', () => ({
-  default: vi.fn().mockResolvedValue('resume text'),
+vi.mock('@/lib/pdf/extract-text', () => ({
+  extractPdfText: vi.fn().mockResolvedValue('resume text'),
 }));
 
 import { updateProfile, importResume } from '@/utils/actions/profiles/actions';

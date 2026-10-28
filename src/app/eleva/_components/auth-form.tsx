@@ -14,6 +14,9 @@ const supabase = () => createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+// Keep inline auth links legible on the white auth card at WCAG AA contrast.
+const authLinkColor = '#1d4ed8';
+
 function getCallbackError(param: string | null): string | null {
   if (!param) return null;
   if (param === 'oauth' || param === 'oauth_failed' || param === 'oauth_callback') {
@@ -287,7 +290,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
                 <div className="flex items-center justify-between mb-1.5">
                   <label htmlFor="auth-password" className="text-[12px] font-medium" style={{ color: 'rgb(var(--eleva-fg))' }}>Password</label>
                   {isLogin && (
-                    <Link href="/eleva/auth/reset-password" className="text-[11px] font-medium transition-colors" style={{ color: 'rgb(var(--eleva-primary))' }}>
+                    <Link href="/eleva/auth/reset-password" className="text-[11px] font-medium transition-colors" style={{ color: authLinkColor }}>
                       Forgot password?
                     </Link>
                   )}
@@ -336,9 +339,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
             <div className="mt-6 text-center text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
               {isLogin ? (
-                <>New to Eleva? <Link href="/eleva/auth/signup" className="font-medium transition-colors" style={{ color: 'rgb(var(--eleva-primary))' }}>Create an account</Link></>
+                <>New to Eleva? <Link href="/eleva/auth/signup" className="font-medium transition-colors" style={{ color: authLinkColor }}>Create an account</Link></>
               ) : (
-                <>Already have an account? <Link href="/eleva/auth/login" className="font-medium transition-colors" style={{ color: 'rgb(var(--eleva-primary))' }}>Sign in</Link></>
+                <>Already have an account? <Link href="/eleva/auth/login" className="font-medium transition-colors" style={{ color: authLinkColor }}>Sign in</Link></>
               )}
             </div>
           </div>

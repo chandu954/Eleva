@@ -2,101 +2,20 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles, ChevronDown, Search, Check, Network, Cpu, Globe, Bot, Wifi, Star, Zap, Brain, FileText, Target } from 'lucide-react'
+import { Sparkles, ChevronDown, Search, Check, Network, Brain } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { PROVIDER_DEFINITIONS, AUTO_PROVIDER_ORDER, type ProviderId } from '@/lib/ai/provider/registry'
 
-type AiMode = 'auto' | 'provider-auto' | 'manual'
-
-export interface ProviderSelection {
-  mode: AiMode
-  provider: ProviderId | null  // null in global auto mode
-  modelId: string | null        // null in auto/provider-auto mode
-}
-
-const GLOBAL_AUTO_KEY = '__eleva_global_auto__'
-const PROVIDER_AUTO_PREFIX = '__provider_auto__'
-
-const PROVIDER_ICONS: Record<string, React.ElementType> = {
-  openai: Sparkles,
-  anthropic: Bot,
-  gemini: Globe,
-  openrouter: Network,
-  nvidia: Cpu,
-  ollama: Wifi,
-}
-
-function getTaskForPath(pathname: string): { label: string; icon: React.ElementType } {
-  if (pathname.includes('/eleva/editor') || pathname.includes('/eleva/resumes')) return { label: 'Resume Tailoring', icon: FileText }
-  if (pathname.includes('/eleva/ats')) return { label: 'ATS Analysis', icon: Target }
-  if (pathname.includes('/eleva/cover-letters')) return { label: 'Cover Letter Writing', icon: FileText }
-  if (pathname.includes('/eleva/studio')) return { label: 'Studio Pipeline', icon: Zap }
-  if (pathname.includes('/eleva/applications')) return { label: 'Applications', icon: Brain }
-  return { label: 'General', icon: Sparkles }
-}
-
-interface ProviderSelectorProps {
-  value: string  // encoded selection: '__eleva_global_auto__' | 'openrouter:__provider_auto__' | 'nvidia:meta/llama-3.3-70b-instruct'
-  onValueChange: (value: string) => void
-  connectedProviders: ProviderId[]
-  className?: string
-}
-
-
-function decodeSelection(value: string): ProviderSelection {
-  if (value === GLOBAL_AUTO_KEY || !value) return { mode: 'auto', provider: null, modelId: null }
-  const colonIdx = value.indexOf(':')
-  if (colonIdx < 0) return { mode: 'auto', provider: null, modelId: null }
-  const provider = value.slice(0, colonIdx) as ProviderId
-  const rest = value.slice(colonIdx + 1)
-  if (rest === PROVIDER_AUTO_PREFIX) return { mode: 'provider-auto', provider, modelId: null }
-  return { mode: 'manual', provider, modelId: rest }
-}
-
-function StarRating({ value, size = 12 }: { value: number; size?: number }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star key={s} size={size} className={s <= value ? 'fill-current' : 'fill-none'}
-          style={{ color: s <= value ? 'rgb(var(--eleva-primary))' : 'rgb(var(--eleva-border))' }} strokeWidth={0} />
-      ))}
-    </div>
-  )
-}
-
-const FREE_MODEL_QUALITY: Record<string, { quality: number; speed: number }> = {
-  'qwen/qwen3-235b-a22b': { quality: 5, speed: 3 },
-  'deepseek/deepseek-chat-v3': { quality: 4, speed: 4 },
-  'meta-llama/llama-3.3-70b-instruct': { quality: 4, speed: 3 },
-  'mistralai/mistral-large': { quality: 4, speed: 4 },
-  'meta/llama-3.3-70b-instruct': { quality: 4, speed: 3 },
-  'nvidia/llama-3.3-nemotron-super-49b-v1.5': { quality: 4, speed: 4 },
-  'deepseek-v4-flash': { quality: 4, speed: 5 },
-  'nvidia/llama-3.1-nemotron-nano-4b-v1.1': { quality: 3, speed: 5 },
-  'gemini-2.5-flash': { quality: 4, speed: 5 },
-  'gemini-2.5-pro': { quality: 5, speed: 3 },
-  'claude-sonnet-4-20250514': { quality: 5, speed: 4 },
-  'claude-3-5-sonnet-20241022': { quality: 5, speed: 3 },
-  'claude-3-5-haiku-20241022': { quality: 4, speed: 5 },
-  'gpt-4.1-2025-04-14': { quality: 5, speed: 4 },
-  'gpt-4.1-mini-2025-04-14': { quality: 4, speed: 5 },
-  'gpt-4o-mini-2024-07-18': { quality: 4, speed: 5 },
-  'qwen3:8b': { quality: 3, speed: 4 },
-  'gemma3:4b': { quality: 3, speed: 4 },
-  'mistral:7b': { quality: 3, speed: 4 },
-  'llama3.2:3b': { quality: 3, speed: 5 },
-}
-
-const USE_CASES: Record<string, string[]> = {
-  'qwen/qwen3-235b-a22b': ['ATS', 'Resume Writing', 'Cover Letter', 'JD Analysis'],
-  'deepseek/deepseek-chat-v3': ['ATS', 'Resume Writing', 'Coding'],
-  'meta-llama/llama-3.3-70b-instruct': ['Resume Writing', 'Cover Letter', 'JD Analysis'],
-  'mistralai/mistral-large': ['Cover Letter', 'General'],
-  'meta/llama-3.3-70b-instruct': ['ATS', 'Resume Writing'],
-  'gemini-2.5-flash': ['ATS', 'JD Analysis', 'Cover Letter'],
-  'claude-sonnet-4-20250514': ['Resume Writing', 'Cover Letter'],
-  'gpt-4.1-2025-04-14': ['ATS', 'Resume Writing', 'Cover Letter', 'JD Analysis'],
-}
+import { ProviderModelList } from './provider-model-list';
+import {
+  decodeSelection,
+  FREE_MODEL_QUALITY,
+  getTaskForPath,
+  GLOBAL_AUTO_KEY,
+  PROVIDER_AUTO_PREFIX,
+  PROVIDER_ICONS,
+  type ProviderSelectorProps,
+} from './provider-selector-data';
 
 export function ProviderSelector({ value, onValueChange, connectedProviders, className = '' }: ProviderSelectorProps) {
   const [open, setOpen] = useState(false)
@@ -420,207 +339,15 @@ export function ProviderSelector({ value, onValueChange, connectedProviders, cla
                 </>
               )}
 
-              {/* Model List View */}
-              {view === 'models' && selectedProvider && (
-                <>
-                  {/* Back to providers */}
-                  <button
-                    onClick={handleBackToProviders}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all hover:bg-[rgb(var(--eleva-muted))] text-[12px]"
-                    style={{ color: 'rgb(var(--eleva-muted-fg))' }}
-                  >
-                    <ChevronDown className="w-3 h-3 rotate-90" strokeWidth={1.5} />
-                    All providers
-                  </button>
-
-                  {/* Auto within provider */}
-                  <button
-                    onClick={() => handleSelectModel('', true)}
-                    className="w-full flex items-start gap-3 px-3 py-3 rounded-xl text-left transition-all hover:bg-[rgb(var(--eleva-muted))]"
-                    style={{
-                      background: selection.mode === 'provider-auto' && selection.provider === selectedProvider ? 'rgba(var(--eleva-primary), 0.06)' : 'transparent',
-                      boxShadow: selection.mode === 'provider-auto' && selection.provider === selectedProvider ? '0 0 0 1px rgba(var(--eleva-primary), 0.25)' : 'none',
-                    }}
-                  >
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                      {(() => { const I = PROVIDER_ICONS[selectedProvider] ?? Sparkles; return <I className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />; })()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[14px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>Auto</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(var(--eleva-primary), 0.12)', color: 'rgb(var(--eleva-primary))' }}>
-                          Provider Auto
-                        </span>
-                      </div>
-                      <p className="text-[12px] mt-0.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                        Automatically tries models within {PROVIDER_DEFINITIONS.find(p => p.id === selectedProvider)?.name ?? selectedProvider}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1.5">
-                        {PROVIDER_DEFINITIONS.find(p => p.id === selectedProvider)?.modelChain.map(mid => {
-                          const def = PROVIDER_DEFINITIONS.find(p => p.id === selectedProvider)
-                          const md = def?.models.find(m => m.id === mid)
-                          return (
-                            <span key={mid} className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                              {md?.displayName ?? mid}
-                            </span>
-                          )
-                        })?.join(' → ').split(' → ').map((name, i, arr) => (
-                          <span key={i} className="flex items-center gap-1">
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>{name}</span>
-                            {i < arr.length - 1 && <span className="text-[9px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>→</span>}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {selection.mode === 'provider-auto' && selection.provider === selectedProvider && (
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-primary))' }}>
-                        <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Free models */}
-                  {filteredModels.free.length > 0 && (
-                    <>
-                      <div className="h-px mx-3" style={{ background: 'rgb(var(--eleva-border))' }} />
-                      <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                        Free
-                      </div>
-                      {filteredModels.free.map(model => {
-                        const isSelected = selection.mode === 'manual' && selection.provider === selectedProvider && selection.modelId === model.id
-                        const quality = FREE_MODEL_QUALITY[model.id]
-                        const useCases = USE_CASES[model.id]
-                        return (
-                          <button
-                            key={model.id}
-                            onClick={() => handleSelectModel(model.id, false)}
-                            className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-[rgb(var(--eleva-muted))]"
-                            style={{
-                              background: isSelected ? 'rgba(var(--eleva-primary), 0.06)' : 'transparent',
-                              boxShadow: isSelected ? '0 0 0 1px rgba(var(--eleva-primary), 0.25)' : 'none',
-                            }}
-                          >
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-[15px]" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                              <Brain className="w-4 h-4" style={{ color: 'rgb(var(--eleva-primary))' }} strokeWidth={1.75} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[14px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{model.displayName}</span>
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'rgba(var(--eleva-success), 0.12)', color: 'rgb(var(--eleva-success))' }}>
-                                  FREE
-                                </span>
-                              </div>
-                              {quality && (
-                                <div className="flex items-center gap-3 mt-1">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Quality</span>
-                                    <StarRating value={quality.quality} size={10} />
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Speed</span>
-                                    <StarRating value={quality.speed} size={10} />
-                                  </div>
-                                  <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                                    {(model.maxContext / 1000).toFixed(0)}K ctx
-                                  </span>
-                                </div>
-                              )}
-                              {useCases && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {useCases.map(u => (
-                                    <span key={u} className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                                      {u}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-primary))' }}>
-                                <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                              </div>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </>
-                  )}
-
-                  {/* Paid models */}
-                  {filteredModels.paid.length > 0 && (
-                    <>
-                      <div className="h-px mx-3" style={{ background: 'rgb(var(--eleva-border))' }} />
-                      <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                        Paid
-                      </div>
-                      {filteredModels.paid.map(model => {
-                        const isSelected = selection.mode === 'manual' && selection.provider === selectedProvider && selection.modelId === model.id
-                        const quality = FREE_MODEL_QUALITY[model.id]
-                        const useCases = USE_CASES[model.id]
-                        return (
-                          <button
-                            key={model.id}
-                            onClick={() => handleSelectModel(model.id, false)}
-                            className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:bg-[rgb(var(--eleva-muted))]"
-                            style={{
-                              background: isSelected ? 'rgba(var(--eleva-primary), 0.06)' : 'transparent',
-                              boxShadow: isSelected ? '0 0 0 1px rgba(var(--eleva-primary), 0.25)' : 'none',
-                            }}
-                          >
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-[15px]" style={{ background: 'rgb(var(--eleva-muted))' }}>
-                              <Brain className="w-4 h-4" style={{ color: 'rgb(var(--eleva-secondary))' }} strokeWidth={1.75} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[14px] font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>{model.displayName}</span>
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'rgba(var(--eleva-secondary), 0.12)', color: 'rgb(var(--eleva-secondary))' }}>
-                                  $ Paid
-                                </span>
-                              </div>
-                              {quality && (
-                                <div className="flex items-center gap-3 mt-1">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Quality</span>
-                                    <StarRating value={quality.quality} size={10} />
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Speed</span>
-                                    <StarRating value={quality.speed} size={10} />
-                                  </div>
-                                  <span className="text-[10px] font-mono" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                                    {(model.maxContext / 1000).toFixed(0)}K ctx
-                                  </span>
-                                </div>
-                              )}
-                              {useCases && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {useCases.map(u => (
-                                    <span key={u} className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
-                                      {u}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: 'rgb(var(--eleva-primary))' }}>
-                                <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                              </div>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </>
-                  )}
-
-                  {/* Empty state */}
-                  {filteredModels.free.length === 0 && filteredModels.paid.length === 0 && (
-                    <div className="text-center py-8 text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
-                      No models match &ldquo;{search}&rdquo;
-                    </div>
-                  )}
-                </>
-              )}
+              <ProviderModelList
+                view={view}
+                selectedProvider={selectedProvider}
+                selection={selection}
+                filteredModels={filteredModels}
+                search={search}
+                onBack={handleBackToProviders}
+                onSelectModel={handleSelectModel}
+              />
 
               {/* Global search results (across providers) */}
               {view === 'providers' && search && globalSearchResults.length > 0 && (

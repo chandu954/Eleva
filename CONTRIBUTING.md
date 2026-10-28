@@ -100,6 +100,20 @@ routing, signed-out redirects, login rendering, and the health endpoint. Do not
 add specs that require live Supabase, Stripe, Redis, or LLM accounts; mock the
 boundary or keep the assertion at the public-contract level.
 
+#### Performance budgets
+
+CI runs Lighthouse against the public Eleva entry page and login page with a
+90 performance score floor, LCP below 2.5 seconds, and CLS below 0.1. A route
+bundle check also measures gzip-compressed first-load JavaScript and CSS from
+the App Router manifest:
+
+- `/resumes/[id]`: at most 500 KiB
+- `/home` and `/eleva/resumes`: at most 400 KiB each
+
+After a production build, run `pnpm check:bundles` to check these caps locally.
+The resume editor keeps its PDF viewer in an on-demand client chunk; PDF
+generation and downloads run through authenticated server routes.
+
 #### Infrastructure checks
 
 Terraform changes must pass the same gates CI runs:

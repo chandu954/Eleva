@@ -9,8 +9,7 @@ import {
 import { Download, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Resume, WorkExperience, Education, Project } from "@/lib/types";
-import { pdf } from '@react-pdf/renderer';
-import { ResumePDFDocument } from "../preview/resume-pdf-document";
+import { downloadResumePdf } from '@/lib/resume/download-pdf';
 
 interface ResumeContextMenuProps {
   children: React.ReactNode;
@@ -20,15 +19,7 @@ interface ResumeContextMenuProps {
 export function ResumeContextMenu({ children, resume }: ResumeContextMenuProps) {
   const handleDownloadPDF = async () => {
     try {
-      const blob = await pdf(<ResumePDFDocument resume={resume} />).toBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${resume.first_name}_${resume.last_name}_Resume.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      await downloadResumePdf(resume.id, `${resume.first_name}_${resume.last_name}_Resume.pdf`);
       toast({
         title: "Download started",
         description: "Your resume PDF is being downloaded.",
@@ -178,4 +169,4 @@ export function ResumeContextMenu({ children, resume }: ResumeContextMenuProps) 
       </ContextMenuContent>
     </ContextMenu>
   );
-} 
+}

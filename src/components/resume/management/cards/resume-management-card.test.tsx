@@ -82,8 +82,8 @@ vi.mock("@/utils/actions/jobs/ai", () => ({
   formatJobListing: vi.fn(),
 }));
 
-vi.mock("react-pdftotext", () => ({
-  default: vi.fn(),
+vi.mock("@/lib/pdf/extract-text", () => ({
+  extractPdfText: vi.fn(),
 }));
 
 import { ResumeManagementCard } from "./resume-management-card";

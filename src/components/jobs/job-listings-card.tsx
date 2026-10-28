@@ -151,7 +151,7 @@ export function JobListingsCard() {
               <div className="relative group">
                 <Select
                   value={workLocation}
-                  onValueChange={(value: WorkLocationType) => setWorkLocation(value)}
+                  onValueChange={(value: WorkLocationType) => { setWorkLocation(value); setCurrentPage(1); }}
                 >
                   <SelectTrigger className="w-full sm:w-[180px] bg-white/80 backdrop-blur-xl border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-teal-200">
                     <MapPin className="w-4 h-4 mr-2 text-teal-500" />
@@ -169,7 +169,7 @@ export function JobListingsCard() {
               <div className="relative group">
                 <Select
                   value={employmentType}
-                  onValueChange={(value: EmploymentType) => setEmploymentType(value)}
+                  onValueChange={(value: EmploymentType) => { setEmploymentType(value); setCurrentPage(1); }}
                 >
                   <SelectTrigger className="w-full sm:w-[180px] bg-white/80 backdrop-blur-xl border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:border-purple-200">
                     <Briefcase className="w-4 h-4 mr-2 text-purple-500" />
@@ -302,7 +302,7 @@ export function JobListingsCard() {
             <Button
               variant="outline"
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || isLoading}
+              disabled={currentPage >= totalPages || isLoading}
               className="bg-white/70 border-white/40 hover:bg-white/80 hover:border-purple-200 transition-all duration-300 disabled:opacity-50 px-6"
             >
               Next

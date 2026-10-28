@@ -26,8 +26,13 @@ vi.mock('framer-motion', async () => {
 });
 
 const searchParams = vi.hoisted(() => ({ get: vi.fn() }));
+const coverLetterActions = vi.hoisted(() => ({
+  saveCoverLetter: vi.fn(async () => ({ id: 'saved-letter' })),
+  updateCoverLetter: vi.fn(async () => ({ id: 'saved-letter' })),
+}));
 
 vi.mock('next/navigation', () => ({ useSearchParams: () => searchParams }));
+vi.mock('../_lib/actions', () => coverLetterActions);
 
 vi.mock('../_components/workspace-shell', async () => {
   const React = await import('react');
@@ -144,6 +149,8 @@ function renderPage() {
 }
 
 beforeEach(() => {
+  coverLetterActions.saveCoverLetter.mockClear();
+  coverLetterActions.updateCoverLetter.mockClear();
   searchParams.get.mockReset();
   searchParams.get.mockReturnValue(null);
   supabaseState.rows = [];
@@ -362,11 +369,11 @@ describe('CoverLetterPage — generation', () => {
     await chooseInputs(user);
     await waitFor(() => expect(screen.getAllByText(/Toggle me\./).length).toBeGreaterThan(0));
 
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
-
     await user.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(screen.getByRole('button', { name: 'Preview' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Cover letter draft' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    expect(screen.queryByRole('textbox', { name: 'Cover letter draft' })).not.toBeInTheDocument();
   });
 
   it('copies the letter and resets the copied label after the timeout', async () => {

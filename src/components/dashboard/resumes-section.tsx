@@ -1,25 +1,19 @@
 'use client';
 
-import { Trash2, Copy, FileText, Sparkles, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { FileText, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { MiniResumePreview } from '@/components/resume/shared/mini-resume-preview';
 import { CreateResumeDialog } from '@/components/resume/management/dialogs/create-resume-dialog';
 import { ResumeSortControls, type SortOption, type SortDirection } from '@/components/resume/management/resume-sort-controls';
 import type { Profile, ResumeSummary } from '@/lib/types';
 import { deleteResume, copyResume } from '@/utils/actions/resumes/actions';
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination';
+import { ResumeItemCard } from './resume-item-card';
+import type { OptimisticResume } from './resumes-section-types';
 import { useState, useOptimistic, useTransition } from 'react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import { toast } from 'sonner';
-
-// Extended Resume type for optimistic updates
-interface OptimisticResume extends ResumeSummary {
-  isOptimistic?: boolean;
-  originalId?: string;
-}
 
 interface ResumesSectionProps {
   type: 'base' | 'tailored';
@@ -183,6 +177,19 @@ export function ResumesSection({
     }));
   }
 
+  const renderResumeCard = (resume: OptimisticResume) => (
+    <ResumeItemCard
+      key={resume.id}
+      resume={resume}
+      type={type}
+      isDeleting={deletingResumes.has(resume.id)}
+      isCopying={copyingResumes.has(resume.originalId || resume.id)}
+      canCreateMore={canCreateMore}
+      onCopy={(item) => startTransition(async () => { await handleCopyResume(item); })}
+      onDelete={(id, name) => startTransition(async () => { await handleDeleteResume(id, name); })}
+    />
+  );
+
   // Create Resume Card Component
   const CreateResumeCard = () => (
     <CreateResumeDialog
@@ -324,178 +331,6 @@ export function ResumesSection({
     </Link>
   );
 
-  // Resume Card Component with optimistic states
-  const ResumeCard = ({ resume }: { resume: OptimisticResume }) => {
-    const isDeleting = deletingResumes.has(resume.id);
-    const isCopying = copyingResumes.has(resume.originalId || resume.id);
-
-    return (
-      <div className={cn(
-        "group relative transition-all duration-300",
-        isDeleting && "opacity-50 pointer-events-none",
-        resume.isOptimistic && "animate-in slide-in-from-top-1 duration-300"
-      )}>
-        <AlertDialog>
-          <div className="relative">
-            {/* Resume Preview - Conditional Link */}
-            {resume.isOptimistic ? (
-              // Not clickable during processing
-              <div className={cn(
-                "cursor-wait",
-                "relative"
-              )}>
-                <MiniResumePreview
-                  name={resume.name}
-                  type={type}
-                  target_role={resume.target_role}
-                  createdAt={resume.created_at}
-                  className={cn(
-                    "transition-all duration-300 opacity-60",
-                    "pointer-events-none"
-                  )}
-                />
-                {/* Loading Overlay */}
-                <div className="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                    <span className="text-xs font-medium text-blue-600">Copying...</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              // Normal clickable resume
-              <Link href={`/resumes/${resume.id}`}>
-                <MiniResumePreview
-                  name={resume.name}
-                  type={type}
-                  target_role={resume.target_role}
-                  createdAt={resume.created_at}
-                  className="hover:-translate-y-1 transition-transform duration-300"
-                />
-              </Link>
-            )}
-
-            {/* Action Buttons */}
-            {!resume.isOptimistic && (
-              <div className="absolute bottom-2 left-2 flex gap-2">
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    disabled={isDeleting}
-                    className={cn(
-                      "h-8 w-8 rounded-lg",
-                      "bg-rose-50/80 hover:bg-rose-100/80",
-                      "text-rose-600 hover:text-rose-700",
-                      "border border-rose-200/60",
-                      "shadow-sm",
-                      "transition-all duration-300",
-                      "hover:scale-105 hover:shadow-md",
-                      "hover:-translate-y-0.5",
-                      isDeleting && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                
-                {/* Copy Button - Check if can create more */}
-                {canCreateMore ? (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => {
-                      startTransition(async () => {
-                        await handleCopyResume(resume);
-                      });
-                    }}
-                    disabled={isDeleting || isCopying}
-                    className={cn(
-                      "h-8 w-8 rounded-lg",
-                      "bg-teal-50/80 hover:bg-teal-100/80",
-                      "text-teal-600 hover:text-teal-700",
-                      "border border-teal-200/60",
-                      "shadow-sm",
-                      "transition-all duration-300",
-                      "hover:scale-105 hover:shadow-md",
-                      "hover:-translate-y-0.5",
-                      (isDeleting || isCopying) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isCopying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                ) : (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className={cn(
-                          "h-8 w-8 rounded-lg",
-                          "bg-amber-50/80 hover:bg-amber-100/80",
-                          "text-amber-600 hover:text-amber-700",
-                          "border border-amber-200/60",
-                          "shadow-sm",
-                          "transition-all duration-300",
-                          "hover:scale-105 hover:shadow-md",
-                          "hover:-translate-y-0.5"
-                        )}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Upgrade Required</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          You&apos;ve reached the maximum number of {type} resumes allowed on the free plan. 
-                          Upgrade to Pro to create unlimited resumes and unlock additional features.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction asChild>
-                          <Link href="/subscription" className="bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:from-teal-700 hover:to-cyan-700">
-                            Upgrade to Pro
-                          </Link>
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-              </div>
-            )}
-          </div>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Resume</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to delete &quot;{resume.name}&quot;? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  startTransition(async () => {
-                    await handleDeleteResume(resume.id, resume.name);
-                  });
-                }}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  };
-
   return (
     <div className="relative ">
       <div className="flex flex-col gap-4 w-full">
@@ -609,7 +444,7 @@ export function ResumesSection({
                 <CarouselContent>
                   {paginatedResumes.map((resume) => (
                     <CarouselItem key={resume.id} className="basis-[85%] pl-4">
-                      <ResumeCard resume={resume} />
+                      {renderResumeCard(resume)}
                     </CarouselItem>
                   ))}
                 </CarouselContent>
@@ -630,9 +465,7 @@ export function ResumesSection({
             <LimitReachedCard />
           )}
 
-          {paginatedResumes.map((resume) => (
-            <ResumeCard key={resume.id} resume={resume} />
-          ))}
+          {paginatedResumes.map((resume) => renderResumeCard(resume))}
           {optimisticCopiedResumes.length === 0 && optimisticCopiedResumes.length + 1 < 4 && (
             <div className="col-span-2 md:col-span-1" />
           )}

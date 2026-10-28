@@ -233,6 +233,17 @@ export async function saveCoverLetter(row: { company: string; role: string; tone
   return data;
 }
 
+export async function updateCoverLetter(id: string, body: string) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from('cover_letters')
+    .update({ body })
+    .eq('id', id)
+    .eq('user_id', user.id);
+  if (error) throw new Error('Could not update cover letter');
+  return { id };
+}
+
 export async function listJobsForUser() {
   const { supabase, user } = await requireUser();
   const { data } = await supabase.from('jobs').select('*').eq('user_id', user.id).order('created_at', { ascending: false });

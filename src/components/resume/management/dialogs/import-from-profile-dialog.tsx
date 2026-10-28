@@ -109,7 +109,10 @@ export function ImportFromProfileDialog<T extends ImportItem>({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => {
+      setOpen(nextOpen);
+      if (!nextOpen) setSelectedItems([]);
+    }}>
       <DialogTrigger asChild>
         <Button 
           variant="outline" 
@@ -193,7 +196,10 @@ export function ImportFromProfileDialog<T extends ImportItem>({
         <DialogFooter className="mt-6">
           <Button
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setSelectedItems([]);
+            }}
             className="border-gray-200"
           >
             Cancel

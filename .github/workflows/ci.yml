@@ -50,6 +50,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Check dependency boundaries and cycles
+        run: pnpm check:architecture
+
+      - name: Enforce production source file size limit
+        run: pnpm check:source-loc
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -64,7 +70,7 @@ jobs:
   e2e:
     name: Playwright smoke tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -91,11 +97,37 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # playwright.config.ts forces dummy Supabase credentials and the mock AI
-      # provider, so the smoke suite needs no secrets and makes no outbound
-      # calls to application services.
+      # Public checks use the unreachable Supabase endpoint. Authenticated
+      # checks and the AI integration journey require dedicated test secrets.
       - name: Run smoke tests
         run: pnpm test:e2e
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_AI_TESTS: ${{ secrets.E2E_AI_TESTS }}
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Enforce route bundle budgets
+        run: pnpm check:bundles
+
+      - name: Lighthouse performance budgets
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          configPath: ./lighthouserc.json
+          runs: 1
+          uploadArtifacts: true
+        env:
+          PORT: 3000
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:9
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: e2e-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: e2e-service-role-key
+          AI_MOCK_PROVIDER: "true"
+          NEXT_TELEMETRY_DISABLED: "1"
 
       - name: Upload Playwright report
         if: failure()
@@ -262,20 +294,4 @@ jobs:
           framework: terraform
           quiet: true
           soft_fail: false
-
-      # Read-only plan. Requires provider credentials; skipped on forks and
-      # repositories that have not configured the secrets yet.
-      - name: Terraform plan (read-only)
-        working-directory: terraform/envs/production
-        env:
-          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
-          UPSTASH_EMAIL: ${{ secrets.UPSTASH_EMAIL }}
-          UPSTASH_API_KEY: ${{ secrets.UPSTASH_API_KEY }}
-        if: env.VERCEL_API_TOKEN != ''
-        run: |
-          terraform plan -refresh=false -input=false -lock=false \
-            -var="vercel_api_token=$VERCEL_API_TOKEN" \
-            -var="upstash_email=$UPSTASH_EMAIL" \
-            -var="upstash_api_key=$UPSTASH_API_KEY" \
-            -out=/tmp/eleva.tfplan
 

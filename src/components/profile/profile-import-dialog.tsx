@@ -4,7 +4,6 @@ import { useState } from 'react';
 import type { ChangeEvent, Dispatch, DragEvent, ReactNode, SetStateAction } from 'react';
 import { AlertTriangle, Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import pdfToText from 'react-pdftotext';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { ProUpgradeButton } from '@/components/settings/pro-upgrade-button';
 import { cn, withBasePath } from '@/lib/utils';
+import { extractPdfText } from '@/lib/pdf/extract-text';
 
 interface ProfileImportDialogProps {
   open: boolean;
@@ -90,7 +90,7 @@ export function ProfileImportDialog({
     }
 
     try {
-      const text = await pdfToText(pdfFile);
+      const text = await extractPdfText(pdfFile);
       appendExtractedText(text);
     } catch (error) {
       console.error('PDF processing error:', error);
@@ -106,7 +106,7 @@ export function ProfileImportDialog({
     if (!file || file.type !== 'application/pdf') return;
 
     try {
-      const text = await pdfToText(file);
+      const text = await extractPdfText(file);
       appendExtractedText(text);
     } catch (error) {
       console.error('PDF processing error:', error);

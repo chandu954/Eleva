@@ -1,0 +1,4 @@
+project_name     = "eleva-staging"
+production_branch = "staging"
+custom_domain     = "staging.example.com"
+redis_name        = "eleva-staging-rate-limiter"

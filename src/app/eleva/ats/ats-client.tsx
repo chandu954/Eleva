@@ -33,6 +33,8 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
   const [jd, setJd] = useState('');
   const [resumeId, setResumeId] = useState<string | undefined>(resumes.find((r) => r.is_base_resume)?.id ?? resumes[0]?.id);
   const [running, setRunning] = useState(false);
+  const [addingKeywords, setAddingKeywords] = useState<Set<string>>(new Set());
+  const [addedKeywords, setAddedKeywords] = useState<Set<string>>(new Set());
 
   const selected = useMemo(() => items.find((r) => r.id === selectedId) ?? items[0] ?? null, [items, selectedId]);
 
@@ -72,6 +74,30 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
     setItems((prev) => prev.filter((r) => r.id !== id));
     if (selectedId === id) setSelectedId(items[0]?.id ?? null);
     toast.success('Report deleted');
+  }
+
+  async function addKeyword(keyword: string) {
+    if (!resumeId || !selected) return;
+    setAddingKeywords((current) => new Set(current).add(keyword));
+    try {
+      const response = await fetch('/eleva/api/tool/ats/add-keyword', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resumeId, keyword }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not add keyword');
+      setAddedKeywords((current) => new Set(current).add(`${selected.id}:${keyword}`));
+      toast.success(result.alreadyPresent ? 'Keyword is already on your resume' : `Added ${keyword} to resume skills`);
+    } catch (error) {
+      toast.error('Could not add keyword', { description: (error as Error).message });
+    } finally {
+      setAddingKeywords((current) => {
+        const next = new Set(current);
+        next.delete(keyword);
+        return next;
+      });
+    }
   }
 
   return (
@@ -154,8 +180,8 @@ export function AtsClient({ reports, resumes }: { reports: AtsReport[]; resumes:
                   {selected.missing.slice(0, 6).map((kw) => (
                     <div key={kw} className="flex items-center justify-between py-1.5 px-2 rounded-md" style={{ background: 'rgb(var(--eleva-muted))' }}>
                       <span className="text-[12px] font-mono" style={{ color: 'rgb(var(--eleva-fg))' }}>{kw}</span>
-                      <button className="text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.12)', color: 'rgb(var(--eleva-primary))' }}>
-                        <Plus className="w-2.5 h-2.5" /> Add
+                      <button onClick={() => addKeyword(kw)} disabled={addingKeywords.has(kw) || addedKeywords.has(`${selected.id}:${kw}`)} className="text-[10px] font-medium px-2 py-0.5 rounded flex items-center gap-0.5 disabled:opacity-50" style={{ background: 'rgba(var(--eleva-primary-rgb), 0.12)', color: 'rgb(var(--eleva-primary))' }}>
+                        <Plus className="w-2.5 h-2.5" /> {addingKeywords.has(kw) ? 'Adding…' : addedKeywords.has(`${selected.id}:${kw}`) ? 'Added' : 'Add'}
                       </button>
                     </div>
                   ))}

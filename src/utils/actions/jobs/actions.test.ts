@@ -111,7 +111,7 @@ describe('job server actions', () => {
       }) as never,
     );
 
-    await expect(getJobListings({ page: 1, pageSize: 10 })).resolves.toMatchObject({ jobs: null, totalCount: 0, totalPages: 0 });
+    await expect(getJobListings({ page: 1, pageSize: 10 })).resolves.toMatchObject({ jobs: null, totalCount: 0, totalPages: 1 });
   });
 
   it('rejects unauthenticated and failed listings', async () => {

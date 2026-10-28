@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AIPrompt } from "../types";
 
@@ -318,7 +318,12 @@ describe("PromptPreview", () => {
     fireEvent.click(screen.getByRole("button", { name: /Run Prompt/ }));
     await screen.findByText("Ready output");
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: /Copy/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    vi.useRealTimers();
 
     expect(writeText).toHaveBeenCalledWith("Ready output");
     expect(toast.success).toHaveBeenCalledWith("Copied");

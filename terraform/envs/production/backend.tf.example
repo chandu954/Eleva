@@ -1,11 +1,3 @@
-# Copy to backend.tf to use remote state. Local state is the default.
-#
-# terraform {
-#   backend "s3" {
-#     bucket         = "eleva-terraform-state"
-#     key            = "production/terraform.tfstate"
-#     region         = "us-east-1"
-#     dynamodb_table = "eleva-terraform-locks"
-#     encrypt        = true
-#   }
-# }
+# The live backend configuration is in backend.tf. Supply account-specific
+# values with terraform init -backend-config; see terraform/README.md.
+# Terraform 1.10+ uses the S3 native lockfile instead of DynamoDB locking.

@@ -1,0 +1,127 @@
+name: Terraform apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Terraform workspace and GitHub deployment environment
+        type: choice
+        options: [staging, production]
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+      TF_VAR_vercel_api_token: ${{ secrets.VERCEL_API_TOKEN }}
+      TF_VAR_upstash_email: ${{ secrets.UPSTASH_EMAIL }}
+      TF_VAR_upstash_api_key: ${{ secrets.UPSTASH_API_KEY }}
+      TF_VAR_environment_variables: ${{ secrets.TF_ENVIRONMENT_VARIABLES_JSON }}
+      TF_VAR_project_name: ${{ vars.TF_PROJECT_NAME }}
+      TF_VAR_github_repository: ${{ vars.TF_GITHUB_REPOSITORY }}
+      TF_VAR_production_branch: ${{ vars.TF_PRODUCTION_BRANCH }}
+      TF_VAR_custom_domain: ${{ vars.TF_CUSTOM_DOMAIN }}
+      TF_VAR_vercel_team_id: ${{ vars.TF_VERCEL_TEAM_ID }}
+      TF_VAR_redis_name: ${{ vars.TF_REDIS_NAME }}
+      TF_VAR_redis_region: ${{ vars.TF_REDIS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - name: Require remote state configuration
+        run: |
+          test -n "$TF_STATE_BUCKET" && test -n "$TF_STATE_REGION"
+          test -n "$TF_VAR_environment_variables"
+          test -n "$TF_VAR_project_name" && test -n "$TF_VAR_github_repository"
+          test -n "$TF_VAR_production_branch" && test -n "$TF_VAR_redis_name"
+          test -n "$TF_VAR_redis_region"
+      - name: Initialize remote backend
+        working-directory: terraform/envs/production
+        run: >-
+          terraform init -input=false
+          -backend-config="bucket=$TF_STATE_BUCKET"
+          -backend-config="region=$TF_STATE_REGION"
+          -backend-config="key=terraform.tfstate"
+          -backend-config="workspace_key_prefix=eleva"
+          -backend-config="encrypt=true"
+          -backend-config="use_lockfile=true"
+      - name: Select isolated workspace
+        working-directory: terraform/envs/production
+        run: terraform workspace select "${{ inputs.environment }}" || terraform workspace new "${{ inputs.environment }}"
+      - name: Require environment configuration
+        run: |
+          test -n "$TF_VAR_environment_variables"
+          test -n "$TF_VAR_project_name" && test -n "$TF_VAR_github_repository"
+          test -n "$TF_VAR_production_branch" && test -n "$TF_VAR_redis_name"
+          test -n "$TF_VAR_redis_region"
+      - name: Create plan for review
+        working-directory: terraform/envs/production
+        shell: bash
+        run: |
+          set -o pipefail
+          terraform plan -no-color -input=false \
+            | tee /tmp/eleva-plan.txt
+          cat /tmp/eleva-plan.txt >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_STATE_REGION: ${{ vars.TF_STATE_REGION }}
+      TF_VAR_vercel_api_token: ${{ secrets.VERCEL_API_TOKEN }}
+      TF_VAR_upstash_email: ${{ secrets.UPSTASH_EMAIL }}
+      TF_VAR_upstash_api_key: ${{ secrets.UPSTASH_API_KEY }}
+      TF_VAR_environment_variables: ${{ secrets.TF_ENVIRONMENT_VARIABLES_JSON }}
+      TF_VAR_project_name: ${{ vars.TF_PROJECT_NAME }}
+      TF_VAR_github_repository: ${{ vars.TF_GITHUB_REPOSITORY }}
+      TF_VAR_production_branch: ${{ vars.TF_PRODUCTION_BRANCH }}
+      TF_VAR_custom_domain: ${{ vars.TF_CUSTOM_DOMAIN }}
+      TF_VAR_vercel_team_id: ${{ vars.TF_VERCEL_TEAM_ID }}
+      TF_VAR_redis_name: ${{ vars.TF_REDIS_NAME }}
+      TF_VAR_redis_region: ${{ vars.TF_REDIS_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - name: Initialize remote backend
+        working-directory: terraform/envs/production
+        run: >-
+          terraform init -input=false
+          -backend-config="bucket=$TF_STATE_BUCKET"
+          -backend-config="region=$TF_STATE_REGION"
+          -backend-config="key=terraform.tfstate"
+          -backend-config="workspace_key_prefix=eleva"
+          -backend-config="encrypt=true"
+          -backend-config="use_lockfile=true"
+      - name: Select isolated workspace
+        working-directory: terraform/envs/production
+        run: terraform workspace select "${{ inputs.environment }}"
+      - name: Require remote state configuration
+        run: |
+          test -n "$TF_STATE_BUCKET" && test -n "$TF_STATE_REGION"
+          test -n "$TF_VAR_environment_variables"
+      - name: Apply approved configuration
+        working-directory: terraform/envs/production
+        run: |
+          terraform plan -input=false -out=/tmp/eleva.tfplan
+          terraform apply -input=false /tmp/eleva.tfplan

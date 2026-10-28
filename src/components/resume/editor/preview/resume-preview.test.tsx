@@ -6,26 +6,14 @@ import type { Resume } from "@/lib/types";
 
 /* ── module mocks ──────────────────────────────────────────────────── */
 
-const { pdfMock, toBlobMock, createObjectURLMock, revokeObjectURLMock } = vi.hoisted(
+const { fetchMock, toBlobMock, createObjectURLMock, revokeObjectURLMock } = vi.hoisted(
   () => ({
-    pdfMock: vi.fn(),
+    fetchMock: vi.fn(),
     toBlobMock: vi.fn(),
     createObjectURLMock: vi.fn(),
     revokeObjectURLMock: vi.fn(),
   })
 );
-
-// @react-pdf/renderer needs a browser/canvas runtime that jsdom lacks. The
-// component only cares that pdf(element).toBlob() resolves to a Blob.
-vi.mock("@react-pdf/renderer", () => ({
-  pdf: pdfMock,
-}));
-
-vi.mock("./resume-pdf-document", () => ({
-  ResumePDFDocument: ({ variant }: { variant?: string }) => (
-    <div data-testid="resume-pdf-document" data-variant={variant} />
-  ),
-}));
 
 // react-pdf renders real pages through PDF.js; model the Document/Page
 // contract (file, load callback, page props) with light DOM stand-ins.
@@ -138,6 +126,7 @@ function renderPreview(resume: Resume, props: { variant?: "base" | "tailored"; c
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
+  vi.stubGlobal("fetch", fetchMock);
 
   // jsdom does not implement object URLs.
   Object.defineProperty(URL, "createObjectURL", {
@@ -152,7 +141,10 @@ beforeEach(() => {
   });
 
   toBlobMock.mockResolvedValue(new Blob(["%PDF-1.4"], { type: "application/pdf" }));
-  pdfMock.mockReturnValue({ toBlob: toBlobMock });
+  fetchMock.mockImplementation(async () => ({
+    ok: true,
+    blob: toBlobMock,
+  }));
   createObjectURLMock.mockReturnValue("blob:generated-pdf");
 });
 
@@ -171,7 +163,7 @@ describe("ResumePreview — PDF generation", () => {
 
     expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
     expect(screen.queryByTestId("pdf-document")).not.toBeInTheDocument();
-    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
     await act(async () => {
       resolveBlob(new Blob(["%PDF-1.4"], { type: "application/pdf" }));
@@ -185,17 +177,14 @@ describe("ResumePreview — PDF generation", () => {
     );
   });
 
-  it("renders the resume data and selected variant through the PDF document", async () => {
+  it("sends the current resume snapshot to the server renderer", async () => {
     const resume = makeResume("variant");
     renderPreview(resume, { variant: "tailored" });
 
     await screen.findByTestId("pdf-document");
 
-    const element = pdfMock.mock.calls[0][0] as {
-      props: { resume: Resume; variant?: string };
-    };
-    expect(element.props.resume).toBe(resume);
-    expect(element.props.variant).toBe("tailored");
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ resumeId: resume.id, resume });
   });
 
   it("reuses the cached PDF for the same resume content", async () => {
@@ -207,7 +196,7 @@ describe("ResumePreview — PDF generation", () => {
     renderPreview(resume);
     const document = await screen.findByTestId("pdf-document");
 
-    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(createObjectURLMock).toHaveBeenCalledTimes(1);
     expect(document).toHaveAttribute("data-file", "blob:generated-pdf");
   });
@@ -230,7 +219,7 @@ describe("ResumePreview — PDF generation", () => {
 
     rerender(<ResumePreview resume={second} variant="base" containerWidth={612} />);
 
-    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
       expect(screen.getByTestId("pdf-document")).toHaveAttribute(
         "data-file",
@@ -256,7 +245,7 @@ describe("ResumePreview — PDF generation", () => {
 
     rerender(<ResumePreview resume={resume} variant="tailored" containerWidth={612} />);
 
-    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() =>
       expect(screen.getByTestId("pdf-document")).toHaveAttribute(
         "data-file",
@@ -272,25 +261,25 @@ describe("ResumePreview — PDF generation", () => {
         "blob:base-pdf"
       )
     );
-    expect(pdfMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("shows a retryable error when PDF generation fails", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    toBlobMock.mockRejectedValueOnce(new Error("worker failed"));
+    fetchMock.mockRejectedValueOnce(new Error("server failed"));
 
     renderPreview(makeResume("generation-error"));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/couldn't generate the resume preview/i);
     expect(screen.queryByTestId("pdf-document")).not.toBeInTheDocument();
-    expect(pdfMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
 
     const document = await screen.findByTestId("pdf-document");
     expect(document).toHaveAttribute("data-file", "blob:generated-pdf");
-    expect(pdfMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     consoleError.mockRestore();
@@ -341,7 +330,7 @@ describe("ResumePreview — paged document", () => {
         ),
       { timeout: 2000 }
     );
-    expect(pdfMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("injects annotation styles and removes them on unmount", async () => {

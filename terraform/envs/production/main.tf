@@ -13,7 +13,7 @@ module "web" {
   framework         = "nextjs"
   git_repository    = var.github_repository
   production_branch = var.production_branch
-  custom_domain     = var.custom_domain
+  custom_domain     = var.custom_domain == "" ? null : var.custom_domain
 
   environment_variables = merge(
     var.environment_variables,

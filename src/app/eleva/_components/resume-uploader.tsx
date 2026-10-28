@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Loader2, FileText, X, Check, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createBrowserClient } from '@supabase/ssr';
-import pdfToText from 'react-pdftotext';
+import { extractPdfText } from '@/lib/pdf/extract-text';
 
 type Step = 'idle' | 'reading' | 'uploading' | 'extracting' | 'done' | 'error';
 
@@ -58,7 +58,7 @@ export function ResumeUploader({ onImported }: { onImported?: (resumeId: string)
     setStep('reading');
     setError(null);
     try {
-      const text = await pdfToText(f);
+      const text = await extractPdfText(f);
       if (controller.signal.aborted || !mountedRef.current) return;
       if (!text || text.length < 50) throw new Error('Could not extract text — PDF may be scanned/image-only.');
       setPreview(text.slice(0, 800));

@@ -5,12 +5,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion } from "@/components/ui/accordion";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Suspense, useRef } from "react";
+import dynamic from 'next/dynamic';
 import { cn } from "@/lib/utils";
 import { ResumeEditorActions } from "../actions/resume-editor-actions";
 import { TailoredJobAccordion } from "../../management/cards/tailored-job-card";
 import { BasicInfoForm } from "../forms/basic-info-form";
-import ChatBot from "../../assistant/chatbot";
-import { CoverLetterPanel } from "./cover-letter-panel";
+const ChatBot = dynamic(() => import("../../assistant/chatbot"), {
+  ssr: false,
+  loading: () => <div className="h-12 animate-pulse rounded-md bg-muted" aria-label="Loading assistant" />,
+});
+const CoverLetterPanel = dynamic(
+  () => import("./cover-letter-panel").then((module) => module.CoverLetterPanel),
+  { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading cover letter tools" /> },
+);
 import {
   WorkExperienceForm,
   EducationForm,
@@ -19,7 +26,10 @@ import {
   DocumentSettingsForm
 } from '../dynamic-components';
 import { ResumeEditorTabs } from "../header/resume-editor-tabs";
-import ResumeScorePanel from "./resume-score-panel";
+const ResumeScorePanel = dynamic(() => import("./resume-score-panel"), {
+  ssr: false,
+  loading: () => <div className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading resume score" />,
+});
 import { EditorPanelHeader } from "./editor-panel-header";
 
 

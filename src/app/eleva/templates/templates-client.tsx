@@ -18,6 +18,11 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
     try { return new Set(JSON.parse(localStorage.getItem('eleva.templateFavs') || '[]')); } catch { return new Set(); }
   });
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [appliedTemplates, setAppliedTemplates] = useState<Set<string>>(() => new Set(
+    resumes.flatMap((resume) => resume.document_settings?.template
+      ? [`${resume.id}:${resume.document_settings.template}`]
+      : []),
+  ));
 
   const filtered = useMemo(() => {
     return templates.filter((t) => {
@@ -43,6 +48,7 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
       const res = await fetch('/eleva/api/templates/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ templateId, resumeId }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || 'failed');
+      setAppliedTemplates((current) => new Set(current).add(`${resumeId}:${templateId}`));
       toast.success('Template applied', { description: 'Open the editor to see the new layout.' });
       setPreview(null);
     } catch (e) {
@@ -150,7 +156,7 @@ export function TemplatesClient({ templates, resumes }: { templates: ResumeTempl
                   ) : (
                     <div className="space-y-2 flex-1 overflow-auto max-h-72 pr-1">
                       {resumes.map((r) => {
-                        const applied = r.document_settings?.template === preview.id;
+                        const applied = appliedTemplates.has(`${r.id}:${preview.id}`);
                         return (
                           <div key={r.id} className="flex items-center gap-2 p-2 rounded-md" style={{ background: 'rgb(var(--eleva-muted))' }}>
                             <div className="flex-1 min-w-0">

@@ -3,12 +3,13 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Sparkles, Copy, RefreshCw, Loader2, FileText, Eye, Download, Edit3, User, Building2, Briefcase, Star, ShieldCheck, CheckCircle2, ListChecks } from 'lucide-react';
+import { Sparkles, Copy, RefreshCw, Loader2, FileText, Eye, Download, Edit3, User, Building2, Briefcase, Star, ShieldCheck, CheckCircle2, ListChecks, Save } from 'lucide-react';
 import { WorkspaceShell } from '../_components/workspace-shell';
 import { streamElevaText } from '../_lib/eleva-client';
 import { reportAiRun, reportAiDone } from '../_lib/ai-status';
 import { createBrowserClient } from '@supabase/ssr';
 import { toast } from 'sonner';
+import { saveCoverLetter, updateCoverLetter } from '../_lib/actions';
 
 const tones = [{ id: 'confident', label: 'Confident', icon: Star }, { id: 'friendly', label: 'Friendly', icon: User }, { id: 'technical', label: 'Technical', icon: Briefcase }, { id: 'concise', label: 'Concise', icon: Edit3 }, { id: 'warm', label: 'Warm', icon: Sparkles }];
 const lengths = ['Short', 'Medium', 'Long'];
@@ -34,7 +35,8 @@ export default function CoverLetterPage() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showDraft, setShowDraft] = useState(true);
-  const [_history, setHistory] = useState<SavedLetter[]>([]);
+  const [history, setHistory] = useState<SavedLetter[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [generated, setGenerated] = useState(false);
 
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
@@ -49,7 +51,7 @@ export default function CoverLetterPage() {
   useEffect(() => {
     const ch = supabase
       .channel('cover-letters-page')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cover_letters' }, (p) => setHistory((prev) => [p.new as SavedLetter, ...prev].slice(0, 20)))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cover_letters' }, (p) => setHistory((prev) => [p.new as SavedLetter, ...prev.filter((letter) => letter.id !== (p.new as SavedLetter).id)].slice(0, 20)))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cover_letters' }, (p) => setHistory((prev) => prev.filter((h) => h.id !== (p.old as SavedLetter).id)))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -60,6 +62,7 @@ export default function CoverLetterPage() {
     if (!company.trim() || !role.trim()) { toast.error('Company and role required'); return; }
     setBusy(true);
     setLetter('');
+    setSelectedHistoryId(null);
     let acc = '';
     const start = Date.now();
     reportAiRun('Writing cover letter', 'cover-letter');
@@ -72,7 +75,11 @@ export default function CoverLetterPage() {
         acc += chunk;
         setLetter(acc);
       }
+      const saved = await saveCoverLetter({ company: company.trim(), role: role.trim(), tone: tone.toLowerCase(), length: length.toLowerCase(), body: acc });
+      if (saved?.id) setSelectedHistoryId(saved.id);
+      await loadHistory();
       setGenerated(true);
+      toast.success('Cover letter saved to history');
     } catch { failed = true; }
     finally {
       setBusy(false);
@@ -86,6 +93,17 @@ export default function CoverLetterPage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const saveDraftChanges = async () => {
+    if (!selectedHistoryId || !letter.trim()) return;
+    try {
+      await updateCoverLetter(selectedHistoryId, letter);
+      await loadHistory();
+      toast.success('Cover letter changes saved');
+    } catch (error) {
+      toast.error('Could not save changes', { description: (error as Error).message });
+    }
+  };
+
   const canGenerate = company.trim() && role.trim() && !busy;
 
   return (
@@ -96,6 +114,32 @@ export default function CoverLetterPage() {
           <h1 className="font-display text-4xl font-semibold tracking-tighter" style={{ color: 'rgb(var(--eleva-fg))' }}>Write a cover letter that sounds like you.</h1>
           <p className="mt-2 text-[15px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Choose a tone, set your focus, and generate. Refine until it&apos;s perfect.</p>
         </motion.div>
+
+        {history.length > 0 && (
+          <section className="eleva-card p-4 mb-6" aria-labelledby="cover-letter-history-heading">
+            <div className="flex items-center justify-between mb-3">
+              <h2 id="cover-letter-history-heading" className="text-[12px] font-mono uppercase tracking-widest" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Recent cover letters</h2>
+              <span className="text-[11px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Select a saved draft to preview or edit</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {history.map((saved) => (
+                <button key={saved.id} onClick={() => {
+                  setSelectedHistoryId(saved.id);
+                  setCompany(saved.company);
+                  setRole(saved.role);
+                  setLetter(saved.body);
+                  setTone(saved.tone || 'confident');
+                  setLength(saved.length ? `${saved.length[0].toUpperCase()}${saved.length.slice(1)}` : 'Medium');
+                  setGenerated(true);
+                  setShowDraft(true);
+                }} className="min-w-48 max-w-64 text-left px-3 py-2 rounded-lg shrink-0 hover:ring-1 hover:ring-[rgb(var(--eleva-primary))]" style={{ background: 'rgb(var(--eleva-muted))' }}>
+                  <span className="block text-[12px] font-medium truncate" style={{ color: 'rgb(var(--eleva-fg))' }}>{saved.company} · {saved.role}</span>
+                  <span className="block text-[10px] mt-1" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>{new Date(saved.created_at).toLocaleDateString()}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Tone & Focus quick select */}
         <div className="flex items-center gap-2 mb-6 flex-wrap">
@@ -180,9 +224,14 @@ export default function CoverLetterPage() {
               <div className="ml-auto flex items-center gap-2">
                 {letter && (
                   <>
+                    {selectedHistoryId && !busy && (
+                      <button onClick={saveDraftChanges} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
+                        <Save className="w-3 h-3" /> Save changes
+                      </button>
+                    )}
                     <button onClick={() => setShowDraft(!showDraft)} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: 'rgb(var(--eleva-muted-fg))' }}>
                       {showDraft ? <Eye className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
-                      {showDraft ? 'Preview' : 'Edit'}
+                      {showDraft ? 'Edit' : 'Preview'}
                     </button>
                     <button onClick={copy} className="text-[11px] px-2 h-6 rounded-md inline-flex items-center gap-1" style={{ background: 'rgb(var(--eleva-muted))', color: copied ? 'rgb(var(--eleva-success))' : 'rgb(var(--eleva-muted-fg))' }}>
                       <Copy className="w-3 h-3" /> {copied ? 'Copied!' : 'Copy'}
@@ -213,10 +262,14 @@ export default function CoverLetterPage() {
                       <span className="text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>Eleva is drafting your letter…</span>
                     </div>
                   )}
-                  <div className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'rgb(var(--eleva-fg))' }}>
-                    {letter}
-                    {busy && <span className="inline-block w-1.5 h-3 -mb-0.5 ml-0.5 rounded-sm" style={{ background: 'rgb(var(--eleva-primary))', animation: 'eleva-blink 1s infinite' }} />}
-                  </div>
+                  {letter && !showDraft && !busy ? (
+                    <textarea aria-label="Cover letter draft" value={letter} onChange={(event) => setLetter(event.target.value)} className="min-h-[380px] w-full resize-y bg-transparent text-[13px] leading-relaxed outline-none" style={{ color: 'rgb(var(--eleva-fg))' }} />
+                  ) : (
+                    <div className="text-[13px] leading-relaxed whitespace-pre-wrap" style={{ color: 'rgb(var(--eleva-fg))' }}>
+                      {letter}
+                      {busy && <span className="inline-block w-1.5 h-3 -mb-0.5 ml-0.5 rounded-sm" style={{ background: 'rgb(var(--eleva-primary))', animation: 'eleva-blink 1s infinite' }} />}
+                    </div>
+                  )}
 
                   {generated && (
                     <>

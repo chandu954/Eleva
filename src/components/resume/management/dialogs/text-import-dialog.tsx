@@ -9,7 +9,7 @@ import { Resume } from "@/lib/types";
 
 import { toast } from "@/hooks/use-toast";
 import { addTextToResume } from "@/utils/actions/resumes/ai";
-import pdfToText from "react-pdftotext";
+import { extractPdfText } from "@/lib/pdf/extract-text";
 import { cn, withBasePath } from "@/lib/utils";
 import { ProUpgradeButton } from "@/components/settings/pro-upgrade-button";
 
@@ -56,7 +56,7 @@ export function TextImportDialog({
 
     if (pdfFile) {
       try {
-        const text = await pdfToText(pdfFile);
+        const text = await extractPdfText(pdfFile);
         setContent(prev => prev + (prev ? "\n\n" : "") + text);
       } catch (err) {
         console.error('PDF processing error:', err);
@@ -79,7 +79,7 @@ export function TextImportDialog({
     const file = e.target.files?.[0];
     if (file && file.type === "application/pdf") {
       try {
-        const text = await pdfToText(file);
+        const text = await extractPdfText(file);
         setContent(prev => prev + (prev ? "\n\n" : "") + text);
       } catch (err) {
         console.error('PDF processing error:', err);
@@ -249,4 +249,4 @@ export function TextImportDialog({
       </DialogContent>
     </Dialog>
   );
-} 
+}

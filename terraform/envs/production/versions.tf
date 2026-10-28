@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10.0"
 
   required_providers {
     vercel = {
@@ -15,7 +15,7 @@ terraform {
 
 provider "vercel" {
   api_token = var.vercel_api_token
-  team      = var.vercel_team_id
+  team      = var.vercel_team_id == "" ? null : var.vercel_team_id
 }
 
 provider "upstash" {

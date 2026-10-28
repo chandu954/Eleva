@@ -27,8 +27,8 @@ vi.mock('@/utils/actions/resumes/ai', () => ({
   convertTextToResume: convertTextToResumeMock,
 }));
 
-vi.mock('react-pdftotext', () => ({
-  default: pdfToTextMock,
+vi.mock('@/lib/pdf/extract-text', () => ({
+  extractPdfText: pdfToTextMock,
 }));
 
 vi.mock('@/components/ui/api-error-dialog', () => ({

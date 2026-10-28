@@ -6,92 +6,13 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { simplifiedResumeSchema, Job as ZodJob } from "@/lib/zod-schemas";
 import { AIConfig } from "@/utils/ai-tools";
-import { generateObject, type LanguageModelUsage, type LanguageModelV1, type TelemetrySettings } from "ai";
-import { resumeScoreSchema } from "@/lib/zod-schemas";
-import { getSubscriptionPlan } from "../stripe/actions";
-import { getSubscriptionAccessState } from "@/lib/subscription-access";
-import {
-  finishAIUsageRequest,
-  startAIUsageRequest,
-} from "@/lib/ai/usage-ledger";
-import { withTaskModel } from "@/lib/ai/task-models";
-import {
-  FREE_PLAN_RESUME_LIMITS,
-  getResumeLimitExceededMessage,
-  type ResumeLimitType,
-} from "@/lib/resume-limits";
 import { AnalyticsEvents } from "@/lib/analytics/events";
 import {
   captureServerAnalyticsEvent,
   getSubscriptionAnalyticsProperties,
 } from "@/lib/analytics/server";
-
-async function assertResumeQuota(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  type: ResumeLimitType
-) {
-  const { data: subscription, error: subscriptionError } = await supabase
-    .from('subscriptions')
-    .select('subscription_plan, subscription_status, current_period_end, trial_end, stripe_subscription_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (subscriptionError) {
-    throw new Error('Failed to validate subscription access');
-  }
-
-  const accessState = getSubscriptionAccessState(subscription);
-  if (accessState.hasProAccess) {
-    return;
-  }
-
-  const isBaseResume = type === 'base';
-  const { count, error: countError } = await supabase
-    .from('resumes')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('is_base_resume', isBaseResume);
-
-  if (countError) {
-    throw new Error('Failed to validate resume limits');
-  }
-
-  const limit = FREE_PLAN_RESUME_LIMITS[type];
-  if ((count ?? 0) >= limit) {
-    throw new Error(getResumeLimitExceededMessage(type));
-  }
-}
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-  },
-  task: (model: LanguageModelV1, telemetry: TelemetrySettings) => Promise<T>
-) {
-  const { model, usageEventId, telemetry } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model, telemetry);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
-
+import { assertResumeQuota } from "./resume-action-helpers";
+import { generateResumeScoreInternal } from "./resume-scoring";
 
 //  SUPABASE ACTIONS
 export async function getResumeById(resumeId: string): Promise<{ resume: Resume; profile: Profile; job: Job | null }> {
@@ -511,122 +432,9 @@ export async function countResumes(type: 'base' | 'tailored' | 'all'): Promise<n
 
 
 export async function generateResumeScore(
-  resume: Resume, 
+  resume: Resume,
   job?: ZodJob | null,
   config?: AIConfig
 ) {
-  
-
-  const { plan, id } = await getSubscriptionPlan(true);
-  const isPro = plan === 'pro';
-
-  const isTailoredResume = job && !resume.is_base_resume;
-
-  const resumeForScoring = {
-    target_role: resume.target_role,
-    is_base_resume: resume.is_base_resume,
-    contact: {
-      first_name: resume.first_name,
-      last_name: resume.last_name,
-      email: resume.email,
-      phone_number: resume.phone_number,
-      location: resume.location,
-      website: resume.website,
-      linkedin_url: resume.linkedin_url,
-      github_url: resume.github_url,
-    },
-    work_experience: resume.work_experience,
-    education: resume.education,
-    skills: resume.skills,
-    projects: resume.projects,
-  };
-
-  const jobForScoring = job
-    ? {
-        company_name: job.company_name,
-        position_title: job.position_title,
-        description: job.description,
-        location: job.location,
-        salary_range: job.salary_range,
-        keywords: job.keywords,
-        work_location: job.work_location,
-        employment_type: job.employment_type,
-      }
-    : null;
-
-  try {
-    let prompt = `
-    Generate a comprehensive score for this resume: ${JSON.stringify(resumeForScoring)}
-    
-    MUST include a 'miscellaneous' field with 2-3 metrics following this format:
-    {
-      "metricName": {
-        "score": number,
-        "reason": "string explanation"
-      }
-    }
-    Example: 
-    "keywordOptimization": {
-      "score": 85,
-      "reason": "Good use of industry keywords but could add more variation"
-    }
-    `;
-
-    // Enhanced prompt for tailored resumes with job context
-    if (isTailoredResume) {
-      prompt += `
-      
-      THIS IS A TAILORED RESUME FOR A SPECIFIC JOB. Job details: ${JSON.stringify(jobForScoring)}
-      
-      IMPORTANT: Since this is a tailored resume, you MUST include the 'jobAlignment' field with detailed analysis:
-      
-      1. KEYWORD MATCH ANALYSIS:
-         - Compare resume content with job description keywords
-         - Identify matched keywords and missing critical keywords
-         - Score based on keyword density and relevance
-      
-      2. REQUIREMENTS MATCH ANALYSIS:
-         - Analyze how well the resume addresses job requirements
-         - Identify which requirements are clearly addressed
-         - Highlight gaps where requirements aren't demonstrated
-      
-      3. COMPANY FIT ANALYSIS:
-         - Assess alignment with company culture/values (if mentioned in job description)
-         - Evaluate positioning for this specific role
-         - Suggest improvements for better company alignment
-      
-      ALSO INCLUDE:
-      - Set 'isTailoredResume' to true
-      - Provide 'jobSpecificImprovements' with 3-5 specific suggestions for this job
-      - Weight the overall score more heavily on job alignment factors
-      
-      Focus on actionable insights that help the candidate better align their resume with this specific opportunity.
-      `;
-    } else {
-      prompt += `
-      
-      This is a base resume (not tailored to a specific job).
-      - Set 'isTailoredResume' to false
-      - Do NOT include the 'jobAlignment' field
-      - Focus on general resume best practices and improvements
-      `;
-    }
-
-    const { object } = await runTrackedAIRequest({
-      route: 'actions.resumes.generateResumeScore',
-      userId: id,
-      isPro,
-      config: withTaskModel({ task: "resumeScoring", isPro, config }),
-    }, (aiClient, telemetry) => generateObject({
-      model: aiClient,
-      experimental_telemetry: telemetry,
-      schema: resumeScoreSchema,
-      prompt
-    }));
-
-    return object
-  } catch (error) {
-    console.error('Error SCORING resume:', error);
-    throw error;
-  }
+  return generateResumeScoreInternal(resume, job, config);
 }

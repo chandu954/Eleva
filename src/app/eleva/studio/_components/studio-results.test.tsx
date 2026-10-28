@@ -206,6 +206,33 @@ describe('TailoredResumePreview', () => {
 
     expect(screen.getByText('No tailored resume available yet.')).toBeInTheDocument();
   });
+
+  it('supports alternate resume fields and long-name role fallback', () => {
+    render(
+      <Tabs value="resume">
+        <TailoredResumePreview
+          tailoredResume={{
+            professional_summary: '',
+            skills: [{ category: 'Tools', items: ['Git', 'Linux'] }],
+            work_experience: [{ role: 'Developer', employer: 'Northwind', start_date: '2022', responsibilities: ['Built tools'] }],
+            projects: [{ name: 'Toolbox', description: ['First feature', '', 'Second feature'] }],
+            education: [{ institution: 'City College' }],
+          }}
+          extractData={{ ...extractData, company: '' }}
+          summary={null}
+          resumes={[{ id: 'r-long', name: 'A very long imported resume name that exceeds forty chars', target_role: null, is_base_resume: true }]}
+          resumeId="r-long"
+        />
+      </Tabs>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Frontend Engineer' })).toBeInTheDocument();
+    expect(screen.getByText('Git, Linux')).toBeInTheDocument();
+    expect(screen.getByText('Developer')).toBeInTheDocument();
+    expect(screen.getByText('at Northwind')).toBeInTheDocument();
+    expect(screen.getByText('First feature')).toBeInTheDocument();
+    expect(screen.getByText('City College')).toBeInTheDocument();
+  });
 });
 
 describe('StudioChangesTab', () => {
@@ -245,5 +272,52 @@ describe('StudioChangesTab', () => {
     );
 
     expect(screen.getByText('No changes to display.')).toBeInTheDocument();
+  });
+
+  it('renders low scores, failed quality checks, and empty review lists', () => {
+    const lowSummary: StudioPipelineSummary = {
+      ...summary,
+      overall: 55,
+      matched: 0,
+      keywordsAdded: 0,
+      bulletsRewritten: 0,
+      sectionsModified: 0,
+      isLowCompat: false,
+      sectionConfidence: undefined,
+      sectionChanges: undefined,
+      quality: { passed: false, issues: ['Repeated phrase'], score: 65 },
+      review: {
+        ...summary.review!,
+        wouldInterview: false,
+        strengths: [],
+        weaknesses: [],
+        genericAreas: [],
+      },
+      plan: {
+        ...summary.plan!,
+        rewriteSummary: false,
+        rewriteExperience: false,
+        rewriteSkills: false,
+        rewriteProjects: false,
+      },
+    };
+    render(
+      <Tabs value="changes">
+        <StudioChangesTab
+          tailoredResume={tailoredResume}
+          summary={lowSummary}
+          extractData={null}
+          scoreData={null}
+          rescoreData={{ ...score, missing: ['SQL'] }}
+          stepTimings={{}}
+        />
+      </Tabs>,
+    );
+
+    expect(screen.getByText('Quality Issues Found')).toBeInTheDocument();
+    expect(screen.getByText('Repeated phrase')).toBeInTheDocument();
+    expect(screen.getByText(/Would not interview/)).toBeInTheDocument();
+    expect(screen.getByText('Missing Keywords After Optimization')).toBeInTheDocument();
+    expect(screen.getAllByText('Kept')).toHaveLength(4);
   });
 });

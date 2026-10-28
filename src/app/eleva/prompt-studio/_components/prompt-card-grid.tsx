@@ -66,7 +66,7 @@ export function PromptCardGrid({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
               whileHover={{ y: -3 }}
-              className="group relative rounded-xl p-5 cursor-pointer border transition-all"
+                className="group relative rounded-xl p-5 cursor-pointer border transition-all focus-within:ring-2 focus-within:ring-[rgb(var(--eleva-primary))]"
               style={{
                 background: 'rgb(var(--eleva-card))',
                 borderColor: 'rgb(var(--eleva-border))',
@@ -94,6 +94,8 @@ export function PromptCardGrid({
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleFavorite(prompt.id); }}
                     className="p-1.5 rounded-md hover:bg-[rgb(var(--eleva-muted))]"
+                    aria-label={favorites.has(prompt.id) ? `Remove ${prompt.title} from favorites` : `Add ${prompt.title} to favorites`}
+                    title={favorites.has(prompt.id) ? 'Remove from favorites' : 'Add to favorites'}
                   >
                     <Star
                       className="w-3.5 h-3.5"
@@ -106,6 +108,7 @@ export function PromptCardGrid({
                   <button
                     onClick={(e) => { e.stopPropagation(); onDuplicate(prompt.id); }}
                     className="p-1.5 rounded-md hover:bg-[rgb(var(--eleva-muted))]"
+                    aria-label={`Duplicate ${prompt.title}`}
                   >
                     <Copy className="w-3.5 h-3.5" style={{ color: 'rgb(var(--eleva-muted-fg))' }} />
                   </button>

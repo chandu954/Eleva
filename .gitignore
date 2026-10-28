@@ -141,4 +141,6 @@ crash.log
 crash.*.log
 !.terraform.lock.hcl
 terraform/envs/*/terraform.tfvars
+terraform/envs/*/staging.tfvars
+terraform/envs/*/production.tfvars
 !terraform/envs/*/terraform.tfvars.example

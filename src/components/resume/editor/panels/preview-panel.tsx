@@ -3,7 +3,7 @@
 import { Resume } from "@/lib/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { ResumePreview } from "../preview/resume-preview";
+import { LazyResumePreview } from "../preview/lazy-resume-preview";
 import CoverLetter from "@/components/cover-letter/cover-letter";
 import { ResumeContextMenu } from "../preview/resume-context-menu";
 
@@ -28,7 +28,7 @@ export function PreviewPanel({
     )}>
       <div className="">
       <ResumeContextMenu resume={resume}>
-          <ResumePreview resume={resume} containerWidth={width} />
+          <LazyResumePreview resume={resume} width={width} />
         </ResumeContextMenu>
       </div>
 

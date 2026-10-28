@@ -63,7 +63,9 @@ export function PromptStudioClient({
   const filteredPrompts = useMemo(() => {
     let result = prompts;
     if (selectedCategory) {
-      result = result.filter((p) => p.category?.slug === selectedCategory);
+      result = selectedCategory === '__favorites__'
+        ? result.filter((p) => favorites.has(p.id))
+        : result.filter((p) => p.category?.slug === selectedCategory);
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -76,7 +78,7 @@ export function PromptStudioClient({
       );
     }
     return result;
-  }, [prompts, selectedCategory, searchQuery]);
+  }, [prompts, selectedCategory, searchQuery, favorites]);
 
   const favoritesList = useMemo(
     () => prompts.filter((p) => favorites.has(p.id)),
@@ -109,16 +111,21 @@ export function PromptStudioClient({
   type ActionResult<T = unknown> = { error: string } | { data: T } | { success: boolean } | { favorited: boolean };
 
   const handleToggleFavorite = useCallback(async (promptId: string) => {
-    const res: ActionResult<{ favorited: boolean }> = await actions.toggleFavorite(promptId);
-    if ('error' in res) { toast.error(res.error); return; }
-    const favorited = 'favorited' in res ? res.favorited : false;
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (favorited) next.add(promptId);
-      else next.delete(promptId);
-      return next;
-    });
-    toast.success(favorited ? 'Added to favorites' : 'Removed from favorites');
+    try {
+      const res: ActionResult<{ favorited: boolean }> = await actions.toggleFavorite(promptId);
+      if ('error' in res) { toast.error(res.error); return; }
+      if (!('favorited' in res)) { toast.error('Could not update favorite'); return; }
+      const favorited = res.favorited;
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (favorited) next.add(promptId);
+        else next.delete(promptId);
+        return next;
+      });
+      toast.success(favorited ? 'Added to favorites' : 'Removed from favorites');
+    } catch {
+      toast.error('Could not update favorite');
+    }
   }, []);
 
   const handleSavePrompt = useCallback(async (promptId: string, data: Record<string, unknown>) => {
