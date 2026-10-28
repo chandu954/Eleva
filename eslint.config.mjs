@@ -26,14 +26,19 @@ const eslintConfig = [
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    files: ["src/app/eleva/**/*.ts", "src/app/eleva/**/*.tsx"],
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/**/*.test.{ts,tsx}",
+      "src/**/*.spec.{ts,tsx}",
+      "src/**/*.e2e.{ts,tsx}",
+      "src/test/**",
+      "src/**/*.d.ts",
+      "src/**/*.generated.{ts,tsx}",
+      "src/**/*.gen.{ts,tsx}",
+    ],
     rules: {
-      // Enforcement point for the any-cleanup sweep. Warn was landed as
-      // commit 8145528 with the inventory (103 warnings across 14 files,
-      // plus two prompt-studio files hiding behind file-level disables);
-      // the per-area elimination commits brought it to zero and removed the
-      // disables, so this block is now enforced as error. The prompt-studio
-      // block below additionally keeps its stricter plain no-unused-vars.
+      // Keep production TypeScript free of explicit `any`. Tests, generated
+      // files, and test support are excluded so their fixtures stay practical.
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
@@ -41,7 +46,6 @@ const eslintConfig = [
   {
     files: ["src/app/eleva/prompt-studio/**/*.ts", "src/app/eleva/prompt-studio/**/*.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": "error",
     },
   },
