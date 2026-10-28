@@ -15,7 +15,8 @@ async function walk(directory) {
       continue;
     }
     if (!entry.isFile() || !sourceExtensions.has(path.extname(file))) continue;
-    if (file.includes(' 2.') || file.endsWith('.d.ts')) continue;
+    if (file.endsWith('.d.ts')) continue;
+    if (path.relative(root, file).split(path.sep)[0] === 'test') continue;
     const lines = (await readFile(file, 'utf8')).split(/\r?\n/).length - 1;
     const relativeFile = path.relative(process.cwd(), file);
     if (/\.(test|spec)\.[^.]+$/.test(file)) {
