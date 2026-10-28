@@ -291,6 +291,10 @@ jobs:
         working-directory: terraform/envs/production
         run: terraform validate
 
+      - name: Terraform mocked production plan
+        working-directory: terraform/envs/production
+        run: terraform test -no-color
+
       - name: Set up TFLint
         uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4
         with:

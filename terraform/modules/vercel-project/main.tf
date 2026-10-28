@@ -25,13 +25,15 @@ resource "vercel_project" "this" {
 }
 
 resource "vercel_project_environment_variable" "this" {
-  for_each = var.environment_variables
+  # Only environment variable names become instance keys. The values remain
+  # sensitive and are read from the original map below.
+  for_each = toset(nonsensitive(keys(var.environment_variables)))
 
   project_id = vercel_project.this.id
   key        = each.key
-  value      = each.value.value
+  value      = var.environment_variables[each.key].value
   target     = ["production"]
-  sensitive  = each.value.sensitive
+  sensitive  = var.environment_variables[each.key].sensitive
 }
 
 resource "vercel_project_domain" "this" {

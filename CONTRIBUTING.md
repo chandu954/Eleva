@@ -126,15 +126,18 @@ terraform fmt -check -recursive terraform
 cd terraform/envs/production
 terraform init -backend=false
 terraform validate
+terraform test -no-color
 tflint --init --config="$(git rev-parse --show-toplevel)/.tflint.hcl"
 tflint --recursive --config="$(git rev-parse --show-toplevel)/.tflint.hcl"
 uvx --from checkov checkov -d terraform --framework terraform
 ```
 
 Never commit `terraform.tfvars`, state, or plan files (`.gitignore` covers
-them); `terraform.tfvars.example` documents the expected inputs. A real
-`terraform plan` needs provider credentials and is gated in CI behind the
-`VERCEL_API_TOKEN`/`UPSTASH_*` secrets.
+them); `terraform.tfvars.example` documents the expected inputs. The PR job
+runs a mock-provider plan without credentials or creating infrastructure.
+Repository administrators should require the `Terraform validation` status
+check in branch protection. A real credentialed plan/apply remains gated by
+the `VERCEL_API_TOKEN`/`UPSTASH_*` secrets.
 
 ### Dependency & Audit Policy
 
