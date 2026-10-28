@@ -152,11 +152,17 @@ export default defineConfig({
       // functions / 75.35 lines. Global floors now ratchet to 75/85/80/75.
       // src/lib measured 89.12 / 84.62 / 84.82 / 89.12, so its branch floor
       // remains 83 until it clears 85; its other floors remain unchanged.
+      // 2026-10-28 applications rollback regression coverage added assertions
+      // for server-save failures, failed status moves and failed favorite
+      // updates. Full-suite lcov measured 75.2438 statements/lines, 85.0693
+      // branches and 82.5793 functions. Ratchet statement/line floors to
+      // 75.2 and functions to 82.5; keep branches at 85 because its measured
+      // headroom is only 0.07 points.
       thresholds: {
-        statements: 75.0,
+        statements: 75.2,
         branches: 85.0,
-        functions: 80.0,
-        lines: 75.0,
+        functions: 82.5,
+        lines: 75.2,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).

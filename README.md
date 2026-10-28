@@ -53,7 +53,7 @@ flowchart TD
 - ✅ Health Endpoint — `GET /api/health` (database + env checks)
 - ✅ Audit Logging — `activity_log` for key user actions
 - ✅ Startup Env Validation — fails fast on missing configuration
-- ✅ Tests — Vitest behavior tests with a 75/85/80/75 global coverage ratchet, axe checks, and Playwright smoke tests
+- ✅ Tests — Vitest behavior tests with a 75.2/85/82.5/75.2 global coverage ratchet, axe checks, and Playwright smoke tests
 - ✅ CI/CD — lint, architecture, source-size, test, coverage, browser, Lighthouse, bundle, dependency, Helm, and Terraform checks
 - ✅ Security — CodeQL, full-history gitleaks scanning, SPDX SBOM artifacts, and a documented threat model
 - ✅ Infrastructure as Code — Terraform modules for Vercel and Upstash Redis with plan/policy scanning
@@ -101,8 +101,8 @@ pnpm check:dead-code   # Enforce the current production file/dependency debt cei
 pnpm check:duplication # Block clones that are absent from the checked-in baseline
 ```
 
-The global coverage floors are 75% statements, 85% branches, 80% functions,
-and 75% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
+The global coverage floors are 75.2% statements, 85% branches, 82.5% functions,
+and 75.2% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
 The CI quality job also checks dependency cycles, the production source-size
 limit, unused production files/dependencies against a fixed issue ceiling, and
 new production-code clones against the checked-in jscpd baseline.
