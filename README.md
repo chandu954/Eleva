@@ -125,11 +125,13 @@ configured, with landing and editor visual snapshots. Lighthouse budgets
 (500 KiB for `/resumes/[id]`, 400 KiB for `/home` and `/eleva/resumes`).
 
 Separate CodeQL and security workflows scan code and repository history and
-upload an SPDX source SBOM. Terraform apply and drift workflows use protected
-GitHub environments and an S3 remote state backend; enabling them requires the
-bucket, environment variables, and cloud/provider secrets described in
-[terraform/README.md](terraform/README.md). Conventions and the coverage-ratchet
-rule live in [CONTRIBUTING.md](CONTRIBUTING.md).
+upload an SPDX source SBOM. Every GitHub Action reference is pinned to a full
+commit SHA with its release tag noted in the workflow. Terraform apply and
+drift workflows use protected GitHub environments and an S3 remote state
+backend; enabling them requires the bucket, environment variables, and
+cloud/provider secrets described in [terraform/README.md](terraform/README.md).
+Conventions and the coverage-ratchet rule live in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Database Setup
 
