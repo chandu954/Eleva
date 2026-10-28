@@ -53,8 +53,9 @@ flowchart TD
 - ✅ Health Endpoint — `GET /api/health` (database + env checks)
 - ✅ Audit Logging — `activity_log` for key user actions
 - ✅ Startup Env Validation — fails fast on missing configuration
-- ✅ Tests — Vitest unit/component suites with a coverage ratchet + Playwright smoke tests
-- ✅ CI/CD — quality, e2e, audit, Helm/Kubernetes, and Terraform gates + Docker/Helm publish
+- ✅ Tests — Vitest behavior tests with a 75/85/80/75 global coverage ratchet, axe checks, and Playwright smoke tests
+- ✅ CI/CD — lint, architecture, source-size, test, coverage, browser, Lighthouse, bundle, dependency, Helm, and Terraform checks
+- ✅ Security — CodeQL, full-history gitleaks scanning, SPDX SBOM artifacts, and a documented threat model
 - ✅ Infrastructure as Code — Terraform modules for Vercel and Upstash Redis with plan/policy scanning
 - ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
 
@@ -94,7 +95,14 @@ pnpm test       # Vitest unit/component suite (jsdom, Testing Library)
 pnpm coverage   # Tests + enforced coverage thresholds (ratchet policy)
 pnpm test:e2e   # Playwright smoke tests (Chromium)
 pnpm build      # Next.js production build
+pnpm check:source-loc  # Enforce the 500 LOC production TypeScript file limit
+pnpm check:bundles     # Check compressed route bundles after a production build
 ```
+
+The global coverage floors are 75% statements, 85% branches, 80% functions,
+and 75% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
+The CI quality job also checks dependency cycles and the production source-size
+limit.
 
 The unit suite runs fully offline: AI calls use the deterministic mock
 provider and Supabase/PostgREST access is stubbed under `src/test/`. The
@@ -106,9 +114,19 @@ CI (`.github/workflows/ci.yml`) runs five jobs on every PR and push to `main`:
 **quality** (lint, typecheck, unit tests, coverage thresholds), **e2e**
 (Playwright smoke suite), **audit** (`pnpm audit --audit-level=high` with
 documented exemptions), **infrastructure** (Helm lint, rendered-manifest
-validation, Checkov), and **terraform** (fmt, validate, TFLint, Checkov, and
-an optional read-only plan). Conventions and the coverage-ratchet rule live in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+validation, Hadolint, and advisory Checkov findings), and **terraform** (fmt,
+validate, TFLint, and blocking Checkov). E2E also checks axe violations on
+public pages and authenticated dashboard/editor pages when credentials are
+configured, with landing and editor visual snapshots. Lighthouse budgets
+(performance ≥90, LCP <2.5s, CLS <0.1), and compressed first-load bundles
+(500 KiB for `/resumes/[id]`, 400 KiB for `/home` and `/eleva/resumes`).
+
+Separate CodeQL and security workflows scan code and repository history and
+upload an SPDX source SBOM. Terraform apply and drift workflows use protected
+GitHub environments and an S3 remote state backend; enabling them requires the
+bucket, environment variables, and cloud/provider secrets described in
+[terraform/README.md](terraform/README.md). Conventions and the coverage-ratchet
+rule live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Database Setup
 
@@ -267,7 +285,10 @@ See [SECURITY.md](SECURITY.md) for the security model, supported versions, and
 private vulnerability reporting. In short: never commit `.env*` values, all
 user data is scoped by Supabase RLS, Stripe webhooks verify signatures, and CI
 blocks high/critical dependency advisories plus credential-shaped strings in
-tracked files.
+tracked files. The repository also runs CodeQL and gitleaks, uploads an SPDX
+SBOM, and documents trust boundaries and residual risks in the
+[threat model](docs/security/threat-model.md). Docker uses a digest-pinned Node
+base image; advance it through reviewed Dependabot updates.
 
 ## Roadmap
 
