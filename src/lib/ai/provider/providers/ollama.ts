@@ -1,7 +1,7 @@
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
-import { normalizeError } from '../errors';
+import { AI_PROVIDER_TIMEOUT_MS, normalizeError } from '../errors';
 
 const BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
 
@@ -35,6 +35,7 @@ async function ollamaGenerate(
       },
       stream: false,
     }),
+    signal: AbortSignal.timeout(AI_PROVIDER_TIMEOUT_MS),
   });
 
   if (!res.ok) {

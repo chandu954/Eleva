@@ -75,6 +75,14 @@ describe('normalizeError — message-driven mapping', () => {
     expect(normalized.message).toMatch(/timed out/);
   });
 
+  it('maps AbortSignal timeout errors to the configured provider timeout', () => {
+    const timeout = Object.assign(new Error('The operation was aborted due to timeout'), { name: 'TimeoutError' });
+    const normalized = normalizeError('anthropic', timeout);
+    expect(normalized).toBeInstanceOf(TimeoutError);
+    expect(normalized.message).toContain('120000ms');
+    expect(normalized.retryable).toBe(true);
+  });
+
   it('maps connection errors (ECONNREFUSED/ENOTFOUND) to NetworkError', () => {
     expect(normalizeError('ollama', new Error('connect ECONNREFUSED 127.0.0.1:11434'))).toBeInstanceOf(NetworkError);
     expect(normalizeError('openrouter', new Error('getaddrinfo ENOTFOUND openrouter.ai'))).toBeInstanceOf(NetworkError);

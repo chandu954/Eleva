@@ -1,7 +1,7 @@
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
-import { normalizeError } from '../errors';
+import { AI_PROVIDER_TIMEOUT_MS, normalizeError } from '../errors';
 
 const KV_KEY = 'GEMINI_API_KEY';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -38,6 +38,7 @@ async function geminiRequest(
         maxOutputTokens: maxTokens,
       },
     }),
+    signal: AbortSignal.timeout(AI_PROVIDER_TIMEOUT_MS),
   });
 
   if (!res.ok) {

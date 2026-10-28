@@ -1,7 +1,7 @@
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
-import { normalizeError, AuthenticationError } from '../errors';
+import { AI_PROVIDER_TIMEOUT_MS, normalizeError, AuthenticationError } from '../errors';
 
 const KV_KEY = 'ANTHROPIC_API_KEY';
 const BASE_URL = 'https://api.anthropic.com/v1';
@@ -44,6 +44,7 @@ async function anthropicCompletion(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(AI_PROVIDER_TIMEOUT_MS),
   });
 
   if (!res.ok) {

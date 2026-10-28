@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
-import { normalizeError, ProviderBusyError } from '../errors';
+import { AI_PROVIDER_TIMEOUT_MS, normalizeError, ProviderBusyError } from '../errors';
 
 const KV_KEY = 'OPENROUTER_API_KEY';
 const BASE_URL = 'https://openrouter.ai/api/v1';
@@ -13,6 +13,7 @@ function getClient(): OpenAI {
   return new OpenAI({
     baseURL: BASE_URL,
     apiKey: key,
+    timeout: AI_PROVIDER_TIMEOUT_MS,
     defaultHeaders: {
       'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://eleva.app',
       'X-Title': 'Eleva',

@@ -1,3 +1,5 @@
+export const AI_PROVIDER_TIMEOUT_MS = 120_000;
+
 export class ProviderError extends Error {
   constructor(
     message: string,
@@ -34,7 +36,7 @@ export class ProviderInternalError extends ProviderError {
 }
 
 export class TimeoutError extends ProviderError {
-  constructor(provider: string, timeoutMs: number) {
+  constructor(provider: string, timeoutMs: number = AI_PROVIDER_TIMEOUT_MS) {
     super(`Provider ${provider} timed out after ${timeoutMs}ms`, provider, undefined, true);
     this.name = 'TimeoutError';
   }
@@ -66,7 +68,10 @@ export function normalizeError(provider: string, err: unknown): ProviderError {
   if (statusCode === 401 || statusCode === 403) return new AuthenticationError(provider);
   if (statusCode && statusCode >= 500) return new ProviderInternalError(provider);
 
-  if (message.toLowerCase().includes('timeout')) return new TimeoutError(provider, 30000);
+  if (
+    message.toLowerCase().includes('timeout') ||
+    (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError'))
+  ) return new TimeoutError(provider);
   if (message.toLowerCase().includes('network') || message.toLowerCase().includes('econnrefused') || message.toLowerCase().includes('enotfound')) {
     return new NetworkError(provider);
   }

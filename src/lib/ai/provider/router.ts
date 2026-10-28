@@ -12,6 +12,7 @@ import type {
 import { MODELS, AUTO_MODE_CHAINS, getModelsForProvider } from './models';
 import { getProvider, isProviderAvailable } from './factory';
 import { getMaxRetries, runWithRetry, shouldRetryError, shouldRetryResult } from './retry';
+import { withProviderCircuitBreaker } from './circuit-breaker';
 import { logger } from '@/lib/logger';
 
 const metrics: ProviderMetrics[] = [];
@@ -108,21 +109,25 @@ export async function routeGenerateText(
 
   try {
     const maxRetries = getMaxRetries();
-    const { value: result, retries } = await runWithRetry({
-      run: () => provider.generateText(params, model),
-      isRetryableResult: shouldRetryResult,
-      isRetryableError: shouldRetryError,
-      maxRetries,
-      onRetry: (attempt, reason) => {
-        logger.warn('ai.router.retry', {
-          task,
-          attempt,
-          maxRetries,
-          reason,
-          operation: 'generateText',
-        });
-      },
-    });
+    const { value: result, retries } = await withProviderCircuitBreaker(
+      cfg.selectedProvider,
+      () => runWithRetry({
+        run: () => provider.generateText(params, model),
+        isRetryableResult: shouldRetryResult,
+        isRetryableError: shouldRetryError,
+        maxRetries,
+        onRetry: (attempt, reason) => {
+          logger.warn('ai.router.retry', {
+            task,
+            attempt,
+            maxRetries,
+            reason,
+            operation: 'generateText',
+          });
+        },
+      }),
+      ({ value }) => value.success,
+    );
     const latency = Math.round(performance.now() - start);
 
     const trace: PipelineTraceStep = {
@@ -164,7 +169,11 @@ export async function routeGenerateText(
         const fbProviderImpl = getProvider(fbProvider);
         if (!fbProviderImpl) continue;
         try {
-          const fbResult = await fbProviderImpl.generateText(params, fbModel);
+          const fbResult = await withProviderCircuitBreaker(
+            fbProvider,
+            () => fbProviderImpl.generateText(params, fbModel),
+            (result) => result.success,
+          );
           const fbLatency = Math.round(performance.now() - start);
           return {
             ...fbResult, provider: fbProvider, model: fbModelId,
@@ -224,21 +233,25 @@ export async function routeObject(
 
   try {
     const maxRetries = getMaxRetries();
-    const { value: result, retries } = await runWithRetry({
-      run: () => provider.generateObject(params, model),
-      isRetryableResult: shouldRetryResult,
-      isRetryableError: shouldRetryError,
-      maxRetries,
-      onRetry: (attempt, reason) => {
-        logger.warn('ai.router.retry', {
-          task,
-          attempt,
-          maxRetries,
-          reason,
-          operation: 'generateObject',
-        });
-      },
-    });
+    const { value: result, retries } = await withProviderCircuitBreaker(
+      cfg.selectedProvider,
+      () => runWithRetry({
+        run: () => provider.generateObject(params, model),
+        isRetryableResult: shouldRetryResult,
+        isRetryableError: shouldRetryError,
+        maxRetries,
+        onRetry: (attempt, reason) => {
+          logger.warn('ai.router.retry', {
+            task,
+            attempt,
+            maxRetries,
+            reason,
+            operation: 'generateObject',
+          });
+        },
+      }),
+      ({ value }) => value.success,
+    );
     const latency = Math.round(performance.now() - start);
 
     const trace: PipelineTraceStep = {
@@ -275,7 +288,11 @@ export async function routeObject(
         const fbProviderImpl = getProvider(fbProvider);
         if (!fbProviderImpl) continue;
         try {
-          const fbResult = await fbProviderImpl.generateObject(params, fbModel);
+          const fbResult = await withProviderCircuitBreaker(
+            fbProvider,
+            () => fbProviderImpl.generateObject(params, fbModel),
+            (result) => result.success,
+          );
           const fbLatency = Math.round(performance.now() - start);
           return {
             ...fbResult, provider: fbProvider, model: fbModelId,

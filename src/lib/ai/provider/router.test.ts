@@ -20,6 +20,7 @@ vi.mock('./retry', () => ({
 }));
 
 import { getMetrics, routeGenerateText, routeObject } from './router';
+import { resetProviderCircuitBreakers } from './circuit-breaker';
 import type { AIProviderResult, ProviderConfig } from './types';
 
 const config: ProviderConfig = {
@@ -48,6 +49,7 @@ function provider(result: AIProviderResult) {
 
 describe('AI provider router', () => {
   beforeEach(() => {
+    resetProviderCircuitBreakers();
     state.available = new Set(['openai', 'anthropic', 'gemini']);
     state.providers.clear();
     state.providers.set('openai', provider(success()));
@@ -94,6 +96,21 @@ describe('AI provider router', () => {
     const result = await routeObject('resume-rewrite', { prompt: 'extract' } as never, config);
     expect(result).toMatchObject({ success: false, error: 'provider offline', finishReason: 'error', data: null });
     expect(result.trace?.success).toBe(false);
+  });
+
+  it('opens the provider circuit after repeated failed results and skips later dispatch', async () => {
+    const unavailable = provider({ ...success(), success: false, error: 'provider unavailable' });
+    state.providers.set('openai', unavailable);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await routeGenerateText('resume-rewrite', { prompt: 'rewrite' }, config);
+    }
+    const failedCalls = unavailable.generateText.mock.calls.length;
+    const result = await routeGenerateText('resume-rewrite', { prompt: 'rewrite again' }, config);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/circuit is open/);
+    expect(unavailable.generateText).toHaveBeenCalledTimes(failedCalls);
   });
 
   it('uses the auto model when configured and provider results without usage get zero metric tokens', async () => {

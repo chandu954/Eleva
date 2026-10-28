@@ -6,7 +6,7 @@ import type { AIProvider } from '../base';
 import type { ModelConfig } from '../models';
 import type { ProviderId } from '../types';
 import { getModelsForProvider } from '../models';
-import { ProviderBusyError } from '../errors';
+import { AI_PROVIDER_TIMEOUT_MS, ProviderBusyError } from '../errors';
 import { anthropicProvider } from './anthropic';
 import { geminiProvider } from './gemini';
 import { nvidiaProvider } from './nvidia';
@@ -26,18 +26,19 @@ const CREDENTIAL_VARS = [
  * the globally stubbed fetch in this version, so the transport itself is
  * replaced with a module-shaped fake: zero network, controllable responses.
  */
-const { completionsState, createCalls } = vi.hoisted(() => ({
+const { completionsState, createCalls, clientOptions } = vi.hoisted(() => ({
   completionsState: {
     impl: async (): Promise<Record<string, unknown>> => {
       throw new Error('no SDK completion stubbed for this test');
     },
   },
   createCalls: [] as unknown[],
+  clientOptions: [] as unknown[],
 }));
 
 vi.mock('openai', () => ({
   default: class FakeOpenAI {
-    constructor(_options?: unknown) { void _options; }
+    constructor(options?: unknown) { clientOptions.push(options); }
     chat = {
       completions: {
         create: async (args: unknown) => {
@@ -186,6 +187,7 @@ function cleanupNetworkStubs() {
   vi.unstubAllGlobals();
   for (const key of CREDENTIAL_VARS) delete process.env[key];
   createCalls.length = 0;
+  clientOptions.length = 0;
 }
 
 const ANTHROPIC_MESSAGES = {
@@ -220,6 +222,8 @@ describe('success-path contracts — anthropic (direct fetch, stubbed)', () => {
     expect(result.finishReason).toBe('stop');
     expect(result.usage).toEqual({ promptTokens: 11, completionTokens: 7, totalTokens: 18 });
     expect(result.model).toBe(modelFor('anthropic').id);
+    expect(((fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[1] as RequestInit).signal)
+      .toBeInstanceOf(AbortSignal);
     // Requests went to the Anthropic endpoints, nowhere else.
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0]).toMatch(/api\.anthropic\.com\/v1\/messages/);
@@ -368,6 +372,7 @@ describe('success-path contracts — SDK-based providers (module-fake transport)
     const success = await openAIProvider.generateText({ prompt: 'rewrite this' }, modelFor('openai'));
 
     expect(success.success).toBe(true);
+    expect(clientOptions.at(-1)).toMatchObject({ timeout: AI_PROVIDER_TIMEOUT_MS });
     expect(success.data).toBe('Hello, world');
     expect(success.finishReason).toBe('length');
     expect(success.usage).toEqual({ promptTokens: 9, completionTokens: 4, totalTokens: 13 });
@@ -499,6 +504,7 @@ describe('live provider transport contracts — message building & transport err
     expect(result.success).toBe(true);
     const [url, init] = (fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]!;
     expect(url).toContain('key=test-key');
+    expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
     const body = JSON.parse((init as { body: string }).body) as { contents: Array<{ role: string; parts: Array<{ text: string }> }> };
     expect(body.contents[0]?.parts[0]?.text).toContain('[System Instructions]');
     expect(body.contents[1]).toEqual({ role: 'model', parts: [{ text: 'previous model turn' }] });
@@ -532,6 +538,7 @@ describe('live provider transport contracts — message building & transport err
       { role: 'user', content: 'hi' },
       { role: 'user', content: 'tail prompt' },
     ]);
+    expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
     expect(body.options.num_predict ?? 0).toBeGreaterThan(0);
   });
 
