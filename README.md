@@ -55,7 +55,7 @@ flowchart TD
 - ✅ Startup Env Validation — fails fast on missing configuration
 - ✅ Tests — Vitest behavior tests with a 75.2/85/82.5/75.2 global coverage ratchet, axe checks, and Playwright smoke tests
 - ✅ CI/CD — lint, architecture, source-size, test, coverage, browser, Lighthouse, bundle, dependency, Helm, and Terraform checks
-- ✅ Security — CodeQL, full-history gitleaks scanning, SPDX SBOM artifacts, and a documented threat model
+- ✅ Security — CodeQL, full-history gitleaks scanning, SPDX SBOM artifacts, OpenSSF Scorecard, image vulnerability scans, and a documented threat model
 - ✅ Infrastructure as Code — Terraform modules for Vercel and Upstash Redis with plan/policy scanning
 - ✅ Deployment — Vercel, multi-stage Docker image, Helm charts
 
@@ -127,8 +127,9 @@ configured, with landing and editor visual snapshots. Lighthouse budgets
 (performance ≥90, LCP <2.5s, CLS <0.1), and compressed first-load bundles
 (500 KiB for `/resumes/[id]`, 400 KiB for `/home` and `/eleva/resumes`).
 
-Separate CodeQL and security workflows scan code and repository history and
-upload an SPDX source SBOM. Every GitHub Action reference is pinned to a full
+Separate CodeQL, security, and Scorecard workflows scan code, image, and
+repository posture and upload an SPDX source SBOM. Docker publishing scans
+each platform image digest and emits BuildKit provenance. Every GitHub Action reference is pinned to a full
 commit SHA with its release tag noted in the workflow. Terraform apply and
 drift workflows use protected GitHub environments and an S3 remote state
 backend; enabling them requires the bucket, environment variables, and
