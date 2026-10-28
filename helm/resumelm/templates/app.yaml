@@ -7,7 +7,9 @@ metadata:
     {{- include "resumelm.labels" . | nindent 4 }}
     app.kubernetes.io/component: app
 spec:
-  replicas: 1
+  {{- if not .Values.app.autoscaling.enabled }}
+  replicas: {{ .Values.app.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "resumelm.selectorLabels" . | nindent 6 }}
@@ -18,6 +20,8 @@ spec:
         {{- include "resumelm.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: app
     spec:
+      securityContext:
+        {{- toYaml .Values.app.podSecurityContext | nindent 8 }}
       {{- include "resumelm.imagePullSecrets" . | nindent 6 }}
       {{- include "resumelm.nodeSelector" . | nindent 6 }}
       {{- include "resumelm.affinity" . | nindent 6 }}
@@ -25,6 +29,8 @@ spec:
         - name: app
           image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
           imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.app.containerSecurityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: 3000
@@ -143,6 +149,46 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.app.resources | nindent 12 }}
+{{- if .Values.app.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "resumelm.fullname" . }}-app
+  labels:
+    {{- include "resumelm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "resumelm.fullname" . }}-app
+  minReplicas: {{ .Values.app.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.app.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.app.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- if .Values.app.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "resumelm.fullname" . }}-app
+  labels:
+    {{- include "resumelm.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  minAvailable: {{ .Values.app.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "resumelm.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+{{- end }}
 ---
 apiVersion: v1
 kind: Service

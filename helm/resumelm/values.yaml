@@ -390,6 +390,25 @@ redisCommander:
 # =============================================================================
 app:
   enabled: true
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    capabilities:
+      drop: [ALL]
   image:
     repository: ghcr.io/chandu954/eleva
     # Pin to a published immutable commit tag; update with each application release.
