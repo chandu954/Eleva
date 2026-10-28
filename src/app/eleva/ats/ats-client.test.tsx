@@ -193,6 +193,43 @@ describe('AtsClient', () => {
     expect(screen.getByRole('link', { name: /Open Editor/ })).toHaveAttribute('href', '/eleva/editor');
   });
 
+  it('adds a missing keyword to the selected resume and prevents duplicate adds', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, alreadyPresent: false }),
+    });
+    render(<AtsClient reports={reports} resumes={resumes} />);
+
+    const addButtons = screen.getAllByRole('button', { name: 'Add' });
+    await user.click(addButtons[0]);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/eleva/api/tool/ats/add-keyword', expect.objectContaining({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resumeId: 'resume-1', keyword: 'GraphQL' }),
+    })));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Added GraphQL to resume skills'));
+    expect(screen.getByRole('button', { name: 'Added' })).toBeDisabled();
+  });
+
+  it('shows a safe error when adding a keyword fails', async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'Resume not found' }),
+    });
+    render(<AtsClient reports={reports} resumes={resumes} />);
+
+    await user.click(screen.getAllByRole('button', { name: 'Add' })[0]);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Could not add keyword', {
+      description: 'Resume not found',
+    }));
+    expect(screen.getAllByRole('button', { name: 'Add' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Add' }).every((button) => !button.hasAttribute('disabled'))).toBe(true);
+  });
+
   it('switches reports with clicks and keyboard activation', async () => {
     const user = userEvent.setup();
     render(<AtsClient reports={reports} resumes={resumes} />);
