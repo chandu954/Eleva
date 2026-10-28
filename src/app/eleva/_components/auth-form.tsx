@@ -255,7 +255,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
             <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
-              <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>or</span>
+              <span className="text-[10px] font-mono uppercase" style={{ color: '#334155' }}>or</span>
               <div className="flex-1 h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
             </div>
 
@@ -315,7 +315,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
                     type="button"
                     onClick={() => setShowPw(!showPw)}
                     className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: 'rgb(var(--eleva-muted-fg))' }}
+                    style={{ color: '#334155' }}
                     aria-label={showPw ? 'Hide password' : 'Show password'}
                     tabIndex={-1}
                   >
@@ -339,7 +339,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               </button>
             </form>
 
-            <div className="mt-6 text-center text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            <div className="mt-6 text-center text-[13px]" style={{ color: '#334155' }}>
               {isLogin ? (
                 <>New to Eleva? <Link href="/eleva/auth/signup" className="font-medium transition-colors" style={{ color: authLinkColor }}>Create an account</Link></>
               ) : (
