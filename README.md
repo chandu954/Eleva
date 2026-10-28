@@ -94,6 +94,7 @@ pnpm typecheck  # tsc --noEmit (strict mode)
 pnpm test       # Vitest unit/component suite (jsdom, Testing Library)
 pnpm coverage   # Tests + enforced coverage thresholds (ratchet policy)
 pnpm test:e2e   # Playwright smoke tests (Chromium)
+pnpm test:mutation # Manual Stryker run for pipeline/cache and rate-limit code
 pnpm build      # Next.js production build
 pnpm check:source-loc  # Enforce the 500 LOC production TypeScript file limit
 pnpm check:bundles     # Check compressed route bundles after a production build
@@ -106,6 +107,8 @@ and 75.2% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
 The CI quality job also checks dependency cycles, the production source-size
 limit, unused production files/dependencies against a fixed issue ceiling, and
 new production-code clones against the checked-in jscpd baseline.
+The manual targeted mutation baseline is 73.71%; its scope and limitations are
+recorded in [the mutation-testing notes](docs/testing/mutation-testing.md).
 
 The unit suite runs fully offline: AI calls use the deterministic mock
 provider and Supabase/PostgREST access is stubbed under `src/test/`. The

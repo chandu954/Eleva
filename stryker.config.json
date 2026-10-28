@@ -1,0 +1,21 @@
+{
+  "$schema": "https://stryker-mutator.io/schema/stryker.schema.json",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts",
+    "pool": "forks",
+    "related": true
+  },
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "mutate": [
+    "src/app/eleva/api/studio/pipeline/cache.ts",
+    "src/app/eleva/api/studio/pipeline/helpers.ts",
+    "src/lib/rateLimiter.ts"
+  ],
+  "reporters": ["clear-text", "progress", "html", "json"],
+  "coverageAnalysis": "perTest",
+  "ignoreStatic": true,
+  "concurrency": 4,
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true
+}

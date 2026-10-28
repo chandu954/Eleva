@@ -21,6 +21,8 @@ node_modules/
 /playwright-report
 /test-results
 /blob-report
+/.stryker-tmp/
+/reports/mutation/
 
 # Next.js
 /.next/
