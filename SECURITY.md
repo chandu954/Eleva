@@ -70,5 +70,9 @@ backported only when a supported release line exists.
   retries instead of the handler reporting a client signature error.
 - **Dependencies** — `pnpm audit --audit-level=high` runs in CI; accepted
   advisories are documented in `pnpm-workspace.yaml` with removal criteria.
+  CI also publishes an SPDX source SBOM artifact, and the Docker base image is
+  pinned by multi-platform digest. Review
+  [`docs/security/threat-model.md`](docs/security/threat-model.md) for assets,
+  trust boundaries, abuse cases, and residual risks.
 - **Infrastructure** — Terraform state and `terraform.tfvars` are never
   committed; CI runs TFLint and Checkov policy scans on infrastructure changes.

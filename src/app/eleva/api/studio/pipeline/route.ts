@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
         emit('step', { step: 'extract', status: 'running' });
 
         // 1) In-memory cache (fast)
-        const memCached = getCachedExtract(jobDescription);
+        const memCached = await getCachedExtract(jobDescription);
 
         // 2) Supabase cache (shared across instances / deployments)
         const dbCached = !memCached ? await getCachedExtractFromDb(supabase, jobDescription) : null;
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
             900, 0.3,
             () => localExtractFallback(jobDescription),
           ).then(async (data) => {
-            setCachedExtract(jobDescription, data);
+            await setCachedExtract(jobDescription, data);
             try { await setCachedExtractInDb(supabase, jobDescription, data); } catch { /* noop */ }
             return data;
           }),
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
 
         /* ─── Step 2: Score resume vs JD ─── */
         emit('step', { step: 'score', status: 'running' });
-        const cachedScore = getCachedScore(resumeText, jobDescription);
+        const cachedScore = await getCachedScore(resumeText, jobDescription, uid);
         const score = cachedScore ?? await withStepTimeout(
           generateObjectWithFallback(
             ScoreSchema,
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
             buildScoreUserPrompt(resumeText, jobDescription),
             1600, 0.3,
             () => scoreResumeLocally(resumeText, jobDescription),
-          ).then((data) => { setCachedScore(resumeText, jobDescription, data); return data; }),
+          ).then(async (data) => { await setCachedScore(resumeText, jobDescription, data, uid); return data; }),
           'score', emit,
         ).catch((e) => { throw Object.assign(e instanceof Error ? e : new Error(String(e)), { _step: 'score', _hasStep: true }); });
         emit('step', { step: 'score', status: 'done', data: score });
@@ -345,7 +345,7 @@ export async function POST(req: NextRequest) {
 
         /* ─── Step 4: Re-score after tailoring ─── */
         emit('step', { step: 'rescore', status: 'running' });
-        const cachedRescore = getCachedScore(rewrittenTail, jobDescription);
+        const cachedRescore = await getCachedScore(rewrittenTail, jobDescription, uid);
         const rescores = cachedRescore ?? await withStepTimeout(
           generateObjectWithFallback(
             ScoreSchema,
@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
             buildRescoreUserPrompt(rewrittenTail, jobDescription, score.overall),
             1600, 0.3,
             () => scoreResumeLocally(rewrittenTail, jobDescription),
-          ).then((data) => { setCachedScore(rewrittenTail, jobDescription, data); return data; }),
+          ).then(async (data) => { await setCachedScore(rewrittenTail, jobDescription, data, uid); return data; }),
           'rescore', emit,
         ).catch((e) => { throw Object.assign(e instanceof Error ? e : new Error(String(e)), { _step: 'rescore', _hasStep: true }); });
         emit('step', { step: 'rescore', status: 'done', data: { ...rescores, previous_overall: score.overall } });

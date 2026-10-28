@@ -349,7 +349,7 @@ redis:
     url: ""
   image:
     repository: redis
-    tag: "7-alpine"
+    tag: "7.4.12-alpine"
     pullPolicy: IfNotPresent
   resources:
     limits:
@@ -391,9 +391,9 @@ redisCommander:
 app:
   enabled: true
   image:
-    repository: ghcr.io/zees-dev/resume-lm
-    # Use 'latest' for most recent build, or pin to specific commit SHA
-    tag: "latest"
+    repository: ghcr.io/chandu954/eleva
+    # Pin to a published immutable commit tag; update with each application release.
+    tag: "ed8d638"
     pullPolicy: IfNotPresent
   resources:
     limits:

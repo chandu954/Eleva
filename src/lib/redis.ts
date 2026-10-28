@@ -11,6 +11,7 @@ interface RedisClient {
   hgetall(key: string): Promise<Record<string, string> | null>;
   hset(key: string, data: Record<string, string>): Promise<number | "OK">;
   expire(key: string, seconds: number): Promise<number | boolean>;
+  del(key: string): Promise<number>;
 }
 
 export type RedisMode = "local" | "upstash" | "stub" | "unconfigured";
@@ -70,6 +71,10 @@ export class InMemoryRedis implements RedisClient {
     entry.expiresAtMs = Date.now() + seconds * 1000;
     return 1;
   }
+
+  async del(key: string): Promise<number> {
+    return this.entries.delete(key) ? 1 : 0;
+  }
 }
 
 function createRedisClient(): RedisClient {
@@ -82,6 +87,7 @@ function createRedisClient(): RedisClient {
         hgetall: (key) => client.hgetall(key).then(r => Object.keys(r).length ? r : null),
         hset: (key, data) => client.hset(key, data),
         expire: (key, seconds) => client.expire(key, seconds).then(r => r === 1),
+        del: (key) => client.del(key),
       };
     }
     case "upstash": {

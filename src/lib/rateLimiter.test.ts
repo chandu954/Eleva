@@ -6,6 +6,7 @@ vi.mock('@/lib/redis', () => ({
     hgetall: vi.fn(),
     hset: vi.fn(),
     expire: vi.fn(),
+    del: vi.fn(),
   },
 }));
 
@@ -16,6 +17,7 @@ const mockRedis = vi.mocked(redis) as unknown as {
   hgetall: ReturnType<typeof vi.fn>;
   hset: ReturnType<typeof vi.fn>;
   expire: ReturnType<typeof vi.fn>;
+  del: ReturnType<typeof vi.fn>;
 };
 
 /** Default check: capacity 80 over 5h → leak 80/18000 ≈ 0.00444 tokens/s. */

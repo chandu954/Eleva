@@ -286,9 +286,9 @@ function resumePersistenceTables(row: Record<string, unknown> | null) {
 }
 
 describe('Pipeline route - authenticated and streaming pipeline', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
-    clearPipelineCaches();
+    await clearPipelineCaches();
     vi.mocked(AIProvider.generateObject).mockReset();
     vi.mocked(AIProvider.generate).mockReset();
     vi.mocked(AIProvider.generateObject).mockImplementation(async (params) =>
@@ -361,8 +361,8 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
     expect(vi.mocked(AIProvider.generate)).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the in-memory JD cache and skips both the AI extractor and the database', async () => {
-    setCachedExtract(JD, extractFixture);
+  it('uses the Redis JD cache and skips both the AI extractor and the database', async () => {
+    await setCachedExtract(JD, extractFixture);
     const client = installSupabase(null, {});
 
     const res = await POST(makeRequest({ jobDescription: JD }));
@@ -381,7 +381,7 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
     });
   });
 
-  it('uses the shared database JD cache when the in-memory cache misses', async () => {
+  it('uses the shared database JD cache when Redis misses', async () => {
     const jdCache = stubTable({
       data: { payload: extractFixture, created_at: new Date().toISOString() },
       error: null,
@@ -402,9 +402,9 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
     ).toMatchObject({ data: extractFixture });
   });
 
-  it('serves the initial score from the in-memory score cache', async () => {
-    setCachedExtract(JD, extractFixture);
-    setCachedScore('', JD, initialScoreFixture);
+  it('serves the initial score from Redis', async () => {
+    await setCachedExtract(JD, extractFixture);
+    await setCachedScore('', JD, initialScoreFixture);
     installSupabase(null, {});
 
     const res = await POST(makeRequest({ jobDescription: JD }));
@@ -415,11 +415,11 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
       previousOverall: 62,
       overall: 88,
     });
-    expect(getCachedExtract(JD)).toEqual(extractFixture);
+    await expect(getCachedExtract(JD)).resolves.toEqual(extractFixture);
   });
 
   it('scopes an explicit resume lookup to the caller and persists pipeline results', async () => {
-    setCachedExtract(JD, extractFixture);
+    await setCachedExtract(JD, extractFixture);
     const persistence = resumePersistenceTables(resumeRow);
     installSupabase({ id: 'user-1' }, persistence.tables);
 
@@ -476,7 +476,7 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
   });
 
   it('loads the base resume when no resumeId is supplied', async () => {
-    setCachedExtract(JD, extractFixture);
+    await setCachedExtract(JD, extractFixture);
     const persistence = resumePersistenceTables(resumeRow);
     installSupabase({ id: 'user-1' }, persistence.tables);
 
@@ -494,7 +494,7 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
   });
 
   it('skips score and resume persistence when the caller has no resume', async () => {
-    setCachedExtract(JD, extractFixture);
+    await setCachedExtract(JD, extractFixture);
     const select = stubTable({ data: null, error: null });
     const coverLetters = stubTable({ data: { id: 'cl-2' }, error: null });
     const activity = stubTable({ data: null, error: null });
@@ -518,7 +518,7 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
   });
 
   it('falls back to a template cover letter when the provider rate-limits', async () => {
-    setCachedExtract(JD, extractFixture);
+    await setCachedExtract(JD, extractFixture);
     installSupabase(null, {});
     vi.mocked(AIProvider.generate).mockRejectedValue(
       Object.assign(new Error('Too many requests'), { statusCode: 429 }),
@@ -536,7 +536,7 @@ describe('Pipeline route - authenticated and streaming pipeline', () => {
   });
 
   it('streams a classified error event when the cover-letter provider fails', async () => {
-    setCachedExtract(JD, extractFixture);
+    await setCachedExtract(JD, extractFixture);
     installSupabase(null, {});
     vi.mocked(AIProvider.generate).mockRejectedValue(
       new Error('upstream provider exploded'),

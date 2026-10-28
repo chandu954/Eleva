@@ -17,6 +17,24 @@ permissions:
   contents: read
 
 jobs:
+  sbom:
+    name: Generate dependency SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0.24.3
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: eleva-source-sbom.spdx.json
+          output-file: eleva-source-sbom.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
   secret-scan:
     name: Secret scanning (gitleaks)
     runs-on: ubuntu-latest

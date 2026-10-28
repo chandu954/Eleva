@@ -1,13 +1,12 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import redis from '@/lib/redis';
 
 import {
-  CACHE_MAX_ENTRIES,
   ExtractSchema,
   JD_EXTRACT_TTL_MS,
   SCORE_CACHE_TTL_MS,
   ScoreSchema,
-  TtlCache,
   clearPipelineCaches,
   getCachedExtract,
   getCachedExtractFromDb,
@@ -64,16 +63,20 @@ describe('jdHash', () => {
 });
 
 describe('scoreCacheKey', () => {
-  it('is deterministic and shaped score_<jd>_<resume>', () => {
+  it('is deterministic and includes user, job description and resume hashes', () => {
     const key = scoreCacheKey('resume text', 'job desc');
     expect(key).toBe(scoreCacheKey('resume text', 'job desc'));
-    expect(key).toMatch(/^score_[0-9a-f]{64}_[0-9a-f]{64}$/);
+    expect(key).toMatch(/^score_[0-9a-f]{64}_[0-9a-f]{64}_[0-9a-f]{64}$/);
   });
 
   it('changes when either the resume or the job description changes', () => {
     const base = scoreCacheKey('resume1', 'jd1');
     expect(scoreCacheKey('resume1', 'jd2')).not.toBe(base);
     expect(scoreCacheKey('resume2', 'jd1')).not.toBe(base);
+  });
+
+  it('isolates identical resume and job text across users', () => {
+    expect(scoreCacheKey('resume', 'jd', 'user-a')).not.toBe(scoreCacheKey('resume', 'jd', 'user-b'));
   });
 
   it('does not treat swapped resume/jd arguments as the same key', () => {
@@ -86,180 +89,88 @@ describe('scoreCacheKey', () => {
   });
 });
 
-describe('TtlCache', () => {
-  beforeEach(() => {
+describe('pipeline caches (shared Redis)', () => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+    await clearPipelineCaches();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('returns null on a miss and the stored value on a hit', () => {
-    const cache = new TtlCache<{ n: number }>(1000);
-    expect(cache.get('k')).toBeNull();
-    cache.set('k', { n: 1 });
-    expect(cache.get('k')).toEqual({ n: 1 });
+  it('misses when no value exists', async () => {
+    await expect(getCachedExtract('some job description')).resolves.toBeNull();
+    await expect(getCachedScore('resume', 'jd')).resolves.toBeNull();
   });
 
-  it('serves an entry just before its TTL and drops it exactly at the TTL', () => {
-    const cache = new TtlCache<string>(1000);
-    cache.set('k', 'v');
-
-    vi.advanceTimersByTime(999);
-    expect(cache.get('k')).toBe('v');
-
-    vi.advanceTimersByTime(1);
-    expect(cache.get('k')).toBeNull();
-    expect(cache.size).toBe(0);
+  it('round-trips validated extraction and score results', async () => {
+    await setCachedExtract('jd one', validExtract);
+    await setCachedScore('resume', 'jd', validScore, 'user-1');
+    await expect(getCachedExtract('jd one')).resolves.toEqual(validExtract);
+    await expect(getCachedScore('resume', 'jd', 'user-1')).resolves.toEqual(validScore);
   });
 
-  it('restarts the TTL when a key is overwritten', () => {
-    const cache = new TtlCache<string>(1000);
-    cache.set('k', 'old');
-    vi.advanceTimersByTime(800);
-    cache.set('k', 'new');
-    vi.advanceTimersByTime(800);
-    expect(cache.get('k')).toBe('new');
+  it('isolates score cache entries by user as well as resume and job description', async () => {
+    await setCachedScore('same resume', 'same jd', { ...validScore, overall: 80 }, 'user-1');
+    await setCachedScore('same resume', 'same jd', { ...validScore, overall: 90 }, 'user-2');
+    await expect(getCachedScore('same resume', 'same jd', 'user-1')).resolves.toMatchObject({ overall: 80 });
+    await expect(getCachedScore('same resume', 'same jd', 'user-2')).resolves.toMatchObject({ overall: 90 });
+    await expect(getCachedScore('same resume', 'same jd', 'user-3')).resolves.toBeNull();
   });
 
-  it('evicts the stalest entry once the size limit is exceeded', () => {
-    const cache = new TtlCache<number>(10_000, 3);
-    cache.set('a', 1);
-    cache.set('b', 2);
-    cache.set('c', 3);
-    cache.set('d', 4);
-
-    expect(cache.size).toBe(3);
-    expect(cache.get('a')).toBeNull();
-    expect(cache.get('b')).toBe(2);
-    expect(cache.get('d')).toBe(4);
-  });
-
-  it('treats an overwrite as fresh, so the untouched key is evicted first', () => {
-    const cache = new TtlCache<number>(10_000, 2);
-    cache.set('a', 1);
-    cache.set('b', 2);
-    cache.set('a', 10);
-    cache.set('c', 3);
-
-    expect(cache.get('b')).toBeNull();
-    expect(cache.get('a')).toBe(10);
-    expect(cache.get('c')).toBe(3);
-  });
-
-  it('never grows past the default limit', () => {
-    const cache = new TtlCache<number>(10_000);
-    for (let i = 0; i < CACHE_MAX_ENTRIES + 25; i++) cache.set(`k${i}`, i);
-    expect(cache.size).toBe(CACHE_MAX_ENTRIES);
-    expect(cache.get('k0')).toBeNull();
-    expect(cache.get(`k${CACHE_MAX_ENTRIES + 24}`)).toBe(CACHE_MAX_ENTRIES + 24);
-  });
-
-  it('clear() empties the cache', () => {
-    const cache = new TtlCache<number>(1000);
-    cache.set('a', 1);
-    cache.clear();
-    expect(cache.size).toBe(0);
-    expect(cache.get('a')).toBeNull();
-  });
-});
-
-describe('pipeline caches (module level)', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
-    clearPipelineCaches();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('misses before anything is stored', () => {
-    expect(getCachedExtract('some job description that is long enough')).toBeNull();
-    expect(getCachedScore('resume', 'jd')).toBeNull();
-  });
-
-  it('round-trips a validated extract result', () => {
-    setCachedExtract('jd one', validExtract);
-    expect(getCachedExtract('jd one')).toEqual(validExtract);
-  });
-
-  it('round-trips a validated score result', () => {
-    setCachedScore('resume', 'jd', validScore);
-    expect(getCachedScore('resume', 'jd')).toEqual(validScore);
-  });
-
-  it('keeps different job descriptions independent', () => {
+  it('keeps extracts independent and does not cross-read score entries', async () => {
     const extractA = { ...validExtract, company: 'A' };
     const extractB = { ...validExtract, company: 'B' };
-    setCachedExtract('jd one', extractA);
-    setCachedExtract('jd two', extractB);
-    expect(getCachedExtract('jd one')).toEqual(extractA);
-    expect(getCachedExtract('jd two')).toEqual(extractB);
+    await setCachedExtract('jd one', extractA);
+    await setCachedExtract('jd two', extractB);
+    await setCachedScore('same text', 'same text', validScore);
+    await expect(getCachedExtract('jd one')).resolves.toEqual(extractA);
+    await expect(getCachedExtract('jd two')).resolves.toEqual(extractB);
+    await expect(getCachedExtract('same text')).resolves.toBeNull();
   });
 
-  it('keeps scores independent per resume and job description pair', () => {
-    setCachedScore('resume', 'jd one', { ...validScore, overall: 80 });
-    setCachedScore('resume', 'jd two', { ...validScore, overall: 90 });
-    setCachedScore('other resume', 'jd one', { ...validScore, overall: 70 });
+  it('expires extract and score entries at their configured TTLs', async () => {
+    await setCachedExtract('ttl jd', validExtract);
+    await setCachedScore('ttl resume', 'ttl jd', validScore);
+    await vi.advanceTimersByTimeAsync(JD_EXTRACT_TTL_MS - 1);
+    await expect(getCachedExtract('ttl jd')).resolves.toEqual(validExtract);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(getCachedExtract('ttl jd')).resolves.toBeNull();
+    await expect(getCachedScore('ttl resume', 'ttl jd')).resolves.toBeNull();
 
-    expect(getCachedScore('resume', 'jd one')?.overall).toBe(80);
-    expect(getCachedScore('resume', 'jd two')?.overall).toBe(90);
-    expect(getCachedScore('other resume', 'jd one')?.overall).toBe(70);
+    await setCachedScore('score resume', 'score jd', validScore);
+    await vi.advanceTimersByTimeAsync(SCORE_CACHE_TTL_MS);
+    await expect(getCachedScore('score resume', 'score jd')).resolves.toBeNull();
   });
 
-  it('does not let a score entry satisfy an extract lookup, or vice versa', () => {
-    setCachedScore('same text', 'same text', validScore);
-    expect(getCachedExtract('same text')).toBeNull();
+  it('validates cache payloads and evicts malformed JSON/schema data', async () => {
+    const invalidShapeKey = `pipeline-cache:v1:${jdHash('invalid shape')}`;
+    await redis.hset(invalidShapeKey, { value: JSON.stringify({ company: { wrong: true } }) });
+    await expect(getCachedExtract('invalid shape')).resolves.toBeNull();
+    await expect(redis.hgetall(invalidShapeKey)).resolves.toBeNull();
 
-    setCachedExtract('only extract', validExtract);
-    expect(getCachedScore('only extract', 'only extract')).toBeNull();
+    const malformedJsonKey = `pipeline-cache:v1:${jdHash('invalid json')}`;
+    await redis.hset(malformedJsonKey, { value: '{' });
+    await expect(getCachedExtract('invalid json')).resolves.toBeNull();
   });
 
-  it('handles empty strings', () => {
-    expect(getCachedExtract('')).toBeNull();
-    expect(getCachedScore('', '')).toBeNull();
-    setCachedExtract('', validExtract);
-    expect(getCachedExtract('')).toEqual(validExtract);
+  it('treats Redis failures as cache misses and ignores failed writes', async () => {
+    vi.spyOn(redis, 'hgetall').mockRejectedValueOnce(new Error('redis offline'));
+    await expect(getCachedExtract('offline jd')).resolves.toBeNull();
+    vi.spyOn(redis, 'hset').mockRejectedValueOnce(new Error('redis offline'));
+    await expect(setCachedExtract('offline jd', validExtract)).resolves.toBeUndefined();
   });
 
-  it('expires extract results after the extract TTL', () => {
-    setCachedExtract('jd', validExtract);
-    vi.advanceTimersByTime(JD_EXTRACT_TTL_MS - 1);
-    expect(getCachedExtract('jd')).toEqual(validExtract);
-    vi.advanceTimersByTime(1);
-    expect(getCachedExtract('jd')).toBeNull();
-  });
-
-  it('expires score results after the score TTL', () => {
-    setCachedScore('resume', 'jd', validScore);
-    vi.advanceTimersByTime(SCORE_CACHE_TTL_MS - 1);
-    expect(getCachedScore('resume', 'jd')).toEqual(validScore);
-    vi.advanceTimersByTime(1);
-    expect(getCachedScore('resume', 'jd')).toBeNull();
-  });
-
-  it('evicts the stalest in-memory entry beyond the entry cap', () => {
-    const firstJd = 'first-jd';
-    setCachedExtract(firstJd, validExtract);
-    let latest = '';
-    for (let i = 0; i < CACHE_MAX_ENTRIES; i++) {
-      latest = `filler-jd-${i}`;
-      setCachedExtract(latest, validExtract);
-    }
-    expect(getCachedExtract(firstJd)).toBeNull();
-    expect(getCachedExtract(latest)).toEqual(validExtract);
-  });
-
-  it('clearPipelineCaches() drops both caches', () => {
-    setCachedExtract('jd', validExtract);
-    setCachedScore('resume', 'jd', validScore);
-    clearPipelineCaches();
-    expect(getCachedExtract('jd')).toBeNull();
-    expect(getCachedScore('resume', 'jd')).toBeNull();
+  it('supports empty keys and clears keys written by this process', async () => {
+    await setCachedExtract('', validExtract);
+    await setCachedScore('', '', validScore);
+    await expect(getCachedExtract('')).resolves.toEqual(validExtract);
+    await clearPipelineCaches();
+    await expect(getCachedExtract('')).resolves.toBeNull();
+    await expect(getCachedScore('', '')).resolves.toBeNull();
   });
 });
 

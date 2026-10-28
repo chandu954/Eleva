@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { z } from 'zod';
 
+import redis from '@/lib/redis';
 import type { createClient } from '@/utils/supabase/server';
 
 export type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
@@ -43,7 +44,8 @@ export type ResumeScore = z.infer<typeof ScoreSchema>;
 
 export const JD_EXTRACT_TTL_MS = 86_400_000; // 24h
 export const SCORE_CACHE_TTL_MS = 86_400_000; // 24h
-export const CACHE_MAX_ENTRIES = 200;
+const CACHE_KEY_PREFIX = 'pipeline-cache:v1';
+const activeCacheKeys = new Set<string>();
 
 function sha256Hex(text: string): string {
   return createHash('sha256').update(text).digest('hex');
@@ -59,84 +61,68 @@ function sha256Hex(text: string): string {
  *    nothing semantically — full-text hashing makes old aliasing (the
  *    wrong extraction silently served for a different JD) impossible.
  * Changing the key format means pre-existing `jd_extract_cache` rows and
- * in-memory entries simply miss and age out under the 24h TTL;
+ * Redis entries simply miss and age out under the 24h TTL;
  * `jd_hash` is a text primary key, so no schema migration is needed.
  */
 export function jdHash(text: string): string {
   return `jd_${sha256Hex(text)}`;
 }
 
-export function scoreCacheKey(resumeText: string, jd: string): string {
-  return `score_${sha256Hex(jd)}_${sha256Hex(resumeText)}`;
+export function scoreCacheKey(resumeText: string, jd: string, userId = 'anonymous'): string {
+  return `score_${sha256Hex(userId)}_${sha256Hex(jd)}_${sha256Hex(resumeText)}`;
 }
 
-/**
- * Small in-memory TTL cache with insertion-order eviction. JavaScript Maps
- * iterate in insertion order and re-inserting a key moves it to the back,
- * so the first key in the map is always the stalest — eviction is O(1)
- * with no sorting, and an overwritten key is treated as fresh.
- */
-export class TtlCache<V> {
-  private readonly entries = new Map<string, { value: V; storedAt: number }>();
+function cacheKey(key: string): string {
+  return `${CACHE_KEY_PREFIX}:${key}`;
+}
 
-  constructor(
-    private readonly ttlMs: number,
-    private readonly maxEntries: number = CACHE_MAX_ENTRIES,
-  ) {}
-
-  get(key: string): V | null {
-    const entry = this.entries.get(key);
-    if (!entry) return null;
-    if (Date.now() - entry.storedAt >= this.ttlMs) {
-      this.entries.delete(key);
-      return null;
-    }
-    return entry.value;
-  }
-
-  set(key: string, value: V): void {
-    this.entries.delete(key);
-    this.entries.set(key, { value, storedAt: Date.now() });
-    while (this.entries.size > this.maxEntries) {
-      const stalest = this.entries.keys().next();
-      if (stalest.done) break;
-      this.entries.delete(stalest.value);
-    }
-  }
-
-  get size(): number {
-    return this.entries.size;
-  }
-
-  clear(): void {
-    this.entries.clear();
+async function readValidated<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
+  try {
+    const entry = await redis.hgetall(cacheKey(key));
+    if (!entry?.value) return null;
+    const parsedJson: unknown = JSON.parse(entry.value);
+    const parsed = schema.safeParse(parsedJson);
+    if (parsed.success) return parsed.data;
+    await redis.del(cacheKey(key));
+    return null;
+  } catch {
+    // Cache outages and stale payloads must not interrupt the AI pipeline.
+    return null;
   }
 }
 
-// ─── In-memory caches (per server instance) ────────────────
-const extractCache = new TtlCache<JdExtract>(JD_EXTRACT_TTL_MS);
-const scoreCache = new TtlCache<ResumeScore>(SCORE_CACHE_TTL_MS);
-
-export function getCachedExtract(jd: string): JdExtract | null {
-  return extractCache.get(jdHash(jd));
+async function writeValidated<T>(key: string, value: T, ttlMs: number): Promise<void> {
+  const namespacedKey = cacheKey(key);
+  try {
+    await redis.hset(namespacedKey, { value: JSON.stringify(value) });
+    await redis.expire(namespacedKey, Math.ceil(ttlMs / 1000));
+    activeCacheKeys.add(namespacedKey);
+  } catch {
+    // The pipeline still succeeds when Redis is unavailable.
+  }
 }
 
-export function setCachedExtract(jd: string, data: JdExtract) {
-  extractCache.set(jdHash(jd), data);
+export function getCachedExtract(jd: string): Promise<JdExtract | null> {
+  return readValidated(jdHash(jd), ExtractSchema);
 }
 
-export function getCachedScore(resumeText: string, jd: string): ResumeScore | null {
-  return scoreCache.get(scoreCacheKey(resumeText, jd));
+export function setCachedExtract(jd: string, data: JdExtract): Promise<void> {
+  return writeValidated(jdHash(jd), data, JD_EXTRACT_TTL_MS);
 }
 
-export function setCachedScore(resumeText: string, jd: string, data: ResumeScore) {
-  scoreCache.set(scoreCacheKey(resumeText, jd), data);
+export function getCachedScore(resumeText: string, jd: string, userId = 'anonymous'): Promise<ResumeScore | null> {
+  return readValidated(scoreCacheKey(resumeText, jd, userId), ScoreSchema);
 }
 
-/** Test/diagnostic helper: empties both in-memory caches. */
-export function clearPipelineCaches(): void {
-  extractCache.clear();
-  scoreCache.clear();
+export function setCachedScore(resumeText: string, jd: string, data: ResumeScore, userId = 'anonymous'): Promise<void> {
+  return writeValidated(scoreCacheKey(resumeText, jd, userId), data, SCORE_CACHE_TTL_MS);
+}
+
+/** Test helper: deletes keys written by this process from the shared cache. */
+export async function clearPipelineCaches(): Promise<void> {
+  const keys = [...activeCacheKeys];
+  activeCacheKeys.clear();
+  await Promise.all(keys.map((key) => redis.del(key).catch(() => 0)));
 }
 
 // ─── DB-backed JD extraction cache (shared across instances) ──
