@@ -9,7 +9,7 @@ Coverage changed as test suites were added and source files were split. Setting 
 
 ## Decision
 
-Use Vitest with V8 coverage in CI. Keep global floors at or below a measured passing baseline and raise them only after the full coverage run passes. The current global and `src/lib/**` floors are 60% statements/lines, 83% branches, and 79% functions. Raise to 75/85/80 only after the measured project coverage clears all three values.
+Use Vitest with V8 coverage in CI. Keep global floors at or below a measured passing baseline and raise them only after the full coverage run passes. The current global floors are 75.2% statements, 85% branches, 82.5% functions, and 75.2% lines. Files under `src/lib/**` retain separate floors of 60% statements/lines, 83% branches, and 79% functions. A targeted Stryker run is maintained as a manual assessment; it is not a CI gate.
 
 ## Consequences
 

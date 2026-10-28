@@ -1,16 +1,16 @@
 # ADR 0005: Isolate Terraform state by environment
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-28
 
 ## Context
 
-Terraform currently has production configuration and cloud resources, but the production backend example documents local state as the default. Shared local state risks concurrent writes and makes recovery difficult. Staging and production also need independent change controls.
+Terraform declares an S3 remote backend with native lockfiles. CI has separate staging and production workspaces, protected apply environments, and scheduled drift plans. The bucket, IAM role, GitHub environment values/secrets, and environment protection rules are account-level prerequisites configured outside this repository.
 
 ## Decision
 
-Before production infrastructure changes are applied, configure a real remote backend with encryption and state locking, and give staging and production separate state keys and credentials. Keep plan and apply separate in CI; require protected-environment approval for production apply. Run scheduled plans for drift detection and retain the last known good plan and rollback instructions.
+Use the remote S3 backend with encryption and native lockfiles. Keep staging and production in separate workspaces and GitHub environments. Keep plan and apply separate in CI; require protected-environment approval for apply. Run scheduled plans for drift detection and retain the last known good plan and rollback instructions.
 
 ## Consequences
 
-Terraform applies become auditable and concurrent state writes are serialized. Backend migration must be coordinated and verified before removing local state. Until the remote backend and protected apply workflow exist, this ADR remains proposed and production changes must not be represented as remotely locked.
+Terraform applies become auditable and concurrent state writes are serialized. Bootstrap and provider credentials remain operator responsibilities; see the [operations runbook](../operations/runbook.md). CI's validation job intentionally uses `-backend=false` and does not prove that the external bucket, IAM permissions, or protected environments are configured correctly.

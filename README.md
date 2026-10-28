@@ -224,6 +224,11 @@ scan; a read-only `terraform plan` runs only when provider credentials are
 configured as repository secrets. See [terraform/README.md](terraform/README.md)
 for bootstrap and remote-state guidance.
 
+See [architecture](docs/ARCHITECTURE.md), the [HTTP API reference](docs/API.md),
+the [operations runbook](docs/operations/runbook.md), and
+[architecture decision records](docs/adr/) for implementation and operations
+details.
+
 ## Deployment
 
 ### Vercel
