@@ -123,6 +123,25 @@ describe('ApplicationsClient', () => {
     expect(toast.success).toHaveBeenCalledWith('Application added');
   });
 
+  it('shows the server error when creating an application fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: 'storage unavailable' }),
+    } as Response);
+    render(<ApplicationsClient initial={[]} />);
+
+    fireEvent.click(screen.getByTestId('add-application'));
+    const inputs = screen.getAllByRole('textbox');
+    fireEvent.change(inputs[0], { target: { value: 'Globex' } });
+    fireEvent.change(inputs[1], { target: { value: 'Staff Engineer' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add application' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Save failed', {
+      description: 'storage unavailable',
+    }));
+    expect(screen.getByText('No applications yet')).toBeInTheDocument();
+  });
+
   it('toggles flags, moves status, deletes and archives', async () => {
     render(<ApplicationsClient initial={[application]} />);
 
@@ -136,6 +155,27 @@ describe('ApplicationsClient', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /Delete/ }).at(-1)!);
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Deleted'));
+  });
+
+  it('rolls back the detail status when a server move fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, json: async () => ({}) } as Response);
+    render(<ApplicationsClient initial={[application]} />);
+
+    fireEvent.click(screen.getByText('Engineer'));
+    fireEvent.change(screen.getByDisplayValue('Applied'), { target: { value: 'interview' } });
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Move failed'));
+    expect(screen.getByDisplayValue('Applied')).toBeInTheDocument();
+  });
+
+  it('restores a favorite flag when its server update fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({ ok: false, json: async () => ({}) } as Response);
+    render(<ApplicationsClient initial={[application]} />);
+
+    fireEvent.click(screen.getByTitle('Unfavorite'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Toggle failed'));
+    expect(screen.getByTitle('Unfavorite')).toBeInTheDocument();
   });
 
   it('reports required fields when saving an incomplete application', () => {

@@ -114,6 +114,10 @@ export function ApplicationsClient({ initial }: { initial: Application[] }) {
     const res = await fetch('/eleva/api/applications', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, patch: { status, ...(patch.applied_at ? { applied_at: patch.applied_at } : {}) } }) });
     if (!res.ok) {
       setApps(prev);
+      const previousApp = prev.find((application) => application.id === id);
+      if (previousApp) {
+        setViewing((current) => current?.id === id ? { ...current, ...previousApp } : current);
+      }
       toast.error('Move failed');
     }
   }
