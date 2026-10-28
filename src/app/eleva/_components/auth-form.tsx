@@ -14,10 +14,9 @@ const supabase = () => createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// Keep inline auth links legible at WCAG AA contrast in both light and dark
-// mode. --eleva-primary adapts (37 99 235 light / 59 130 246 dark), so the
-// link stays above 4.5:1 against both white and dark card backgrounds.
-const authLinkColor = 'rgb(var(--eleva-primary))';
+// Keep inline auth links legible at WCAG AA contrast on the near-white auth
+// card (rgba(255,255,255,0.94) in both light and dark mode).
+const authLinkColor = '#1d4ed8';
 
 function getCallbackError(param: string | null): string | null {
   if (!param) return null;
