@@ -1,0 +1,4 @@
+# Accountable maintainers for security-sensitive application and IaC changes.
+/src/app/ @chandu954
+/src/lib/ @chandu954
+/terraform/ @chandu954

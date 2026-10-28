@@ -44,6 +44,17 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
    endpoint
 5. Run `pnpm build` — must succeed
 6. Submit a PR with a clear description of the change
+7. Get at least one approval from a contributor other than the PR author;
+   authors must not approve their own changes. Request the relevant owner from
+   [`.github/CODEOWNERS`](.github/CODEOWNERS) for changes to `src/app/`,
+   `src/lib/`, or `terraform/`.
+
+Repository administrators must enforce this policy in GitHub branch protection
+for `main`. Require pull requests, at least one approval, and these CI status
+checks: `Lint, typecheck, test`, `Playwright smoke tests`, `Dependency audit`,
+`Infrastructure validation`, and `Terraform validation`. The CODEOWNERS file
+maps ownership and requests reviews; it does not enable branch protection by
+itself.
 
 ### Testing & Coverage Ratchet
 
