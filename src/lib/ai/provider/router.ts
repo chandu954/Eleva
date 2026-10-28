@@ -68,10 +68,19 @@ function resolveAutoModel(task: AITask, providerId: ProviderId): string | null {
   return null;
 }
 
-export async function routeGenerateText(
+type ProviderRequest<P extends GenerateTextParams | GenerateObjectParams> = (
+  provider: import('./base').AIProvider,
+  params: P,
+  model: import('./models').ModelConfig,
+) => Promise<AIProviderResult>;
+
+async function route<P extends GenerateTextParams | GenerateObjectParams>(
   task: AITask,
-  params: GenerateTextParams,
-  config?: ProviderConfig,
+  params: P,
+  config: ProviderConfig | undefined,
+  operation: 'generateText' | 'generateObject',
+  invoke: ProviderRequest<P>,
+  errorTraceUsesModelId: boolean,
 ): Promise<AIProviderResult & { trace?: PipelineTraceStep }> {
   const cfg = config ?? { selectedProvider: 'openai', selectedModel: '', mode: 'single' as ProviderMode, fallbackEnabled: false };
   validateProviderConfig(cfg);
@@ -112,7 +121,7 @@ export async function routeGenerateText(
     const { value: result, retries } = await withProviderCircuitBreaker(
       cfg.selectedProvider,
       () => runWithRetry({
-        run: () => provider.generateText(params, model),
+        run: () => invoke(provider, params, model),
         isRetryableResult: shouldRetryResult,
         isRetryableError: shouldRetryError,
         maxRetries,
@@ -122,131 +131,7 @@ export async function routeGenerateText(
             attempt,
             maxRetries,
             reason,
-            operation: 'generateText',
-          });
-        },
-      }),
-      ({ value }) => value.success,
-    );
-    const latency = Math.round(performance.now() - start);
-
-    const trace: PipelineTraceStep = {
-      stage: task,
-      provider: cfg.selectedProvider,
-      model: model.displayName,
-      latency,
-      tokens: result.usage ? { prompt: result.usage.promptTokens, completion: result.usage.completionTokens, total: result.usage.totalTokens } : undefined,
-      success: result.success,
-    };
-
-    recordMetric({
-      provider: cfg.selectedProvider, model: modelId,
-      latency, tokens: result.usage
-        ? { prompt: result.usage.promptTokens, completion: result.usage.completionTokens, total: result.usage.totalTokens }
-        : { prompt: 0, completion: 0, total: 0 },
-      retries, fallback: false, success: result.success, timestamp: Date.now(), requestId,
-    });
-
-    return {
-      ...result,
-      provider: cfg.selectedProvider,
-      model: modelId,
-      trace,
-    };
-  } catch (err) {
-    const latency = Math.round(performance.now() - start);
-    const errorMessage = err instanceof Error ? err.message : String(err);
-
-    if (cfg.fallbackEnabled) {
-      const fallbackProviders: ProviderId[] = ['openai', 'anthropic', 'gemini', 'nvidia', 'openrouter', 'ollama']
-        .filter(p => p !== cfg.selectedProvider) as ProviderId[];
-      for (const fbProvider of fallbackProviders) {
-        if (!isProviderAvailable(fbProvider)) continue;
-        const fbModelId = resolveSingleProviderModel(fbProvider);
-        if (!fbModelId) continue;
-        const fbModel = MODELS[fbModelId];
-        if (!fbModel) continue;
-        const fbProviderImpl = getProvider(fbProvider);
-        if (!fbProviderImpl) continue;
-        try {
-          const fbResult = await withProviderCircuitBreaker(
-            fbProvider,
-            () => fbProviderImpl.generateText(params, fbModel),
-            (result) => result.success,
-          );
-          const fbLatency = Math.round(performance.now() - start);
-          return {
-            ...fbResult, provider: fbProvider, model: fbModelId,
-            latency: fbLatency,
-            trace: { stage: task, provider: fbProvider, model: fbModel.displayName, latency: fbLatency, success: fbResult.success },
-          };
-        } catch { continue; }
-      }
-    }
-
-    return {
-      success: false, provider: cfg.selectedProvider, model: modelId,
-      latency, finishReason: 'error', data: null, error: errorMessage,
-      trace: { stage: task, provider: cfg.selectedProvider, model: modelId, latency, success: false },
-    };
-  }
-}
-
-export async function routeObject(
-  task: AITask,
-  params: GenerateObjectParams,
-  config?: ProviderConfig,
-): Promise<AIProviderResult & { trace?: PipelineTraceStep }> {
-  const cfg = config ?? { selectedProvider: 'openai', selectedModel: '', mode: 'single' as ProviderMode, fallbackEnabled: false };
-  validateProviderConfig(cfg);
-
-  const requestId = createRequestId();
-  const start = performance.now();
-
-  let modelId: string;
-  if (cfg.selectedModel && MODELS[cfg.selectedModel]) {
-    modelId = cfg.selectedModel;
-  } else if (cfg.mode === 'auto') {
-    const autoModel = resolveAutoModel(task, cfg.selectedProvider);
-    modelId = autoModel ?? resolveSingleProviderModel(cfg.selectedProvider);
-  } else {
-    modelId = resolveSingleProviderModel(cfg.selectedProvider);
-  }
-
-  const model = MODELS[modelId];
-  if (!model) {
-    return {
-      success: false, provider: cfg.selectedProvider, model: modelId,
-      latency: 0, finishReason: 'error', data: null,
-      error: `Model "${modelId}" not found in configuration.`,
-    };
-  }
-
-  const provider = getProvider(cfg.selectedProvider);
-  if (!provider) {
-    return {
-      success: false, provider: cfg.selectedProvider, model: modelId,
-      latency: 0, finishReason: 'error', data: null,
-      error: `Provider "${cfg.selectedProvider}" is not available.`,
-    };
-  }
-
-  try {
-    const maxRetries = getMaxRetries();
-    const { value: result, retries } = await withProviderCircuitBreaker(
-      cfg.selectedProvider,
-      () => runWithRetry({
-        run: () => provider.generateObject(params, model),
-        isRetryableResult: shouldRetryResult,
-        isRetryableError: shouldRetryError,
-        maxRetries,
-        onRetry: (attempt, reason) => {
-          logger.warn('ai.router.retry', {
-            task,
-            attempt,
-            maxRetries,
-            reason,
-            operation: 'generateObject',
+            operation,
           });
         },
       }),
@@ -290,7 +175,7 @@ export async function routeObject(
         try {
           const fbResult = await withProviderCircuitBreaker(
             fbProvider,
-            () => fbProviderImpl.generateObject(params, fbModel),
+            () => invoke(fbProviderImpl, params, fbModel),
             (result) => result.success,
           );
           const fbLatency = Math.round(performance.now() - start);
@@ -306,7 +191,33 @@ export async function routeObject(
     return {
       success: false, provider: cfg.selectedProvider, model: modelId,
       latency, finishReason: 'error', data: null, error: errorMessage,
-      trace: { stage: task, provider: cfg.selectedProvider, model: modelId, latency, success: false },
+      trace: {
+        stage: task,
+        provider: cfg.selectedProvider,
+        model: errorTraceUsesModelId ? modelId : model.displayName,
+        latency,
+        success: false,
+      },
     };
   }
+}
+
+export function routeGenerateText(
+  task: AITask,
+  params: GenerateTextParams,
+  config?: ProviderConfig,
+): Promise<AIProviderResult & { trace?: PipelineTraceStep }> {
+  return route(task, params, config, 'generateText', (provider, input, model) =>
+    provider.generateText(input, model), true,
+  );
+}
+
+export function routeObject(
+  task: AITask,
+  params: GenerateObjectParams,
+  config?: ProviderConfig,
+): Promise<AIProviderResult & { trace?: PipelineTraceStep }> {
+  return route(task, params, config, 'generateObject', (provider, input, model) =>
+    provider.generateObject(input, model), false,
+  );
 }

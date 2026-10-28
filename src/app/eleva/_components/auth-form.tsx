@@ -14,7 +14,8 @@ const supabase = () => createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-// Keep inline auth links legible on the white auth card at WCAG AA contrast.
+// Keep inline auth links legible at WCAG AA contrast on the near-white auth
+// card (rgba(255,255,255,0.94) in both light and dark mode).
 const authLinkColor = '#1d4ed8';
 
 function getCallbackError(param: string | null): string | null {
@@ -234,7 +235,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             <h1 className="font-display text-xl font-semibold" style={{ color: 'rgb(var(--eleva-fg))' }}>
               {heading}
             </h1>
-            <p className="mt-1 text-[13px] mb-6" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            <p className="mt-1 text-[13px] mb-6" style={{ color: '#334155' }}>
               {subtext}
             </p>
 
@@ -253,7 +254,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
             <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
-              <span className="text-[10px] font-mono uppercase" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>or</span>
+              <span className="text-[10px] font-mono uppercase" style={{ color: '#334155' }}>or</span>
               <div className="flex-1 h-px" style={{ background: 'rgb(var(--eleva-border))' }} />
             </div>
 
@@ -337,7 +338,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
               </button>
             </form>
 
-            <div className="mt-6 text-center text-[13px]" style={{ color: 'rgb(var(--eleva-muted-fg))' }}>
+            <div className="mt-6 text-center text-[13px]" style={{ color: '#334155' }}>
               {isLogin ? (
                 <>New to Eleva? <Link href="/eleva/auth/signup" className="font-medium transition-colors" style={{ color: authLinkColor }}>Create an account</Link></>
               ) : (

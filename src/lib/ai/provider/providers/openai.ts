@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import type { ModelConfig } from '../models';
 import type { GenerateTextParams, GenerateObjectParams, StreamTextParams, AIProviderResult, FinishReason } from '../types';
 import type { AIProvider } from '../base';
+import { mapFinishReason } from '../base';
 import { AI_PROVIDER_TIMEOUT_MS, normalizeError } from '../errors';
 
 const KV_KEY = 'OPENAI_API_KEY';
@@ -10,15 +11,6 @@ function getClient(): OpenAI {
   const key = process.env[KV_KEY];
   if (!key) throw new Error('OPENAI_API_KEY not set');
   return new OpenAI({ apiKey: key, timeout: AI_PROVIDER_TIMEOUT_MS });
-}
-
-function mapFinishReason(raw: string | null | undefined): FinishReason {
-  if (!raw) return 'unknown';
-  const l = raw.toLowerCase();
-  if (l === 'stop') return 'stop';
-  if (l === 'length') return 'length';
-  if (l === 'content_filter') return 'content_filter';
-  return 'other';
 }
 
 async function openAICompletion(

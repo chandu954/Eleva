@@ -84,6 +84,23 @@ const STRING_SAMPLES: Record<string, string> = {
   message: 'Deterministic mock message.',
 };
 
+/** Builds a successful mock result with the shared boilerplate (success flag,
+ * provider name, model id, latency, usage and finish reason). Only `data`
+ * differs between generateText and generateObject — this keeps the two
+ * methods from drifting into near-identical copies of each other.
+ */
+function mockOk(start: number, data: unknown, modelId: string): AIProviderResult {
+  return {
+    success: true,
+    provider: 'mock',
+    model: modelId,
+    latency: Math.round(performance.now() - start),
+    usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    finishReason: 'stop',
+    data,
+  };
+}
+
 /** Deterministic sample for a string field, named after the field path. */
 function sampleString(fieldName: string): string {
   const snakeKey = fieldName.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/[^a-z0-9_]/g, '');
@@ -252,15 +269,7 @@ export const mockProvider: AIProvider = {
 
   async generateText(params: GenerateTextParams, model: ModelConfig): Promise<AIProviderResult> {
     const start = performance.now();
-    return {
-      success: true,
-      provider: 'mock',
-      model: model.id,
-      latency: Math.round(performance.now() - start),
-      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-      finishReason: 'stop',
-      data: deterministicText(params),
-    };
+    return mockOk(start, deterministicText(params), model.id);
   },
 
   async generateObject(params: GenerateObjectParams, model: ModelConfig): Promise<AIProviderResult> {
@@ -285,15 +294,7 @@ export const mockProvider: AIProvider = {
     }
 
     try {
-      return {
-        success: true,
-        provider: 'mock',
-        model: model.id,
-        latency: Math.round(performance.now() - start),
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        finishReason: 'stop',
-        data: synthesizeValue(schema, []),
-      };
+      return mockOk(start, synthesizeValue(schema, []), model.id);
     } catch (err) {
       return failure(err instanceof Error ? err.message : 'mock generation failed');
     }
