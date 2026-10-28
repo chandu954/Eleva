@@ -314,7 +314,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
                     type="button"
                     onClick={() => setShowPw(!showPw)}
                     className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: '#334155' }}
+                    style={{ color: 'rgb(var(--eleva-muted-fg))' }}
                     aria-label={showPw ? 'Hide password' : 'Show password'}
                     tabIndex={-1}
                   >
