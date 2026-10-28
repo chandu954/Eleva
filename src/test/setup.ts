@@ -1,5 +1,16 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+
+const blockedFetch: typeof fetch = async () => {
+  throw new Error('Network access through fetch is disabled in unit tests. Stub fetch in the test.');
+};
+
+globalThis.fetch = blockedFetch;
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  globalThis.fetch = blockedFetch;
+});
 
 class ResizeObserverMock {
   observe() {}

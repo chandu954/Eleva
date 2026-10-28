@@ -110,9 +110,11 @@ new production-code clones against the checked-in jscpd baseline.
 The manual targeted mutation baseline is 73.71%; its scope and limitations are
 recorded in [the mutation-testing notes](docs/testing/mutation-testing.md).
 
-The unit suite runs fully offline: AI calls use the deterministic mock
-provider and Supabase/PostgREST access is stubbed under `src/test/`. The
-Playwright suite also runs without secrets — `playwright.config.ts` points
+The unit suite uses the deterministic mock AI provider and stubs
+Supabase/PostgREST under `src/test/`. Vitest blocks unmocked global `fetch`
+calls; use the documented macOS sandbox command for process-wide network
+isolation. The Playwright suite also runs without secrets —
+`playwright.config.ts` points
 Supabase at a closed local port and forces the mock AI provider, so the smoke
 tests only exercise public routing, login redirects, and the health endpoint.
 

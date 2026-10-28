@@ -73,16 +73,19 @@ they are not met (CI runs both).
 The unit suite must pass without network access. AI calls go through the
 deterministic `AI_MOCK_PROVIDER` adapter, and Supabase/PostgREST access is
 stubbed (`src/test/postgrest-stub.ts`, `stubSupabase`). No test may hit a
-live provider, database, or Stripe endpoint. On macOS you can verify the
-whole suite offline with:
+live provider, database, or Stripe endpoint. Vitest replaces unmocked global
+`fetch` with a rejecting function and tests that guard explicitly
+(`src/test/network-guard.test.ts`). This catches accidental fetch calls; it is
+not a process-wide socket firewall. On macOS you can verify the whole suite
+with OS-level network access disabled:
 
 ```bash
 sandbox-exec -p '(version 1)(allow default)(deny network*)' pnpm test
 ```
 
-CI runs `pnpm test` with the same mock provider enabled through
-`vitest.config.ts`; if a new test needs a network-shaped dependency, add a
-stub next to `src/test/` instead of contacting the service.
+CI runs `pnpm test` with the same fetch guard and mock provider enabled through
+`src/test/setup.ts` and `vitest.config.ts`; if a new test needs a network-shaped
+dependency, add a stub next to `src/test/` instead of contacting the service.
 
 #### End-to-end smoke tests
 
