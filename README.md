@@ -100,6 +100,7 @@ pnpm check:source-loc  # Enforce the 500 LOC production TypeScript file limit
 pnpm check:bundles     # Check compressed route bundles after a production build
 pnpm check:dead-code   # Enforce the current production file/dependency debt ceiling
 pnpm check:duplication # Block clones that are absent from the checked-in baseline
+pnpm report:dependency-health # Refresh docs/DEPENDENCIES.md with resolved/transitive counts
 ```
 
 The global coverage floors are 75.2% statements, 85% branches, 82.5% functions,
@@ -107,6 +108,11 @@ and 75.2% lines. Files under `src/lib/` have separate floors of 60/83/79/60.
 The CI quality job also checks dependency cycles, the production source-size
 limit, unused production files/dependencies against a fixed issue ceiling, and
 new production-code clones against the checked-in jscpd baseline.
+The dependency-health report records the real supply-chain surface from the
+checked-in lockfile: 76 direct runtime deps, 34 direct dev deps, 1,502 resolved
+packages, and `total_transitive_deps` = 1,392. Refresh it with
+`pnpm report:dependency-health`; the numbers mirror
+[`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 The manual targeted mutation baseline is 73.71%; its scope and limitations are
 recorded in [the mutation-testing notes](docs/testing/mutation-testing.md).
 

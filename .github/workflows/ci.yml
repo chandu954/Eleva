@@ -184,6 +184,12 @@ jobs:
       - name: Dependency audit
         run: pnpm audit --audit-level=high
 
+      # Reports the real supply-chain surface (total_transitive_deps, direct
+      # split, intentionally-held-back majors) into the job summary and
+      # docs/DEPENDENCIES.md. Reporting only — the audit above is the gate.
+      - name: Dependency health report
+        run: node scripts/report-dependency-health.mjs
+
   infrastructure:
     name: Infrastructure validation
     runs-on: ubuntu-latest

@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit --pretty false",
     "check:source-loc": "node scripts/check-source-loc.mjs",
     "check:offline": "node scripts/check-offline-tests.mjs",
+    "report:dependency-health": "node scripts/report-dependency-health.mjs --write",
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.12",
