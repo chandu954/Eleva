@@ -1,0 +1,676 @@
+openapi: 3.0.3
+info:
+  title: Eleva API
+  version: 0.1.0
+  description: |
+    Eleva — AI Career Operating System. Multi-stage resume optimization and ATS
+    scoring pipeline. Authenticated routes enforce user access server-side;
+    never treat client-supplied ownership identifiers as authorization.
+servers:
+  - url: https://eleva-beige.vercel.app/eleva
+    description: Production
+  - url: http://localhost:3000/eleva
+    description: Local development
+tags:
+  - name: health
+    description: Health probe used by uptime checks.
+  - name: applications
+    description: Read and manage application records (kanban).
+  - name: pipeline
+    description: Tailor a resume to a job description (multi-stage AI pipeline).
+  - name: chat
+    description: Resume assistant conversation.
+  - name: search
+    description: Search workspace content.
+  - name: prompts
+    description: Read and create prompt records; run a saved prompt.
+  - name: tools
+    description: Resume AI tools (draft, rewrite, score, ATS keyword).
+  - name: export
+    description: Export resume/cover letter as PDF or DOCX.
+  - name: templates
+    description: Apply a resume template.
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      summary: Health probe
+      description: |
+        Reports required/optional env var presence, database connectivity, and
+        overall status. Returns 200 when ok, 503 when degraded.
+      operationId: getHealth
+      responses:
+        "200":
+          $ref: "#/components/responses/Health"
+        "503":
+          $ref: "#/components/responses/HealthDegraded"
+  /eleva/api/applications:
+    get:
+      tags: [applications]
+      summary: List applications
+      operationId: listApplications
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/ApplicationList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [applications]
+      summary: Create an application
+      operationId: createApplication
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationCreate"
+      responses:
+        "201":
+          $ref: "#/components/responses/ApplicationCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [applications]
+      summary: Update an application
+      operationId: updateApplication
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationUpdate"
+      responses:
+        "200":
+          $ref: "#/components/responses/ApplicationUpdated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [applications]
+      summary: Delete an application
+      operationId: deleteApplication
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationDelete"
+      responses:
+        "200":
+          $ref: "#/components/responses/ApplicationDeleted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/studio/pipeline:
+    post:
+      tags: [pipeline]
+      summary: Tailor a resume to a job description
+      description: |
+        Runs the multi-stage pipeline: extract JD signal → plan → score →
+        draft → rewrite → quality check → recruiter review → rescore. Streams
+        progress as Server-Sent Events (`text/event-stream`).
+      operationId: tailorResume
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PipelineRequest"
+      responses:
+        "200":
+          description: Streamed pipeline progress (text/event-stream)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: "event: step\ndata: {\"step\":\"extract\",\"status\":\"running\"}\n\n"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+  /eleva/api/chat:
+    post:
+      tags: [chat]
+      summary: Resume assistant conversation
+      operationId: chat
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ChatResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/search:
+    get:
+      tags: [search]
+      summary: Search workspace content
+      operationId: search
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+      responses:
+        "200":
+          $ref: "#/components/responses/SearchResults"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/prompts:
+    get:
+      tags: [prompts]
+      summary: List prompt records
+      operationId: listPrompts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          $ref: "#/components/responses/PromptList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [prompts]
+      summary: Create a prompt record
+      operationId: createPrompt
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptCreate"
+      responses:
+        "201":
+          $ref: "#/components/responses/PromptCreated"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/prompts/run:
+    post:
+      tags: [prompts]
+      summary: Run a saved prompt
+      operationId: runPrompt
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromptRun"
+      responses:
+        "200":
+          $ref: "#/components/responses/PromptRunResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/tool/draft:
+    post:
+      tags: [tools]
+      summary: Draft resume content
+      operationId: draftContent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolDraftRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ToolResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/tool/rewrite:
+    post:
+      tags: [tools]
+      summary: Rewrite resume content
+      operationId: rewriteContent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolRewriteRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ToolResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/tool/score:
+    post:
+      tags: [tools]
+      summary: Score a resume against a job description
+      operationId: scoreResume
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolScoreRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ToolResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/tool/ats/add-keyword:
+    post:
+      tags: [tools]
+      summary: Add an ATS keyword suggestion
+      operationId: addKeyword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToolAddKeywordRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ToolResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/templates/apply:
+    post:
+      tags: [templates]
+      summary: Apply a resume template
+      operationId: applyTemplate
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TemplateApplyRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ToolResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/export/resume:
+    post:
+      tags: [export]
+      summary: Export a resume as PDF
+      operationId: exportResumePdf
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /eleva/api/export/cover-letter:
+    post:
+      tags: [export]
+      summary: Export a cover letter as PDF
+      operationId: exportCoverLetterPdf
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExportRequest"
+      responses:
+        "200":
+          description: PDF document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase access token from the authenticated session.
+  schemas:
+    ApplicationCreate:
+      type: object
+      required: [company, role, status]
+      properties:
+        company:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+          enum: [applied, interviewing, offer, rejected, withdrawn]
+        notes:
+          type: string
+        applied_at:
+          type: string
+          format: date-time
+    ApplicationUpdate:
+      type: object
+      properties:
+        company:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+          enum: [applied, interviewing, offer, rejected, withdrawn]
+        notes:
+          type: string
+        applied_at:
+          type: string
+          format: date-time
+    ApplicationDelete:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        company:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+        applied_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PipelineRequest:
+      type: object
+      required: [jobDescription]
+      properties:
+        jobDescription:
+          type: string
+          description: The job description text or URL to tailor against.
+        resumeId:
+          type: string
+          description: Optional resume id; defaults to the user's base resume.
+    PipelineResponse:
+      type: object
+      properties:
+        tailoredResume:
+          type: string
+        atsScore:
+          type: number
+        keywordGaps:
+          type: array
+          items:
+            type: string
+        sections:
+          type: array
+          items:
+            type: object
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        conversationId:
+          type: string
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        conversationId:
+          type: string
+    PromptCreate:
+      type: object
+      required: [name, content]
+      properties:
+        name:
+          type: string
+        content:
+          type: string
+    Prompt:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    PromptRun:
+      type: object
+      required: [promptId, inputs]
+      properties:
+        promptId:
+          type: string
+        inputs:
+          type: object
+    ExportRequest:
+      type: object
+      required: [resumeId]
+      properties:
+        resumeId:
+          type: string
+        format:
+          type: string
+          enum: [pdf, docx]
+          default: pdf
+    ToolDraftRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+    ToolRewriteRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+    ToolScoreRequest:
+      type: object
+      required: [resumeText, jobDescription]
+      properties:
+        resumeText:
+          type: string
+        jobDescription:
+          type: string
+    ToolAddKeywordRequest:
+      type: object
+      required: [keyword]
+      properties:
+        keyword:
+          type: string
+    TemplateApplyRequest:
+      type: object
+      required: [templateId, resumeId]
+      properties:
+        templateId:
+          type: string
+        resumeId:
+          type: string
+    SearchResults:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+  responses:
+    Health:
+      description: Healthy
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [ok]
+              timestamp:
+                type: string
+                format: date-time
+              database:
+                type: string
+                enum: [connected]
+              uptime:
+                type: number
+    HealthDegraded:
+      description: Degraded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [degraded]
+              timestamp:
+                type: string
+                format: date-time
+              database:
+                type: string
+              uptime:
+                type: number
+    Unauthorized:
+      description: Unauthenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Provider rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    ApplicationList:
+      description: List of applications
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Application"
+    ApplicationCreated:
+      description: Application created
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Application"
+    ApplicationUpdated:
+      description: Application updated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Application"
+    ApplicationDeleted:
+      description: Application deleted
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              id:
+                type: string
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          type: object
+    ToolResult:
+      type: object
+      properties:
+        result:
+          type: string
+    PromptList:
+      description: List of prompts
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "#/components/schemas/Prompt"
+    PromptCreated:
+      description: Prompt created
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Prompt"
+    PromptRunResult:
+      description: Prompt run output
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              output:
+                type: string
+    SearchResults:
+      description: Search results
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SearchResults"
