@@ -22,7 +22,8 @@
     "check:duplication": "jscpd src --config .jscpd.json --baseline .jscpd-baseline.json --fail-on-new-clones 0",
     "check:architecture": "pnpm dlx dependency-cruiser@18.7.0 --config .dependency-cruiser.cjs src",
     "typecheck": "tsc --noEmit --pretty false",
-    "check:source-loc": "node scripts/check-source-loc.mjs"
+    "check:source-loc": "node scripts/check-source-loc.mjs",
+    "check:offline": "node scripts/check-offline-tests.mjs",
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.12",

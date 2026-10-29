@@ -68,6 +68,13 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      # Offline guarantee, third layer: re-runs the suite inside an isolated
+      # network namespace so an accidental live-host call (node:net, a real
+      # socket, DNS) fails the build instead of silently passing the
+      # in-process fetch guard. See scripts/check-offline-tests.mjs.
+      - name: Verify tests run fully offline (no network access)
+        run: pnpm check:offline
+
       # Fails when vitest coverage falls below the ratcheted thresholds in
       # vitest.config.ts (policy: CONTRIBUTING.md → "Coverage ratchet").
       - name: Coverage thresholds
