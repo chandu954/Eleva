@@ -65,6 +65,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # Validate the OpenAPI spec against the schema so it cannot rot without
+      # a CI failure.
+      - name: Validate OpenAPI spec
+        run: npx @redocly/cli@latest lint docs/openapi.yaml
+
       - name: Unit tests
         run: pnpm test
 

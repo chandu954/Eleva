@@ -2,6 +2,9 @@ openapi: 3.0.3
 info:
   title: Eleva API
   version: 0.1.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
   description: |
     Eleva — AI Career Operating System. Multi-stage resume optimization and ATS
     scoring pipeline. Authenticated routes enforce user access server-side;
@@ -39,6 +42,7 @@ paths:
         Reports required/optional env var presence, database connectivity, and
         overall status. Returns 200 when ok, 503 when degraded.
       operationId: getHealth
+      security: []
       responses:
         "200":
           $ref: "#/components/responses/Health"
@@ -547,6 +551,22 @@ components:
           type: array
           items:
             type: object
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        detail:
+          type: object
+    ToolResult:
+      type: object
+      description: Generic tool result
+      properties:
+        result:
+          type: string
   responses:
     Health:
       description: Healthy
@@ -630,21 +650,6 @@ components:
             properties:
               id:
                 type: string
-    Error:
-      type: object
-      required: [code, message]
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        detail:
-          type: object
-    ToolResult:
-      type: object
-      properties:
-        result:
-          type: string
     PromptList:
       description: List of prompts
       content:
@@ -668,9 +673,27 @@ components:
             properties:
               output:
                 type: string
+    ChatResponse:
+      description: Chat response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ChatResponse"
+    PipelineResponse:
+      description: Pipeline result
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/PipelineResponse"
     SearchResults:
       description: Search results
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/SearchResults"
+    ToolResult:
+      description: Generic tool result
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ToolResult"

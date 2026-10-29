@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit --pretty false",
     "check:source-loc": "node scripts/check-source-loc.mjs",
     "check:offline": "node scripts/check-offline-tests.mjs",
+    "lint:openapi": "npx @redocly/cli@latest lint docs/openapi.yaml",
     "report:dependency-health": "node scripts/report-dependency-health.mjs --write"
   },
   "dependencies": {
