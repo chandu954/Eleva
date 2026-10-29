@@ -309,6 +309,10 @@ jobs:
         working-directory: terraform/envs/production
         run: terraform validate
 
+      # `terraform test` (mocked plan with mock providers) is the plan gate
+      # on every PR. `terraform plan -input=false` is intentionally not run
+      # here because the S3 backend requires real bucket credentials; the
+      # mocked test run asserts behaviour without them. See terraform/README.md.
       - name: Terraform mocked production plan
         working-directory: terraform/envs/production
         run: terraform test -no-color

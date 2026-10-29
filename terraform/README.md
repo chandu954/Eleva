@@ -57,6 +57,8 @@ never applies changes. Do not use `-lock=false` for an apply.
 - `terraform fmt -check -recursive`
 - `terraform init -backend=false`
 - `terraform validate`
+- `terraform plan -input=false` with dummy vars (plan gate; no real credentials)
+- `terraform test` (mocked plan with mock providers; behaviour assertions)
 - `tflint` with the recommended ruleset
 - Checkov policy scan (`framework: terraform`)
 

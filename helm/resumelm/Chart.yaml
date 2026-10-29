@@ -1,6 +1,6 @@
 apiVersion: v2
 name: eleva
-description: Eleva - AI-powered career workspace with Supabase backend
+description: Eleva - AI-powered career workspace with Supabase backend. The chart directory keeps the historical `resumelm` name (the project's original codebase) because CI workflows, docker-compose service names, and Helm template references all depend on it; renaming would break those references without adding value.
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
