@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit --pretty false",
     "check:source-loc": "node scripts/check-source-loc.mjs",
     "check:offline": "node scripts/check-offline-tests.mjs",
-    "report:dependency-health": "node scripts/report-dependency-health.mjs --write",
+    "report:dependency-health": "node scripts/report-dependency-health.mjs --write"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.0.12",
@@ -57,8 +57,8 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@react-pdf/renderer": "^4.1.6",
     "@sentry/nextjs": "^10.76.2",
-    "@stripe/react-stripe-js": "^3.1.1",
-    "@stripe/stripe-js": "^5.4.0",
+    "@stripe/react-stripe-js": "^7.0.1",
+    "@stripe/stripe-js": "^10.2.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",
     "@tiptap/core": "^2.11.3",
