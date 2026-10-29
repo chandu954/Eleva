@@ -329,13 +329,17 @@ depend on it.
 
 Substantial additions beyond ResumeLM:
 
-- Multi-stage resume tailoring pipeline with ATS scoring and honest-AI
-  constraints (no fabricated experience).
-- Provider-agnostic LLM routing with fallback and rate-limit failover.
-- Offline-safe unit test suite (fetch guard, sandboxed CI re-run) and
-  coverage ratchet.
-- Terraform/Vercel + Upstash infrastructure as code, Helm chart, and
-  separate CI jobs for lint, typecheck, coverage, dependency audit, and
-  Checkov/TFLint validation.
-- Structured JSON logging, Sentry error tracking, health endpoint, Zod
-  API validation, and CSP security headers.
+- Extended the resume tailoring pipeline with honest-AI constraints that
+  refuse to fabricate experience (rewrites restructure only supported facts).
+- Extended LLM provider routing with fallback and rate-limit failover across
+  multiple providers.
+- Added an offline-safe unit test suite (fetch guard, sandboxed CI re-run)
+  and a coverage ratchet.
+- Added Terraform for Vercel and Upstash infrastructure as code, with staged
+  environments, mocked plan gates, and tflint/Checkov validation.
+- Added structured JSON logging, Sentry error tracking, a health endpoint,
+  Zod API validation, and CSP security headers.
+
+Note: Docker Compose, Supabase, Stripe integration, resume scoring, and the
+Helm chart directory (resumelm) trace back to upstream ResumeLM; Eleva built
+on them rather than adding them from scratch.
