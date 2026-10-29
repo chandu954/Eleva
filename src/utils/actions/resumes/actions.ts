@@ -370,7 +370,6 @@ export async function copyResume(resumeId: string): Promise<Resume> {
   await assertResumeQuota(supabase, user.id, sourceResume.is_base_resume ? 'base' : 'tailored');
 
   // Exclude auto-generated fields that shouldn't be copied
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id: _id, created_at: _created_at, updated_at: _updated_at, ...resumeDataToCopy } = sourceResume;
 
   const newResume = {

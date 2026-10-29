@@ -214,7 +214,6 @@ export function useCustomPrompts() {
       setCustomPrompts(prev => {
         if (value === undefined || value === DEFAULT_PROMPTS[key]) {
           // Remove the custom prompt if it matches default or is undefined
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const { [key]: _removed, ...rest } = prev
           return rest
         }
@@ -227,7 +226,6 @@ export function useCustomPrompts() {
   const resetPrompt = useCallback(
     (key: keyof CustomPrompts) => {
       setCustomPrompts(prev => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [key]: _removed, ...rest } = prev
         return rest
       })
