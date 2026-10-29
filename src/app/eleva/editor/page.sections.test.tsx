@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock('framer-motion', async () => {
-  const React = await import('react');
+vi.mock("framer-motion", async () => {
+  const React = await import("react");
   const cache = new Map<string, React.ComponentType<Record<string, unknown>>>();
   const motion = new Proxy({}, {
     get: (_target, tag: string) => {
@@ -25,35 +25,35 @@ vi.mock('framer-motion', async () => {
   };
 });
 
-vi.mock('next/link', async () => {
-  const React = await import('react');
+vi.mock("next/link", async () => {
+  const React = await import("react");
   return {
     default: ({ href, children, ...rest }: { href?: string; children?: React.ReactNode } & Record<string, unknown>) =>
-      React.createElement('a', { href, ...rest }, children),
+      React.createElement("a", { href, ...rest }, children),
   };
 });
 
-vi.mock('../_components/workspace-shell', async () => {
-  const React = await import('react');
+vi.mock("@/app/eleva/_components/workspace-shell", async () => {
+  const React = await import("react");
   return {
-    WorkspaceShell: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
+    WorkspaceShell: ({ children }: { children: React.ReactNode }) => React.createElement("div", null, children),
   };
 });
 
-vi.mock('./_components/resume-health', () => ({
+vi.mock("@/app/eleva/editor/_components/resume-health", () => ({
   ResumeHealth: () => <div data-testid="health-panel">health-panel</div>,
 }));
 
-vi.mock('./_components/keyword-heatmap', () => ({
+vi.mock("@/app/eleva/editor/_components/keyword-heatmap", () => ({
   KeywordHeatmap: ({ role }: { role?: string }) => <div data-testid="keywords-panel">keywords:{role}</div>,
 }));
 
-vi.mock('./_components/resume-preview', () => ({
+vi.mock("@/app/eleva/editor/_components/resume-preview", () => ({
   ResumePreview: ({ data }: { data: { name: string } }) => <div data-testid="preview-panel">preview:{data.name}</div>,
 }));
 
-vi.mock('./_components/bullet-row', async () => {
-  const React = await import('react');
+vi.mock("@/app/eleva/editor/_components/bullet-row", async () => {
+  const React = await import("react");
   return {
     BulletRow: ({ bullet, onEdit, onRewrite, onAccept, onReject, onDelete }: {
       bullet: { id: string; text: string };
@@ -62,80 +62,27 @@ vi.mock('./_components/bullet-row', async () => {
       onAccept: () => void;
       onReject: () => void;
       onDelete: () => void;
-    }) => React.createElement('div', { 'data-testid': `bullet-${bullet.id}` },
-      React.createElement('span', null, bullet.text),
-      React.createElement('button', { onClick: () => onEdit(`${bullet.text} edited`) }, `edit-${bullet.id}`),
-      React.createElement('button', { onClick: onRewrite }, `rewrite-${bullet.id}`),
-      React.createElement('button', { onClick: onAccept }, `accept-${bullet.id}`),
-      React.createElement('button', { onClick: onReject }, `reject-${bullet.id}`),
-      React.createElement('button', { onClick: onDelete }, `delete-${bullet.id}`),
+    }) => React.createElement("div", { "data-testid": `bullet-${bullet.id}` },
+      React.createElement("span", null, bullet.text),
+      React.createElement("button", { onClick: () => onEdit(`${bullet.text} edited`) }, `edit-${bullet.id}`),
+      React.createElement("button", { onClick: onRewrite }, `rewrite-${bullet.id}`),
+      React.createElement("button", { onClick: onAccept }, `accept-${bullet.id}`),
+      React.createElement("button", { onClick: onReject }, `reject-${bullet.id}`),
+      React.createElement("button", { onClick: onDelete }, `delete-${bullet.id}`),
     ),
   };
 });
 
-vi.mock('./_lib/use-resume-editor', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./_lib/use-resume-editor')>();
+vi.mock("@/app/eleva/editor/_lib/use-resume-editor", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/eleva/editor/_lib/use-resume-editor")>();
   return { ...actual, useResumeEditor: vi.fn() };
 });
 
-import { initialResume, useResumeEditor, type ResumeData, type ResumeEditor } from './_lib/use-resume-editor';
-import EditorPage from './page';
+import { useResumeEditor, type ResumeEditor } from "@/app/eleva/editor/_lib/use-resume-editor";
+import { cloneResume, makeEditor } from "@/test/editor-page-test-utils";
+import EditorPage from "./page";
 
 const hookMock = vi.mocked(useResumeEditor);
-
-function cloneResume(): ResumeData {
-  const data = JSON.parse(JSON.stringify(initialResume)) as ResumeData;
-  data.projects[0].bullets = [{ id: 'pb1', text: 'Shipped a scheduler', original: 'Shipped a scheduler' }];
-  return data;
-}
-
-function makeEditor(overrides: Partial<ResumeEditor> = {}): ResumeEditor {
-  const editor: ResumeEditor = {
-    data: cloneResume(),
-    activeSection: 'experience',
-    setActiveSection: vi.fn(),
-    updateData: vi.fn(),
-    undo: vi.fn(),
-    redo: vi.fn(),
-    canUndo: false,
-    canRedo: false,
-    toast: null,
-    showToast: vi.fn(),
-    optimizing: false,
-    processingAction: null,
-    handleBulletRewrite: vi.fn(async () => undefined),
-    handleProjectRewrite: vi.fn(async () => undefined),
-    handleAIAction: vi.fn(async () => undefined),
-    handleOptimizeAll: vi.fn(async () => undefined),
-    setExpField: vi.fn(),
-    addBullet: vi.fn(),
-    setBulletText: vi.fn(),
-    setBulletSuggestion: vi.fn(),
-    acceptSuggestion: vi.fn(),
-    deleteBullet: vi.fn(),
-    addExperience: vi.fn(),
-    removeExperience: vi.fn(),
-    updateProject: vi.fn(),
-    addProject: vi.fn(),
-    removeProject: vi.fn(),
-    addProjectTech: vi.fn(),
-    removeProjectTech: vi.fn(),
-    updateSkillCat: vi.fn(),
-    addSkillItem: vi.fn(),
-    removeSkillItem: vi.fn(),
-    addSkillCategory: vi.fn(),
-    removeSkillCategory: vi.fn(),
-    updateEducation: vi.fn(),
-    addEducation: vi.fn(),
-    removeEducation: vi.fn(),
-    updateCert: vi.fn(),
-    addCertificate: vi.fn(),
-    removeCertificate: vi.fn(),
-    updateSummary: vi.fn(),
-    updateInfoField: vi.fn(),
-  };
-  return { ...editor, ...overrides };
-}
 
 function renderEditor(overrides: Partial<ResumeEditor> = {}) {
   const editor = makeEditor(overrides);
@@ -144,141 +91,14 @@ function renderEditor(overrides: Partial<ResumeEditor> = {}) {
   return { editor, ...view };
 }
 
-beforeEach(() => {
+function resetEditorMocks() {
   hookMock.mockReset();
-});
+}
 
-describe('EditorPage — shell, toolbar and sections', () => {
-  it('switches to every section and shows the active section label', async () => {
-    const user = userEvent.setup();
-    const { editor } = renderEditor();
+beforeEach(resetEditorMocks);
 
-    for (const id of ['summary', 'experience', 'projects', 'skills', 'education', 'certificates'] as const) {
-      await user.click(screen.getByTestId(`section-${id}`));
-      expect(editor.setActiveSection).toHaveBeenCalledWith(id);
-    }
-  });
-
-  it('labels every active section in the editor header', () => {
-    for (const [id, name] of [
-      ['summary', 'Summary'],
-      ['experience', 'Experience'],
-      ['projects', 'Projects'],
-      ['skills', 'Skills'],
-      ['education', 'Education'],
-      ['certificates', 'Certificates'],
-    ] as const) {
-      const { unmount } = renderEditor({ activeSection: id });
-      expect(screen.getByText(`Editing · ${name}`)).toBeInTheDocument();
-      unmount();
-    }
-  });
-
-  it('renders section counts, the back link, ATS badge and export control', () => {
-    renderEditor({ activeSection: 'skills' });
-
-    expect(screen.getByTestId('editor-back')).toHaveAttribute('href', '/eleva/resumes');
-    expect(screen.getByText('ATS')).toBeInTheDocument();
-    expect(screen.getByText('96')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Export/ })).toBeInTheDocument();
-    expect(screen.getByTestId('section-experience')).toHaveTextContent('2');
-    expect(screen.getByTestId('section-projects')).toHaveTextContent('2');
-    expect(screen.getByTestId('section-skills')).toHaveTextContent('3');
-    expect(screen.getByTestId('section-summary')).toHaveTextContent('1');
-    expect(screen.getByTestId('section-skills').style.background).toBe('rgb(var(--eleva-muted))');
-  });
-
-  it('renders a zero summary count when the summary is empty', () => {
-    renderEditor({ data: { ...cloneResume(), summary: '' } });
-    expect(screen.getByTestId('section-summary')).toHaveTextContent('0');
-  });
-
-  it('edits the resume name through the hook', () => {
-    const { editor } = renderEditor();
-
-    fireEvent.change(screen.getByTestId('resume-name-input'), { target: { value: 'New Name' } });
-
-    expect(editor.updateInfoField).toHaveBeenLastCalledWith('name', 'New Name');
-  });
-
-  it('renders the hook toast when present', () => {
-    renderEditor({ toast: 'All bullets rewritten.' });
-    expect(screen.getByText('All bullets rewritten.')).toBeInTheDocument();
-  });
-});
-
-describe('EditorPage — history and AI actions', () => {
-  it('keeps undo/redo disabled when history is empty', () => {
-    renderEditor({ canUndo: false, canRedo: false });
-    expect(screen.getByTitle('Undo (Ctrl+Z)')).toBeDisabled();
-    expect(screen.getByTitle('Redo (Ctrl+Shift+Z)')).toBeDisabled();
-  });
-
-  it('invokes undo and redo when history is available', async () => {
-    const user = userEvent.setup();
-    const { editor } = renderEditor({ canUndo: true, canRedo: true });
-
-    await user.click(screen.getByTitle('Undo (Ctrl+Z)'));
-    await user.click(screen.getByTitle('Redo (Ctrl+Shift+Z)'));
-
-    expect(editor.undo).toHaveBeenCalledOnce();
-    expect(editor.redo).toHaveBeenCalledOnce();
-  });
-
-  it('runs optimize-all and reflects the busy state', async () => {
-    const user = userEvent.setup();
-    const { editor, rerender } = renderEditor();
-
-    await user.click(screen.getByTestId('ai-optimize'));
-    expect(editor.handleOptimizeAll).toHaveBeenCalledOnce();
-
-    const busy = makeEditor({ optimizing: true });
-    hookMock.mockReturnValue(busy);
-    rerender(<EditorPage />);
-
-    const button = screen.getByTestId('ai-optimize');
-    expect(button).toBeDisabled();
-    expect(button).toHaveTextContent('Optimizing…');
-  });
-});
-
-describe('EditorPage — summary and right-hand tabs', () => {
-  it('edits the summary and forwards toolbar actions', async () => {
-    const user = userEvent.setup();
-    const { editor } = renderEditor({ activeSection: 'summary' });
-
-    fireEvent.change(screen.getByTestId('summary-editor'), { target: { value: 'A new summary' } });
-    expect(editor.updateSummary).toHaveBeenLastCalledWith('A new summary');
-
-    await user.click(screen.getByRole('button', { name: 'Shorten' }));
-    expect(editor.handleAIAction).toHaveBeenCalledWith('shorten', editor.data.summary, expect.any(Function));
-  });
-
-  it('disables section toolbar actions when there is no text', () => {
-    renderEditor({ activeSection: 'summary', data: { ...cloneResume(), summary: '' } });
-    expect(screen.getByRole('button', { name: 'Rewrite' })).toBeDisabled();
-  });
-
-  it('switches the preview, health and keyword tabs', async () => {
-    const user = userEvent.setup();
-    renderEditor();
-
-    expect(screen.getByTestId('preview-panel')).toHaveTextContent('preview:Ashish Sharma');
-
-    await user.click(screen.getByRole('button', { name: 'Health' }));
-    expect(screen.getByTestId('health-panel')).toBeInTheDocument();
-    expect(screen.queryByTestId('preview-panel')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Keywords' }));
-    expect(screen.getByTestId('keywords-panel')).toHaveTextContent('keywords:Senior Backend Engineer');
-
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
-    expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
-  });
-});
-
-describe('EditorPage — experience section', () => {
-  it('edits every experience field and manages entries and bullets', async () => {
+describe("EditorPage — experience section", () => {
+  it("edits every experience field and manages entries and bullets", async () => {
     const user = userEvent.setup();
     const { editor, container } = renderEditor({ activeSection: 'experience' });
 
@@ -310,7 +130,7 @@ describe('EditorPage — experience section', () => {
     expect(editor.addExperience).toHaveBeenCalledOnce();
   });
 
-  it('wires bullet edit, rewrite, accept, reject and delete to the hook', async () => {
+  it("wires bullet edit, rewrite, accept, reject and delete to the hook", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'experience' });
 
@@ -330,15 +150,15 @@ describe('EditorPage — experience section', () => {
     expect(editor.deleteBullet).toHaveBeenCalledWith('exp1', 'b0');
   });
 
-  it('renders an empty experience list with just the add control', () => {
+  it("renders an empty experience list with just the add control", () => {
     renderEditor({ activeSection: 'experience', data: { ...cloneResume(), experience: [] } });
     expect(screen.queryByTitle('Remove')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add experience/ })).toBeInTheDocument();
   });
 });
 
-describe('EditorPage — projects section', () => {
-  it('edits project fields, technologies and project bullets', async () => {
+describe("EditorPage — projects section", () => {
+  it("edits project fields, technologies and project bullets", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'projects' });
 
@@ -366,7 +186,7 @@ describe('EditorPage — projects section', () => {
     expect(editor.removeProject).toHaveBeenCalledWith('p1');
   });
 
-  it('applies the inline project bullet transforms through updateData', async () => {
+  it("applies the inline project bullet transforms through updateData", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'projects' });
 
@@ -381,7 +201,7 @@ describe('EditorPage — projects section', () => {
     expect(screen.getByRole('button', { name: 'accept-pb1' })).toBeInTheDocument();
   });
 
-  it('covers project bullet accept, reject and delete transforms', async () => {
+  it("covers project bullet accept, reject and delete transforms", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'projects' });
 
@@ -403,7 +223,7 @@ describe('EditorPage — projects section', () => {
     expect(remove?.(withSuggestion)?.projects[0].bullets).toHaveLength(0);
   });
 
-  it('adds a project bullet through updateData', async () => {
+  it("adds a project bullet through updateData", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'projects' });
 
@@ -414,7 +234,7 @@ describe('EditorPage — projects section', () => {
     expect(screen.getByRole('button', { name: /Add project/ })).toBeInTheDocument();
   });
 
-  it('adds a project and runs the project AI toolbar', async () => {
+  it("adds a project and runs the project AI toolbar", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'projects' });
 
@@ -426,8 +246,8 @@ describe('EditorPage — projects section', () => {
   });
 });
 
-describe('EditorPage — skills, education and certificates', () => {
-  it('edits and removes skill categories and items', async () => {
+describe("EditorPage — skills, education and certificates", () => {
+  it("edits and removes skill categories and items", async () => {
     const user = userEvent.setup();
     const { editor, container } = renderEditor({ activeSection: 'skills' });
 
@@ -451,7 +271,7 @@ describe('EditorPage — skills, education and certificates', () => {
     expect(editor.addSkillCategory).toHaveBeenCalledOnce();
   });
 
-  it('edits education fields and manages education entries', async () => {
+  it("edits education fields and manages education entries", async () => {
     const user = userEvent.setup();
     const { editor, container } = renderEditor({ activeSection: 'education' });
 
@@ -481,7 +301,7 @@ describe('EditorPage — skills, education and certificates', () => {
     expect(editor.addEducation).toHaveBeenCalledOnce();
   });
 
-  it('edits certificate fields and manages certificates', async () => {
+  it("edits certificate fields and manages certificates", async () => {
     const user = userEvent.setup();
     const { editor, container } = renderEditor({ activeSection: 'certificates' });
 
@@ -505,7 +325,7 @@ describe('EditorPage — skills, education and certificates', () => {
     expect(editor.addCertificate).toHaveBeenCalledOnce();
   });
 
-  it('renders empty education and certificate lists with add controls', () => {
+  it("renders empty education and certificate lists with add controls", () => {
     const data = cloneResume();
     data.education = [];
     data.certificates = [];
@@ -518,7 +338,7 @@ describe('EditorPage — skills, education and certificates', () => {
     expect(screen.getByRole('button', { name: /Add certificate/ })).toBeInTheDocument();
   });
 
-  it('calls the summary toolbar callback result setter', async () => {
+  it("calls the summary toolbar callback result setter", async () => {
     const user = userEvent.setup();
     const { editor } = renderEditor({ activeSection: 'summary' });
 

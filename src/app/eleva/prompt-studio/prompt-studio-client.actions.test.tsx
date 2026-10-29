@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  AIPrompt,
-  PromptCategory,
-  PromptTag,
-  PromptVersion,
-} from "./types";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
@@ -50,7 +44,7 @@ vi.mock("framer-motion", async () => {
   };
 });
 
-vi.mock("./_lib/actions", () => ({
+vi.mock("@/app/eleva/prompt-studio/_lib/actions", () => ({
   toggleFavorite: vi.fn(),
   updatePrompt: vi.fn(),
   duplicatePrompt: vi.fn(),
@@ -60,147 +54,21 @@ vi.mock("./_lib/actions", () => ({
 }));
 
 import { toast } from "sonner";
-import { PromptStudioClient } from "./prompt-studio-client";
-import * as actions from "./_lib/actions";
-
-const categories: PromptCategory[] = [
-  {
-    id: "cat-resume",
-    name: "Resume",
-    slug: "resume",
-    description: null,
-    icon: "FileText",
-    sort_order: 0,
-  },
-  {
-    id: "cat-cover",
-    name: "Cover Letter",
-    slug: "cover-letter",
-    description: null,
-    icon: "Mail",
-    sort_order: 1,
-  },
-];
-
-const tags: PromptTag[] = [
-  { id: "tag-ats", name: "ATS", slug: "ats", color: null },
-  { id: "tag-email", name: "Email", slug: "email", color: null },
-];
-
-const version: PromptVersion = {
-  id: "ver-1",
-  prompt_id: "prompt-1",
-  version: 1,
-  system_prompt: "You are a resume writer.",
-  user_prompt_template: "Write for {{role}}",
-  model: "openrouter/free",
-  temperature: 0.7,
-  max_tokens: 4096,
-  variables: [],
-  change_description: "Initial version",
-  created_by: "user-1",
-  created_at: "2026-01-01T00:00:00.000Z",
-};
-
-const analytics = {
-  executions: 5,
-  successRate: 90,
-  avgTokens: 120,
-  avgCost: 0.0005,
-  avgLatency: 250,
-  failureRate: 10,
-  lastUsed: null,
-  dailyUsage: [],
-  weeklyUsage: [],
-  monthlyUsage: [],
-};
-
-function makePrompt(overrides: Partial<AIPrompt> = {}): AIPrompt {
-  return {
-    id: "prompt-1",
-    user_id: "user-1",
-    category_id: "cat-resume",
-    key: "resume-writer",
-    title: "Resume Writer",
-    description: "Write strong resumes",
-    system_prompt: "You are a resume writer.",
-    user_prompt_template: "Write for {{role}}",
-    model: "openrouter/free",
-    temperature: 0.7,
-    max_tokens: 4096,
-    is_active: true,
-    is_builtin: false,
-    is_locked: false,
-    locked_sections: null,
-    editable_instructions: null,
-    variables: [{ name: "role", description: "Target role" }],
-    tags: ["ats"],
-    usage_count: 3,
-    success_count: 3,
-    failure_count: 0,
-    avg_latency_ms: 100,
-    avg_tokens: 50,
-    avg_cost: 0,
-    version: 1,
-    metadata: {},
-    created_at: "2026-01-01T00:00:00.000Z",
-    updated_at: "2026-01-02T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-const resumePrompt = makePrompt({
-  id: "prompt-1",
-  title: "Resume Writer",
-  is_favorite: true,
-  category: categories[0],
-});
-
-const coverPrompt = makePrompt({
-  id: "prompt-2",
-  key: "cover-letter-pro",
-  title: "Cover Letter Pro",
-  description: "Write tailored cover letters",
-  category_id: null,
-  category: undefined,
-  tags: ["email"],
-  is_favorite: false,
-  system_prompt: "You are a cover letter expert.",
-});
+import * as actions from "@/app/eleva/prompt-studio/_lib/actions";
+import {
+  analytics,
+  cardFor,
+  formBody,
+  makePrompt,
+  renderClient,
+  setupClipboard,
+  version,
+} from "@/test/prompt-studio-test-utils";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function jsonResponse(data: unknown) {
   return { ok: true, json: async () => data } as unknown as Response;
-}
-
-function setupClipboard() {
-  const writeText = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", {
-    configurable: true,
-    value: { writeText },
-  });
-  return writeText;
-}
-
-function renderClient(prompts: AIPrompt[] = [resumePrompt, coverPrompt]) {
-  return render(
-    <PromptStudioClient
-      initialPrompts={prompts}
-      categories={categories}
-      tags={tags}
-    />
-  );
-}
-
-function cardFor(title: string) {
-  const card = screen.getByText(title).closest(".group");
-  if (!card) throw new Error(`Card not found for ${title}`);
-  return within(card as HTMLElement);
-}
-
-function formBody(formData: FormData) {
-  return JSON.parse(String(formData.get("body")));
 }
 
 beforeEach(() => {
@@ -250,100 +118,7 @@ beforeEach(() => {
   });
 });
 
-describe("PromptStudioClient", () => {
-  it("renders the prompt library and filters by search and category", () => {
-    renderClient();
-
-    expect(screen.getByText("Prompt Studio")).toBeInTheDocument();
-    expect(screen.getByText("Resume Writer")).toBeInTheDocument();
-    expect(screen.getByText("Cover Letter Pro")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /New Prompt/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Templates/ })).toBeInTheDocument();
-
-    const search = screen.getByPlaceholderText("Search prompts... (⌘K)");
-    fireEvent.change(search, { target: { value: "cover" } });
-    expect(screen.queryByText("Resume Writer")).not.toBeInTheDocument();
-    expect(screen.getByText("Cover Letter Pro")).toBeInTheDocument();
-
-    fireEvent.change(
-      screen.getByPlaceholderText("Search prompts... (⌘K)"),
-      { target: { value: "ats" } }
-    );
-    expect(screen.getByText("Resume Writer")).toBeInTheDocument();
-    expect(screen.queryByText("Cover Letter Pro")).not.toBeInTheDocument();
-
-    fireEvent.change(
-      screen.getByPlaceholderText("Search prompts... (⌘K)"),
-      { target: { value: "does-not-exist" } }
-    );
-    expect(screen.getByText("No prompts found")).toBeInTheDocument();
-
-    fireEvent.change(
-      screen.getByPlaceholderText("Search prompts... (⌘K)"),
-      { target: { value: "" } }
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-    expect(screen.getByText("Resume Writer")).toBeInTheDocument();
-    expect(screen.queryByText("Cover Letter Pro")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-    expect(screen.getByText("Cover Letter Pro")).toBeInTheDocument();
-  });
-
-  it("opens a prompt, loads versions and analytics, saves edits, and switches views", async () => {
-    renderClient();
-
-    fireEvent.click(screen.getByText("Resume Writer"));
-
-    const titleInput = await screen.findByPlaceholderText("Prompt title");
-    expect(titleInput).toHaveValue("Resume Writer");
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
-      "/eleva/prompt-studio/api?action=versions&promptId=prompt-1",
-      "/eleva/prompt-studio/api?action=analytics&promptId=prompt-1",
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    expect(
-      await screen.findByRole("heading", { name: "Prompt Playground" })
-    ).toBeInTheDocument();
-    expect(screen.getByText("{{role}}")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Editor" }));
-    fireEvent.click(screen.getByRole("button", { name: "History" }));
-    expect(
-      await screen.findByRole("heading", { name: "Version History" })
-    ).toBeInTheDocument();
-    expect(screen.getByText("1 version")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Analytics" }));
-    expect(
-      await screen.findByRole("heading", { name: "Prompt Analytics" })
-    ).toBeInTheDocument();
-    expect(screen.getByText("Executions")).toBeInTheDocument();
-    expect(screen.getByText("5")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Editor" }));
-    fireEvent.change(screen.getByPlaceholderText("Prompt title"), {
-      target: { value: "Updated Resume Writer" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Save Changes/ }));
-
-    await waitFor(() =>
-      expect(actions.updatePrompt).toHaveBeenCalledWith(
-        "prompt-1",
-        expect.any(FormData)
-      )
-    );
-    const formData = vi.mocked(actions.updatePrompt).mock.calls[0][1];
-    expect(formBody(formData)).toEqual(
-      expect.objectContaining({ title: "Updated Resume Writer" })
-    );
-    await waitFor(() =>
-      expect(toast.success).toHaveBeenCalledWith("Prompt saved")
-    );
-  });
-
+describe("PromptStudioClient — prompt actions", () => {
   it("toggles favorites, duplicates prompts, and reports action errors", async () => {
     renderClient();
 
@@ -404,39 +179,6 @@ describe("PromptStudioClient", () => {
       expect(toast.success).toHaveBeenCalledWith("Prompt created")
     );
     consoleError.mockRestore();
-  });
-
-  it("searches templates and applies one to a new prompt", async () => {
-    renderClient();
-
-    fireEvent.click(screen.getByRole("button", { name: /Templates/ }));
-    expect(
-      await screen.findByRole("heading", { name: "Prompt Templates" })
-    ).toBeInTheDocument();
-
-    fireEvent.change(screen.getByPlaceholderText("Search templates..."), {
-      target: { value: "devops" },
-    });
-    expect(screen.getByText("DevOps / SRE")).toBeInTheDocument();
-    expect(screen.queryByText("ATS Optimized")).not.toBeInTheDocument();
-
-    fireEvent.click(
-      cardFor("DevOps / SRE").getByRole("button", { name: /Apply/ })
-    );
-
-    expect(await screen.findByDisplayValue("DevOps / SRE")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Prompt Templates" })
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("combobox")[0]).toHaveValue("cat-resume");
-    expect(
-      (screen.getByPlaceholderText(
-        "Enter your system prompt here... Use {{variable_name}} for dynamic values."
-      ) as HTMLTextAreaElement).value
-    ).toContain("DevOps and SRE roles");
-    expect(toast.success).toHaveBeenCalledWith(
-      'Applied "DevOps / SRE" template'
-    );
   });
 
   it("exports and imports prompts from the import/export dialog", async () => {
@@ -596,31 +338,6 @@ describe("PromptStudioClient", () => {
     );
     expect(screen.getByPlaceholderText("Prompt title")).toHaveValue(
       "Cover Letter Pro"
-    );
-  });
-
-  it("keeps the editor usable when version and analytics loading fails", async () => {
-    fetchMock.mockRejectedValue(new Error("offline"));
-    renderClient();
-
-    fireEvent.click(screen.getByText("Resume Writer"));
-    expect(await screen.findByPlaceholderText("Prompt title")).toHaveValue(
-      "Resume Writer"
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "History" }));
-    expect(
-      await screen.findByText("No version history")
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Analytics" }));
-    expect(
-      screen.queryByRole("heading", { name: "Prompt Analytics" })
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Editor" }));
-    expect(screen.getByPlaceholderText("Prompt title")).toHaveValue(
-      "Resume Writer"
     );
   });
 });

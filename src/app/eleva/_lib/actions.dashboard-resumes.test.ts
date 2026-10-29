@@ -1,40 +1,25 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { stubSupabase, stubTable, type PostgrestStub } from '@/test/postgrest-stub';
+
+const { mockCreateClient, mockRedirect, mockRevalidatePath } = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+  mockRedirect: vi.fn(),
+  mockRevalidatePath: vi.fn(),
+}));
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({ getAll: () => [], set: vi.fn() })),
 }));
-vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
-vi.mock('@/utils/supabase/server', () => ({ createClient: vi.fn() }));
+vi.mock('next/navigation', () => ({ redirect: mockRedirect }));
+vi.mock('next/cache', () => ({ revalidatePath: mockRevalidatePath }));
+vi.mock('@/utils/supabase/server', () => ({ createClient: mockCreateClient }));
 
-import { createClient } from '@/utils/supabase/server';
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
+import { stubSupabase, type PostgrestStub } from '@/test/postgrest-stub';
 import {
-  createBlankResume,
-  createJob,
-  deleteResume,
-  duplicateResume,
-  getDashboardData,
-  getResume,
-  getSubscription,
-  listActivity,
-  listCoverLetters,
-  listJobsForUser,
-  listResumes,
-  listScores,
-  listVersions,
-  saveCoverLetter,
-  saveResumeVersion,
-  updateProfile,
-  updateResumeFields,
-} from './actions';
-
-const mockCreateClient = vi.mocked(createClient);
-const mockRedirect = vi.mocked(redirect);
-const mockRevalidatePath = vi.mocked(revalidatePath);
+  authedUser,
+  daysAgoIso,
+  table,
+} from '@/test/eleva-actions-test-utils';
 
 type AuthUser = { id: string; email?: string };
 
@@ -63,30 +48,28 @@ function installClient(
   return client;
 }
 
-const authedUser: AuthUser = { id: 'user-1', email: 'ada@example.com' };
-
-function table(result: { data?: unknown; error?: unknown; count?: number | null } = {}) {
-  return stubTable({ data: result.data ?? null, error: result.error ?? null, count: result.count });
-}
-
-function daysAgoIso(reference: Date, daysAgo: number): string {
-  const date = new Date(reference);
-  date.setHours(12, 0, 0, 0);
-  date.setDate(date.getDate() - daysAgo);
-  return date.toISOString();
-}
-
-describe('eleva server actions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockCreateClient.mockReset();
-    mockRedirect.mockReset();
-    mockRedirect.mockImplementation((url: string): never => {
-      throw new Error(`NEXT_REDIRECT:${url}`);
-    });
-    mockCreateClient.mockResolvedValue(stubSupabase(null, {}) as never);
+function resetActionsMocks() {
+  vi.clearAllMocks();
+  mockCreateClient.mockReset();
+  mockRedirect.mockReset();
+  mockRedirect.mockImplementation((url: string): never => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
   });
+  mockCreateClient.mockResolvedValue(stubSupabase(null, {}) as never);
+}
+import {
+  createBlankResume,
+  deleteResume,
+  duplicateResume,
+  getDashboardData,
+  getResume,
+  listResumes,
+  saveResumeVersion,
+  updateResumeFields,
+} from './actions';
 
+describe('eleva server actions — dashboard and resumes', () => {
+  beforeEach(resetActionsMocks);
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -445,132 +428,4 @@ describe('eleva server actions', () => {
       expect(versions.calls.insert).toHaveLength(1);
     });
   });
-
-  describe('lists and lookups', () => {
-    it('lists activity with the default and custom limits', async () => {
-      const activity = table({ data: [{ id: 'a1' }] });
-      installClient(authedUser, { activity_log: activity });
-
-      await expect(listActivity()).resolves.toEqual([{ id: 'a1' }]);
-      await listActivity(5);
-
-      expect(activity.calls.limit).toEqual([[40], [5]]);
-      expect(activity.calls.order).toEqual([
-        ['created_at', { ascending: false }],
-        ['created_at', { ascending: false }],
-      ]);
-    });
-
-    it('returns [] when activity data is null', async () => {
-      installClient(authedUser, { activity_log: table() });
-      await expect(listActivity()).resolves.toEqual([]);
-    });
-
-    it('lists cover letters and jobs scoped to the caller', async () => {
-      const coverLetters = table({ data: [{ id: 'cl1' }] });
-      const jobs = table({ data: [{ id: 'j1' }] });
-      installClient(authedUser, { cover_letters: coverLetters, jobs });
-
-      await expect(listCoverLetters()).resolves.toEqual([{ id: 'cl1' }]);
-      await expect(listJobsForUser()).resolves.toEqual([{ id: 'j1' }]);
-
-      expect(coverLetters.calls.eq).toEqual([['user_id', 'user-1']]);
-      expect(jobs.calls.eq).toEqual([['user_id', 'user-1']]);
-    });
-
-    it('returns [] when cover letters or jobs are absent', async () => {
-      installClient(authedUser, { cover_letters: table(), jobs: table() });
-      await expect(listCoverLetters()).resolves.toEqual([]);
-      await expect(listJobsForUser()).resolves.toEqual([]);
-    });
-
-    it('lists scores globally and filtered by resume', async () => {
-      const scores = table({ data: [{ id: 's1' }] });
-      installClient(authedUser, { ats_scores: scores });
-
-      await expect(listScores()).resolves.toEqual([{ id: 's1' }]);
-      await listScores('r1');
-
-      expect(scores.calls.eq).toEqual([
-        ['user_id', 'user-1'],
-        ['user_id', 'user-1'],
-        ['resume_id', 'r1'],
-      ]);
-      expect(scores.calls.limit).toEqual([[200], [200]]);
-    });
-
-    it('lists versions for a resume scoped to the caller', async () => {
-      const versions = table({ data: [{ id: 'v1' }] });
-      installClient(authedUser, { resume_versions: versions });
-
-      await expect(listVersions('r1')).resolves.toEqual([{ id: 'v1' }]);
-      expect(versions.calls.eq).toEqual([
-        ['user_id', 'user-1'],
-        ['resume_id', 'r1'],
-      ]);
-    });
-
-    it('returns [] when versions are absent', async () => {
-      installClient(authedUser, { resume_versions: table() });
-      await expect(listVersions('r1')).resolves.toEqual([]);
-    });
-
-    it('reads the caller subscription', async () => {
-      const subscriptions = table({ data: { subscription_plan: 'pro' } });
-      installClient(authedUser, { subscriptions });
-
-      await expect(getSubscription()).resolves.toEqual({ subscription_plan: 'pro' });
-      expect(subscriptions.calls.eq).toEqual([['user_id', 'user-1']]);
-      expect(subscriptions.calls.maybeSingle).toHaveLength(1);
-    });
-  });
-
-  describe('writes', () => {
-    it('saves a cover letter and logs generation activity', async () => {
-      const coverLetters = table({ data: { id: 'cl1' } });
-      const activity = table();
-      installClient(authedUser, { cover_letters: coverLetters, activity_log: activity });
-
-      const row = { company: 'Acme', role: 'Engineer', body: 'Hello' };
-      await expect(saveCoverLetter(row)).resolves.toEqual({ id: 'cl1' });
-
-      expect(coverLetters.calls.insert[0][0]).toEqual({ ...row, user_id: 'user-1' });
-      expect(activity.calls.insert[0][0]).toMatchObject({
-        kind: 'cover_generated',
-        title: 'Cover letter · Engineer',
-        subtitle: 'Acme',
-      });
-    });
-
-    it('creates a job and logs application activity', async () => {
-      const jobs = table({ data: { id: 'j1' } });
-      const activity = table();
-      installClient(authedUser, { jobs, activity_log: activity });
-
-      const row = { company_name: 'Acme', position_title: 'Engineer' };
-      await expect(createJob(row)).resolves.toEqual({ id: 'j1' });
-
-      expect(jobs.calls.insert[0][0]).toEqual({ ...row, user_id: 'user-1' });
-      expect(activity.calls.insert[0][0]).toMatchObject({
-        kind: 'application_added',
-        title: 'Added Engineer',
-        subtitle: 'Acme',
-      });
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/eleva/applications');
-    });
-
-    it('upserts the profile with the caller id', async () => {
-      const profiles = table();
-      installClient(authedUser, { profiles });
-
-      await updateProfile({ first_name: 'Ada' });
-
-      expect(profiles.calls.upsert[0][0]).toEqual({
-        user_id: 'user-1',
-        first_name: 'Ada',
-      });
-      expect(mockRevalidatePath).toHaveBeenCalledWith('/eleva/settings');
-    });
-  });
-
-  });
+});
