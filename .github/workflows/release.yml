@@ -40,7 +40,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create or update GitHub release
-        uses: softprops/action-gh-release@de220e04c0064179051c313a4f6fb78d92adcd93 # v2
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "Release ${{ steps.tag.outputs.tag }}"
