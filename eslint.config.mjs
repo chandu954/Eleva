@@ -44,6 +44,11 @@ const eslintConfig = [
       // files, and test support are excluded so their fixtures stay practical.
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      // Mirror the check:source-loc 500 LOC production limit at lint time so
+      // oversized files fail `pnpm lint` before they ever reach CI. Comments
+      // and blank lines count toward the total; a file needs real refactoring,
+      // not just comment removal, to come back under budget.
+      "max-lines": ["error", { max: 500, skipComments: false, skipBlankLines: false }],
     },
   },
   {
