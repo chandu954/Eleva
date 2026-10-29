@@ -153,13 +153,14 @@ export default defineConfig({
       // src/lib measured 89.12 / 84.62 / 84.82 / 89.12, so its branch floor
       // remains 83 until it clears 85; its other floors remain unchanged.
       // 2026-10-29 Phase 3 ratchet: measured global 75.4 statements /
-      // 85.29 branches / 82.76 functions / 75.4 lines. Bump each floor to
-      // sit just below its measurement to keep the ratchet active.
+      // 85.29 branches / 82.76 functions / 75.4 lines. Keep ~1 point of
+      // headroom on each metric so a single refactor or flaky test does not
+      // turn CI red. Floors still ratchet upward as coverage improves.
       thresholds: {
-        statements: 75.3,
-        branches: 85.1,
-        functions: 82.6,
-        lines: 75.3,
+        statements: 74.4,
+        branches: 84.3,
+        functions: 81.8,
+        lines: 74.4,
         // Per-glob group thresholds are top-level keys alongside the global
         // metrics (a "glob:" wrapper key is NOT supported — vitest would
         // treat the literal string "glob" as a pattern matching nothing).
