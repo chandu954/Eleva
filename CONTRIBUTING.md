@@ -48,6 +48,10 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
    authors must not approve their own changes. Request the relevant owner from
    [`.github/CODEOWNERS`](.github/CODEOWNERS) for changes to `src/app/`,
    `src/lib/`, or `terraform/`.
+8. **Terraform changes**: Ensure the `Terraform validation` job passes. This
+   runs `terraform fmt -check`, `terraform validate`, `tflint`, and a
+   mock-provider `terraform plan` that does not require credentials or create
+   infrastructure. The job is a required status check for merging to `main`.
 
 Repository administrators must enforce this policy in GitHub branch protection
 for `main`. Require pull requests, at least one approval, and these CI status

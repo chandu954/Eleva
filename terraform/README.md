@@ -72,5 +72,8 @@ variables and secrets listed in [the operations runbook](../docs/operations/runb
 - `upstash-redis` — creates a single-region Redis database over TLS and exposes
   the REST URL/token for the rate limiter.
 
-Both modules are versionless on purpose (local path sources); the production
-composition is the only caller and pins provider versions in `versions.tf`.
+Both modules use local path sources, so callers do not pass a module `version`.
+Each module still pins its provider constraint in its own `required_providers`
+block (`~> 1.5` for Upstash, `~> 4.0` for Vercel). The production composition
+repeats the same constraints in `envs/production/versions.tf`, and
+`envs/production/.terraform.lock.hcl` pins the exact resolved provider versions.
