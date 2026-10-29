@@ -1,0 +1,83 @@
+name: Dependency freshness
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # weekly, Mondays 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  freshness:
+    name: Direct-dependency freshness check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails when any direct dependency is 2+ major versions behind its latest
+      # release. patch/minor lag is expected and handled by Dependabot; the gate
+      # exists so majors that fall off Dependabot's radar still surface.
+      - name: Check direct dependencies are within one major of latest
+        id: outdated
+        run: |
+          set -e
+          # Only direct deps (depth 0); pnpm outdated lists every resolved dep.
+          outdated=$(pnpm outdated --long --depth 0 --json | \
+            node -e '
+              let data = "";
+              process.stdin.on("data", c => data += c);
+              process.stdin.on("end", () => {
+                const pkgs = JSON.parse(data);
+                const lagging = pkgs.filter(p => {
+                  const cur = Number(p.current.split(".")[0]);
+                  const lat = Number(p.latest.split(".")[0]);
+                  return lat - cur >= 2;
+                });
+                console.log(JSON.stringify(lagging.map(p => p.name)));
+                process.exit(lagging.length > 0 ? 1 : 0);
+              });
+            ')
+          echo "lagging=$outdated" >> "$GITHUB_OUTPUT"
+
+      - name: Open tracking issue when dependencies lag
+        if: steps.outdated.outputs.lagging != '[]' && steps.outdated.outputs.lagging != ''
+        uses: actions/github-script@60a0d830528e4829818a1598083c5b9c3277c35b # v7
+        with:
+          script: |
+            const lagging = ${{ steps.outdated.outputs.lagging }};
+            const title = "chore: direct dependencies 2+ majors behind";
+            const body = `Direct dependencies more than one major behind latest:\n\n- ${lagging.join("\n- ")}\n\nMerge the Dependabot PRs or run \`pnpm up <pkg>@latest\` and send a PR.`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "dependencies",
+            });
+            if (existing.data.some(i => i.title === title)) {
+              console.log("Tracking issue already open");
+              return;
+            }
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: ["dependencies"],
+            });
