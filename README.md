@@ -318,3 +318,24 @@ base image; advance it through reviewed Dependabot updates.
 - [ ] LLM-as-judge eval harness for fabrication rate
 - [ ] PDF resume upload (parse real layouts)
 - [ ] Job tracker sync with email/linkedin exports
+
+## Acknowledgements
+
+Eleva began as a derivative of [ResumeLM](https://github.com/olyaiy/resume-lm)
+(AGPL-3.0), and its upstream copyright and license notices are preserved in
+`LICENSE.md`. The chart directory keeps the historical `resumelm` name because
+CI workflows, Docker Compose service names, and Helm template references all
+depend on it.
+
+Substantial additions beyond ResumeLM:
+
+- Multi-stage resume tailoring pipeline with ATS scoring and honest-AI
+  constraints (no fabricated experience).
+- Provider-agnostic LLM routing with fallback and rate-limit failover.
+- Offline-safe unit test suite (fetch guard, sandboxed CI re-run) and
+  coverage ratchet.
+- Terraform/Vercel + Upstash infrastructure as code, Helm chart, and
+  separate CI jobs for lint, typecheck, coverage, dependency audit, and
+  Checkov/TFLint validation.
+- Structured JSON logging, Sentry error tracking, health endpoint, Zod
+  API validation, and CSP security headers.
