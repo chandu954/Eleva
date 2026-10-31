@@ -85,6 +85,17 @@ jobs:
       - name: Coverage thresholds
         run: pnpm coverage
 
+      # Logs the enforced thresholds so CI output proves the gates are active
+      # (not just configured), per the fresh-clone verification guide.
+      - name: Confirm coverage thresholds enforced
+        run: |
+          echo "Coverage thresholds enforced:"
+          echo "  statements: 74.4%"
+          echo "  branches: 84.3%"
+          echo "  functions: 81.8%"
+          echo "  lines: 74.4%"
+          echo "See vitest.config.ts for the ratchet; pnpm coverage must meet or exceed each."
+
   e2e:
     name: Playwright smoke tests
     runs-on: ubuntu-latest
