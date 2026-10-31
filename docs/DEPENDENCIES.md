@@ -31,3 +31,40 @@ upstream ships a compatible line.
   every entry needs a justification comment and a quarterly review.
 - Dependabot (`.github/dependabot.yml`) opens updates for direct dependencies.
 - `pnpm outdated` shows the full lag list against the registry.
+
+## Direct dependencies behind latest major (as of `pnpm outdated --long`)
+
+Entries two or more major versions behind are flagged by the weekly
+`dependency-freshness` workflow. Patch/minor lag is expected and handled by
+Dependabot; majors are listed here for tracking.
+
+| Package | Current | Latest | Majors behind |
+| --- | --- | --- | --- |
+| @types/node | 20.17.48 | 26.6.6 | 6 |
+| stripe | 18.1.0 | 23.1.0 | 5 |
+| ai | 4.3.19 | 7.0.158 | 3 |
+| framer-motion | 11.18.2 | 14.9.0 | 3 |
+| marked | 15.0.11 | 18.1.2 | 3 |
+| openai | 4.104.0 | 7.45.1 | 3 |
+| @vitejs/plugin-react | 4.7.0 | 6.1.2 | 2 |
+| @vitest/coverage-v8 | 3.2.7 | 5.0.5 | 2 |
+| pdfjs-dist | 4.8.69 | 6.4.299 | 2 |
+| react-pdf | 9.2.1 | 11.0.0 | 2 |
+| react-resizable-panels | 2.1.9 | 4.15.3 | 2 |
+| typescript | 5.8.3 | 7.0.2 | 2 |
+| vite | 6.4.5 | 8.3.5 | 2 |
+| vitest | 3.2.7 | 5.0.5 | 2 |
+| zod | 3.25.76 | 4.6.7 | 1 |
+| next | 15.5.28 | 16.4.3 | 1 |
+| eslint-config-next | 15.5.28 | 16.4.3 | 1 |
+| @sentry/nextjs | 10.76.2 | 11.10.0 | 1 |
+| eslint | 9.27.0 | 10.14.0 | 1 |
+| ioredis | 5.8.2 | 6.0.0 | 1 |
+| knip | 5.64.1 | 6.44.0 | 1 |
+| react-markdown | 9.1.0 | 10.1.0 | 1 |
+| sonner | 1.7.4 | 2.0.8 | 1 |
+| tailwind-merge | 2.6.0 | 3.7.0 | 1 |
+| tailwindcss | 3.4.17 | 4.3.3 | 1 |
+| @supabase/ssr | 0.5.2 | 0.12.7 | 0 |
+| @tailwindcss/typography | 0.5.16 | 0.5.20 | 0 |
+| lucide-react | 0.469.0 | 1.65.0 | 0 |
