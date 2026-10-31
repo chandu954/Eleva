@@ -1,9 +1,11 @@
 // @vitest-environment node
 import { vi } from 'vitest';
+import { TEST_STRIPE_SECRET_KEY, TEST_STRIPE_WEBHOOK_SECRET } from './fixtures/constants';
+
+process.env.STRIPE_SECRET_KEY = TEST_STRIPE_SECRET_KEY;
+process.env.STRIPE_WEBHOOK_SECRET = TEST_STRIPE_WEBHOOK_SECRET;
 
 const mocks = vi.hoisted(() => {
-  process.env.STRIPE_SECRET_KEY = 'sk_test_webhook';
-  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
   return {
     constructEvent: vi.fn(),
     signature: 'sig_test' as string | null,
