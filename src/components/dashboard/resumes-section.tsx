@@ -1,19 +1,18 @@
 'use client';
 
 import { FileText, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { CreateResumeDialog } from '@/components/resume/management/dialogs/create-resume-dialog';
 import { ResumeSortControls, type SortOption, type SortDirection } from '@/components/resume/management/resume-sort-controls';
 import type { Profile, ResumeSummary } from '@/lib/types';
-import { deleteResume, copyResume } from '@/utils/actions/resumes/actions';
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination';
 import { ResumeItemCard } from './resume-item-card';
 import type { OptimisticResume } from './resumes-section-types';
-import { useState, useOptimistic, useTransition } from 'react';
+import { useState } from 'react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { toast } from 'sonner';
+import { useResumeActions } from './use-resume-actions';
+import { CreateResumeCard } from './_components/create-resume-card';
+import { LimitReachedCard } from './_components/limit-reached-card';
 
 interface ResumesSectionProps {
   type: 'base' | 'tailored';
@@ -43,25 +42,14 @@ export function ResumesSection({
   baseResumes = [],
   canCreateMore
 }: ResumesSectionProps) {
-  // Optimistic state for deletions
-  const [optimisticResumes, removeOptimisticResume] = useOptimistic(
-    resumes as OptimisticResume[],
-    (state, deletedResumeId: string) => 
-      state.filter(resume => resume.id !== deletedResumeId)
-  );
-
-  // Optimistic state for copying
-  const [optimisticCopiedResumes, addOptimisticCopy] = useOptimistic(
+  const {
     optimisticResumes,
-    (state, newResume: OptimisticResume) => {
-      // Always add new resume at the beginning (leftmost position)
-      return [newResume, ...state];
-    }
-  );
-
-  const [, startTransition] = useTransition();
-  const [deletingResumes, setDeletingResumes] = useState<Set<string>>(new Set());
-  const [copyingResumes, setCopyingResumes] = useState<Set<string>>(new Set());
+    deletingResumes,
+    copyingResumes,
+    startTransition,
+    handleDeleteResume,
+    handleCopyResume,
+  } = useResumeActions(resumes as OptimisticResume[]);
 
   const config = {
     base: {
@@ -93,82 +81,9 @@ export function ResumesSection({
     itemsPerPage: 7
   });
 
-  // Handle optimistic deletion
-  const handleDeleteResume = async (resumeId: string, resumeName: string) => {
-    // Add to deleting set for visual feedback
-    setDeletingResumes(prev => new Set(prev).add(resumeId));
-    
-    // Optimistically remove from UI immediately
-    removeOptimisticResume(resumeId);
-    
-    // Show immediate feedback
-    toast.loading(`Deleting "${resumeName}"...`, { id: resumeId });
-    
-    try {
-      // Call server action in background
-      await deleteResume(resumeId);
-      
-      // Success feedback
-      toast.success(`"${resumeName}" deleted successfully`, { id: resumeId });
-    } catch (error) {
-      // On error, the optimistic update will automatically rollback
-      console.error('Failed to delete resume:', error);
-      toast.error(`Failed to delete "${resumeName}". Please try again.`, { id: resumeId });
-    } finally {
-      // Remove from deleting set
-      setDeletingResumes(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(resumeId);
-        return newSet;
-      });
-    }
-  };
-
-  // Handle optimistic copying
-  const handleCopyResume = async (sourceResume: OptimisticResume) => {
-    // Add to copying set for visual feedback
-    setCopyingResumes(prev => new Set(prev).add(sourceResume.id));
-    
-    // Create optimistic copy
-    const optimisticCopy: OptimisticResume = {
-      ...sourceResume,
-      id: `temp-${Date.now()}-${Math.random()}`, // Temporary unique ID
-      name: `${sourceResume.name} (Copy)`,
-      isOptimistic: true,
-      originalId: sourceResume.id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    // Optimistically add to UI immediately
-    addOptimisticCopy(optimisticCopy);
-    
-    // Show immediate feedback
-    toast.loading(`Copying "${sourceResume.name}"...`, { id: `copy-${sourceResume.id}` });
-    
-    try {
-      // Call server action in background
-      await copyResume(sourceResume.id);
-      
-      // Success feedback - the real resume will appear via revalidation
-      toast.success(`"${sourceResume.name}" copied successfully`, { id: `copy-${sourceResume.id}` });
-    } catch (error) {
-      // On error, the optimistic update will automatically rollback
-      console.error('Failed to copy resume:', error);
-      toast.error(`Failed to copy "${sourceResume.name}". Please try again.`, { id: `copy-${sourceResume.id}` });
-    } finally {
-      // Remove from copying set
-      setCopyingResumes(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(sourceResume.id);
-        return newSet;
-      });
-    }
-  };
-
   const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
   const endIndex = startIndex + pagination.itemsPerPage;
-  const paginatedResumes = optimisticCopiedResumes.slice(startIndex, endIndex);
+  const paginatedResumes = optimisticResumes.slice(startIndex, endIndex);
 
   function handlePageChange(page: number) {
     setPagination(prev => ({
@@ -177,159 +92,20 @@ export function ResumesSection({
     }));
   }
 
-  const renderResumeCard = (resume: OptimisticResume) => (
-    <ResumeItemCard
-      key={resume.id}
-      resume={resume}
-      type={type}
-      isDeleting={deletingResumes.has(resume.id)}
-      isCopying={copyingResumes.has(resume.originalId || resume.id)}
-      canCreateMore={canCreateMore}
-      onCopy={(item) => startTransition(async () => { await handleCopyResume(item); })}
-      onDelete={(id, name) => startTransition(async () => { await handleDeleteResume(id, name); })}
-    />
-  );
-
-  // Create Resume Card Component
-  const CreateResumeCard = () => (
-    <CreateResumeDialog
-      type={type}
-      profile={profile}
-      {...(type === 'tailored' && { baseResumes })}
-    >
-      <button className={cn(
-        "aspect-[8.5/11] rounded-lg",
-        "relative overflow-hidden",
-        "border-2 border-dashed transition-all duration-500",
-        "group/new-resume flex flex-col items-center justify-center gap-4",
-        type === 'base'
-          ? "border-purple-300/70 hover:border-purple-400"
-          : "border-pink-300/70 hover:border-pink-400",
-        type === 'base'
-          ? "bg-gradient-to-br from-purple-50/80 via-purple-50/40 to-purple-100/60"
-          : "bg-gradient-to-br from-pink-50/80 via-pink-50/40 to-pink-100/60",
-        "hover:shadow-lg hover:shadow-purple-100/50 hover:-translate-y-1",
-        "after:absolute after:inset-0 after:bg-gradient-to-br",
-        type === 'base'
-          ? "after:from-purple-600/[0.03] after:to-indigo-600/[0.03]"
-          : "after:from-pink-600/[0.03] after:to-rose-600/[0.03]",
-        "after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-500 w-full sm:w-auto mr-8 sm:mr-0"
-      )}>
-        <div className={cn(
-          "relative z-10 flex flex-col items-center",
-          "transform transition-all duration-500",
-          "group-hover/new-resume:scale-105"
-        )}>
-          <div className={cn(
-            "h-12 w-12 rounded-xl",
-            "flex items-center justify-center",
-            "transform transition-all duration-500",
-            "shadow-sm group-hover/new-resume:shadow-md",
-            type === 'base'
-              ? "bg-gradient-to-br from-purple-100 to-purple-50"
-              : "bg-gradient-to-br from-pink-100 to-pink-50",
-            "group-hover/new-resume:scale-110"
-          )}>
-            <config.icon className={cn(
-              "h-5 w-5 transition-all duration-500",
-              type === 'base' ? "text-purple-600" : "text-pink-600",
-              "group-hover/new-resume:scale-110"
-            )} />
-          </div>
-
-          <span className={cn(
-            "mt-4 text-sm font-medium",
-            "transition-all duration-500",
-            type === 'base' ? "text-purple-600" : "text-pink-600",
-            "group-hover/new-resume:font-semibold"
-          )}>
-            Create {type === 'base' ? 'Base' : 'Tailored'} Resume
-          </span>
-
-          <span className={cn(
-            "mt-2 text-xs",
-            "transition-all duration-500 opacity-0",
-            type === 'base' ? "text-purple-500" : "text-pink-500",
-            "group-hover/new-resume:opacity-70"
-          )}>
-            Click to start
-          </span>
-        </div>
-      </button>
-    </CreateResumeDialog>
-  );
-
-  // Limit Reached Card Component
-  const LimitReachedCard = () => (
-    <Link 
-      href="/subscription"
-      className={cn(
-        "group/limit block",
-        "cursor-pointer",
-        "transition-all duration-500",
-        "hover:-translate-y-1",
-      )}
-    >
-      <div className={cn(
-        "aspect-[8.5/11] rounded-lg",
-        "relative overflow-hidden",
-        "border-2 border-dashed",
-        "flex flex-col items-center justify-center gap-4",
-        "border-amber-600/80",
-        "bg-gradient-to-br from-amber-50/80 via-amber-50/40 to-amber-100/60",
-        "transition-all duration-500",
-        "hover:shadow-xl hover:shadow-amber-200/20",
-        "hover:border-amber-600/90",
-        "after:absolute after:inset-0 after:bg-gradient-to-br",
-        "after:from-amber-600/[0.03] after:to-orange-600/[0.03]",
-        "after:opacity-40 after:transition-opacity after:duration-500",
-        "hover:after:opacity-60"
-      )}>
-        <div className={cn(
-          "relative z-10 flex flex-col items-center",
-          "transform transition-all duration-500",
-          "group-hover/limit:scale-105"
-        )}>
-          <div className={cn(
-            "h-12 w-12 rounded-xl",
-            "flex items-center justify-center",
-            "bg-gradient-to-br from-amber-100 to-amber-50",
-            "text-amber-600",
-            "shadow-md",
-            "transition-all duration-500",
-            "group-hover/limit:shadow-lg",
-            "group-hover/limit:bg-gradient-to-br",
-            "group-hover/limit:from-amber-200",
-            "group-hover/limit:to-amber-100",
-            "group-hover/limit:-translate-y-1"
-          )}>
-            <config.icon className={cn(
-              "h-5 w-5",
-              "transition-all duration-500",
-              "group-hover/limit:scale-110"
-            )} />
-          </div>
-          <span className={cn(
-            "mt-4 text-sm font-medium",
-            "text-amber-600",
-            "transition-all duration-500",
-            "group-hover/limit:text-amber-700"
-          )}>
-            {type === 'base' ? 'Base' : 'Tailored'} Limit Reached
-          </span>
-          <span className={cn(
-            "mt-2 text-xs",
-            "text-amber-600/70",
-            "underline underline-offset-4",
-            "transition-all duration-300",
-            "group-hover/limit:text-amber-700/90"
-          )}>
-            Upgrade to create more
-          </span>
-        </div>
-      </div>
-    </Link>
-  );
+  function renderResumeCard(resume: OptimisticResume) {
+    return (
+      <ResumeItemCard
+        key={resume.id}
+        resume={resume}
+        type={type}
+        isDeleting={deletingResumes.has(resume.id)}
+        isCopying={copyingResumes.has(resume.originalId || resume.id)}
+        canCreateMore={canCreateMore}
+        onCopy={(item) => startTransition(async () => { await handleCopyResume(item); })}
+        onDelete={(id, name) => startTransition(async () => { await handleDeleteResume(id, name); })}
+      />
+    );
+  }
 
   return (
     <div className="relative ">
@@ -349,7 +125,7 @@ export function ResumesSection({
         </div>
 
         {/* Desktop Pagination (hidden on mobile) */}
-        {optimisticCopiedResumes.length > pagination.itemsPerPage && (
+        {optimisticResumes.length > pagination.itemsPerPage && (
           <div className="hidden md:flex w-full items-start justify-start -mt-4">
             <Pagination className="flex justify-end">
               <PaginationContent className="gap-1">
@@ -365,9 +141,9 @@ export function ResumesSection({
                   </Button>
                 </PaginationItem>
                 
-                {Array.from({ length: Math.ceil(optimisticCopiedResumes.length / pagination.itemsPerPage) }).map((_, index) => {
+                {Array.from({ length: Math.ceil(optimisticResumes.length / pagination.itemsPerPage) }).map((_, index) => {
                   const pageNumber = index + 1;
-                  const totalPages = Math.ceil(optimisticCopiedResumes.length / pagination.itemsPerPage);
+                  const totalPages = Math.ceil(optimisticResumes.length / pagination.itemsPerPage);
                   
                   if (
                     pageNumber === 1 || 
@@ -411,7 +187,7 @@ export function ResumesSection({
                     variant="ghost"
                     size="sm"
                     onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={pagination.currentPage === Math.ceil(optimisticCopiedResumes.length / pagination.itemsPerPage)}
+                    disabled={pagination.currentPage === Math.ceil(optimisticResumes.length / pagination.itemsPerPage)}
                     className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -429,11 +205,11 @@ export function ResumesSection({
           {/* Mobile Create Resume Button Row */}
           {canCreateMore ? (
             <div className="px-2 w-full  flex">
-              <CreateResumeCard />
+              <CreateResumeCard type={type} profile={profile} baseResumes={baseResumes} />
             </div>
           ) : (
             <div className="px-4 w-full">
-              <LimitReachedCard />
+              <LimitReachedCard type={type} />
             </div>
           )}
 
@@ -460,13 +236,13 @@ export function ResumesSection({
         {/* Desktop Grid View */}
         <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {canCreateMore ? (
-            <CreateResumeCard />
+            <CreateResumeCard type={type} profile={profile} baseResumes={baseResumes} />
           ) : (
-            <LimitReachedCard />
+            <LimitReachedCard type={type} />
           )}
 
           {paginatedResumes.map((resume) => renderResumeCard(resume))}
-          {optimisticCopiedResumes.length === 0 && optimisticCopiedResumes.length + 1 < 4 && (
+          {optimisticResumes.length === 0 && optimisticResumes.length + 1 < 4 && (
             <div className="col-span-2 md:col-span-1" />
           )}
         </div>
