@@ -425,3 +425,15 @@ jobs:
           AI_MOCK_PROVIDER: "true"
           NEXT_TELEMETRY_DISABLED: "1"
 
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Dependency review
+        uses: actions/dependency-review-action@3ea59e0e7c9a170476593d5b48b52948e334c4b9 # v3
+        with:
+          fail-on-severity: moderate
+
