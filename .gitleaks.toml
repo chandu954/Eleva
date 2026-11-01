@@ -14,5 +14,7 @@ paths = [
 regexes = [
   '''sk_test_placeholder''',
   '''sk_test_configured(_client)?''',
-  '''sk_test_webhook''',
+  '''sk_test_mock_not_a_real_key''',
+  '''whsec_mock_not_a_real_key''',
+  '''sk_test_mock_not_a_real_provider_key''',
 ]

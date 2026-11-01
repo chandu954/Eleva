@@ -29,7 +29,7 @@ jobs:
       - name: Check for exposed credentials in tracked files
         run: |
           # Guard against access-token patterns that must never be committed.
-          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{24,})'
+          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{24,}|whsec_[A-Za-z0-9]{24,})'
           ! git grep -nE "$pattern" -- . ':!*.md' || {
             echo "::error::Potential secret token detected in tracked files"; exit 1; }
 

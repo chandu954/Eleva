@@ -53,7 +53,7 @@ describe('stripe webhook signature, idempotency, and event reservation', () => {
       expect(mocks.constructEvent).toHaveBeenCalledWith(
         '{"ok":true}',
         'sig_test',
-        'whsec_test',
+        'whsec_mock_not_a_real_key',
       );
     });
 
