@@ -5,6 +5,9 @@ import { type AIConfig } from '@/utils/ai-tools';
 import { AI_ASSISTANT_SYSTEM_MESSAGE } from '@/lib/prompts';
 import { AIUsageError } from '@/lib/ai/usage-ledger';
 import { logger } from '@/lib/logger';
+import { createRateLimiter } from '@/lib/rate-limit';
+
+const chatRateLimiter = createRateLimiter('api/chat');
 
 interface Message {
   role: 'user' | 'assistant';
@@ -27,6 +30,22 @@ export async function POST(req: Request) {
   try {
     const requestBody = await req.json();
     const { messages, target_role, config, job, resume }: ChatRequest = requestBody;
+
+    // Rate limit: 60 requests per minute per IP.
+    const ip = req.headers.get('x-forwarded-for') ?? 'anonymous';
+    const { success, remaining, reset } = await chatRateLimiter.limit(ip);
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(Math.max(0, Math.ceil((reset - Date.now()) / 1000))),
+          },
+        },
+      );
+    }
 
     // Hard requirement: only OpenRouter FREE models.
     // Central AIProvider enforces free-only regardless of subscription.
