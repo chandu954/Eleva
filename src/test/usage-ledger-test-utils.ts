@@ -1,11 +1,11 @@
 import { stubSupabase, stubTable } from "@/test/postgrest-stub";
 import type { ResolvedAIRequest } from "@/lib/ai/access-control";
-import { FAKE_PROVIDER_KEY } from "./fixtures/constants";
+import { MOCK_PROVIDER_KEY } from "./fixtures/constants";
 
 export const resolvedRequest: ResolvedAIRequest = {
   providerId: "openrouter",
   modelId: "openrouter/free",
-  apiKey: FAKE_PROVIDER_KEY,
+  apiKey: MOCK_PROVIDER_KEY,
   usedServerKey: true,
   requiresRateLimit: false,
 };

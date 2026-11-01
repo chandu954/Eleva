@@ -38,10 +38,10 @@ export default defineConfig({
     // AI journey is separately opt-in because production builds use real providers.
     env: {
       PORT: String(PORT),
-      E2E_TEST_EMAIL: process.env.E2E_TEST_EMAIL || "",
-      E2E_TEST_PASSWORD: process.env.E2E_TEST_PASSWORD || "",
+      E2E_TEST_EMAIL: process.env.E2E_TEST_EMAIL || "offline-test@example.com",
+      E2E_TEST_PASSWORD: process.env.E2E_TEST_PASSWORD || "offline-test-password",
       E2E_AI_TESTS: process.env.E2E_AI_TESTS || "",
-      E2E_SUPABASE_URL: process.env.E2E_SUPABASE_URL || "",
+      E2E_SUPABASE_URL: process.env.E2E_SUPABASE_URL || "http://127.0.0.1:9",
       E2E_SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || "",
       SENTRY_ORG: process.env.SENTRY_ORG || "",
       SENTRY_PROJECT: process.env.SENTRY_PROJECT || "",

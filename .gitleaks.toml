@@ -9,8 +9,10 @@ useDefault = true
 description = "Self-hosted Supabase demo keys and Stripe test placeholders that ship in Helm defaults and unit fixtures"
 paths = [
   '''helm/resumelm/values\.yaml''',
+  '''src/test/fixtures/constants\.ts''',
 ]
 regexes = [
   '''sk_test_placeholder''',
   '''sk_test_configured(_client)?''',
+  '''sk_test_webhook''',
 ]

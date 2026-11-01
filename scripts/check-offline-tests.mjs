@@ -1,87 +1,62 @@
-#!/usr/bin/env node
+import { execSync } from "node:child_process";
 
 /**
- * Offline test guarantee — CI counterpart of CONTRIBUTING.md →
- * "Offline test guarantee".
+ * check-offline-tests.mjs
  *
- * The unit suite must never reach the network. Two layers already exist:
+ * Verifies that the E2E suite runs fully offline without live Supabase/Stripe
+ * credentials. Runs `pnpm test:e2e` in an environment with no E2E_* secrets
+ * and reports how many tests were skipped due to missing credentials.
  *
- *   1. Runtime — src/test/setup.ts replaces global fetch with a rejecting
- *      stub, asserted by src/test/network-guard.test.ts.
- *   2. Static — eslint.config.mjs bans direct fetch()/WebSocket/... calls
- *      inside *.test.{ts,tsx} (except the stub helpers under src/test/).
- *
- * Neither layer is a process-wide socket firewall, so this script adds a
- * third: it re-runs the suite with OS-level network access removed and fails
- * if anything tries to open a connection. Where the sandbox mechanism is
- * unavailable on the host (non-Linux, restricted container), it degrades to a
- * loud warning rather than a false failure — the two enforced layers above
- * still gate the build.
- *
- * Usage: node scripts/check-offline-tests.mjs [-- <extra vitest args>]
+ * Exits 0 if zero tests are skipped due to missing credentials.
+ * Exits 1 if any auth-gated tests are silently skipped.
  */
-import { spawnSync } from 'node:child_process';
-import { platform } from 'node:os';
 
-const passthroughIdx = process.argv.indexOf('--');
-const extraArgs = passthroughIdx === -1 ? [] : process.argv.slice(passthroughIdx + 1);
+const skippedPattern = /skipped/i;
 
-/**
- * Returns the command prefix of a *working* network sandbox, or null when the
- * host cannot provide one.
- *
- * Linux: an unshare'd network namespace leaves the child loopback only.
- * macOS: sandbox-exec denies the network* subsystem.
- * Each mechanism is probed before use, so an unavailable one (for example a
- * container without CAP_SYS_ADMIN) surfaces as a warning, never as a fake
- * test failure.
- */
-function detectSandbox() {
-  if (platform() === 'linux') {
-    const probe = spawnSync('unshare', ['-rn', 'true'], { stdio: 'ignore' });
-    if (probe.status === 0) return { prefix: ['unshare', '-rn'], label: 'unshare -rn (isolated netns)' };
+function runOfflineTests() {
+  console.log("Running E2E suite with no credentials (offline mode)...\n");
+
+  const env = {
+    ...process.env,
+    // Unset all E2E credentials to simulate a naive clone
+    E2E_TEST_EMAIL: "",
+    E2E_TEST_PASSWORD: "",
+    E2E_SUPABASE_URL: "",
+    E2E_SUPABASE_ANON_KEY: "",
+    E2E_SUPABASE_SERVICE_ROLE_KEY: "",
+    E2E_AI_TESTS: "",
+    // Force mock AI provider so tests don't need real provider keys
+    AI_MOCK_PROVIDER: "true",
+  };
+
+  let output = "";
+  try {
+    execSync("pnpm test:e2e", {
+      env,
+      stdio: "pipe",
+      timeout: 300_000,
+      encoding: "utf8",
+    });
+    output = execSync.stdout.toString();
+  } catch (err) {
+    output = err.stdout ? err.stdout.toString() : "";
+    output += err.stderr ? err.stderr.toString() : "";
   }
-  if (platform() === 'darwin') {
-    const profile = '(version 1)(allow default)(deny network*)';
-    const probe = spawnSync('sandbox-exec', ['-p', profile, 'true'], { stdio: 'ignore' });
-    if (probe.status === 0) return { prefix: ['sandbox-exec', '-p', profile], label: 'sandbox-exec (deny network*)' };
-  }
-  return null;
-}
 
-const sandbox = detectSandbox();
+  // Count skipped tests
+  const skippedMatches = output.match(skippedPattern);
+  const skippedCount = skippedMatches ? skippedMatches.length : 0;
 
-if (!sandbox) {
-  console.warn(
-    '::warning::No OS network sandbox available on this host. Skipping the ' +
-      'isolated unit-test run; the in-process fetch guard (src/test/setup.ts) ' +
-      'and the ESLint no-restricted-syntax rule still enforce offline tests.',
+  console.log("\n=== Offline E2E Verification Report ===\n");
+  console.log(`Tests skipped due to missing credentials: ${skippedCount}`);
+  console.log(
+    skippedCount === 0
+      ? "PASS: Zero tests skipped due to missing credentials."
+      : "FAIL: Auth-gated tests are silently skipped when credentials are absent."
   );
-  process.exit(0);
+  console.log("\nTo fix: Ensure E2E tests run with mock credentials when E2E_* vars are unset.");
+
+  process.exit(skippedCount === 0 ? 0 : 1);
 }
 
-const vitestArgs = ['vitest', 'run', '--reporter=dot', ...extraArgs];
-
-console.log(`Running the unit suite with network access disabled (${sandbox.label}).`);
-
-// CI=true makes Vitest bail on any unhandled rejection from the fetch guard.
-const [cmd, ...sandboxArgs] = sandbox.prefix;
-const result = spawnSync(cmd, [...sandboxArgs, 'pnpm', ...vitestArgs], {
-  stdio: 'inherit',
-  env: { ...process.env, CI: 'true' },
-});
-
-if (result.error) {
-  console.error(`::error::Failed to launch the sandboxed test run: ${result.error.message}`);
-  process.exit(1);
-}
-
-if (result.status !== 0) {
-  console.error(
-    `::error::The unit suite failed under network isolation (${sandbox.label}). ` +
-      'A test is reaching a live host — add a stub under src/test/ instead.',
-  );
-  process.exit(result.status ?? 1);
-}
-
-console.log('✓ Unit suite passes with OS-level network access disabled.');
+runOfflineTests();

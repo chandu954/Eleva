@@ -29,9 +29,9 @@ jobs:
       - name: Check for exposed credentials in tracked files
         run: |
           # Guard against access-token patterns that must never be committed.
-          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'
+          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{24,})'
           ! git grep -nE "$pattern" -- . ':!*.md' || {
-            echo "::error::Potential GitHub access token detected in tracked files"; exit 1; }
+            echo "::error::Potential secret token detected in tracked files"; exit 1; }
 
       - name: Set up pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -131,6 +131,12 @@ jobs:
 
       - name: Coverage thresholds
         run: pnpm coverage
+
+      # Offline verification: re-runs the E2E suite with mock credentials
+      # and reports how many auth-gated tests would be skipped on a naive
+      # clone with no E2E_* credentials configured.
+      - name: Verify tests run fully offline
+        run: pnpm check:offline
 
   e2e:
     name: Playwright smoke tests
@@ -382,4 +388,40 @@ jobs:
           framework: terraform
           quiet: true
           soft_fail: false
+
+  e2e-offline:
+    name: E2E offline smoke tests (mock credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run E2E tests with mock credentials (no live accounts)
+        run: pnpm test:e2e
+        env:
+          E2E_TEST_EMAIL: offline-test@example.com
+          E2E_TEST_PASSWORD: offline-test-password
+          E2E_SUPABASE_URL: http://127.0.0.1:9
+          E2E_SUPABASE_ANON_KEY: e2e-anon-key
+          E2E_SUPABASE_SERVICE_ROLE_KEY: e2e-service-role-key
+          E2E_AI_TESTS: ""
+          SENTRY_ORG: ""
+          SENTRY_PROJECT: ""
+          SENTRY_AUTH_TOKEN: ""
+          AI_MOCK_PROVIDER: "true"
+          NEXT_TELEMETRY_DISABLED: "1"
 

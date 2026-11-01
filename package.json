@@ -87,7 +87,6 @@
     "marked": "^15.0.4",
     "next": "15.5.28",
     "openai": "^4.104.0",
-    "pdfjs-dist": "4.8.69",
     "posthog-js": "^1.438.17",
     "react": "^19.0.0",
     "react-circular-progressbar": "^2.1.0",

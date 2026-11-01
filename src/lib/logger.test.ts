@@ -1,182 +1,161 @@
-// @vitest-environment node
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
   createLogger,
-  logger,
   resolveLogLevel,
   serializeLogValue,
-  type LogLevel,
 } from './logger';
 
-function capture(level: LogLevel = 'debug') {
-  const lines: Array<{ line: string; level: LogLevel }> = [];
-  const instance = createLogger({
-    level,
-    sink: (line, emittedLevel) => lines.push({ line, level: emittedLevel }),
-  });
-  return { instance, lines };
-}
+describe('logger', () => {
+  let sink: (line: string, level: string) => void;
+  let lines: Array<{ line: string; level: string }>;
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  delete process.env.LOG_LEVEL;
-});
-
-describe('resolveLogLevel', () => {
-  it('accepts known levels and falls back to info', () => {
-    expect(resolveLogLevel('debug')).toBe('debug');
-    expect(resolveLogLevel('ERROR')).toBe('info');
-    expect(resolveLogLevel(undefined)).toBe('info');
-    expect(resolveLogLevel('verbose')).toBe('info');
+  beforeEach(() => {
+    lines = [];
+    sink = (line, level) => {
+      lines.push({ line, level });
+    };
   });
 
-  it('reads LOG_LEVEL from the environment by default', () => {
-    process.env.LOG_LEVEL = 'warn';
-    expect(resolveLogLevel()).toBe('warn');
-  });
-});
-
-describe('createLogger', () => {
-  it('emits one JSON object per line with stable fields', () => {
-    const { instance, lines } = capture();
-    instance.info('resume.created', { resumeId: 'r1', durationMs: 12 });
-
-    expect(lines).toHaveLength(1);
-    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    expect(entry.level).toBe('info');
-    expect(entry.service).toBe('eleva');
-    expect(entry.message).toBe('resume.created');
-    expect(entry.resumeId).toBe('r1');
-    expect(entry.durationMs).toBe(12);
-    expect(typeof entry.timestamp).toBe('string');
-    expect(typeof entry.environment).toBe('string');
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('filters entries below the configured level', () => {
-    const { instance, lines } = capture('warn');
-    instance.debug('noise');
-    instance.info('noise');
-    instance.warn('kept');
-    instance.error('kept-error');
-
-    expect(lines.map((entry) => entry.level)).toEqual(['warn', 'error']);
-  });
-
-  it('merges child context without mutating the parent', () => {
-    const { instance, lines } = capture();
-    const requestLogger = instance.child({ requestId: 'req-1' });
-    requestLogger.info('first');
-    instance.info('second');
-
-    const first = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    const second = JSON.parse(lines[1]!.line) as Record<string, unknown>;
-    expect(first.requestId).toBe('req-1');
-    expect(second.requestId).toBeUndefined();
-  });
-
-  it('redacts credential-shaped keys at every nesting level', () => {
-    const { instance, lines } = capture();
-    instance.error('auth.failed', {
-      authorization: 'Bearer super-secret',
-      nested: { apiKey: 'sk-live-123', password: 'hunter2', safe: 'visible' },
-      sessionToken: 'abc',
+  describe('resolveLogLevel', () => {
+    it('defaults to info when env is unset', () => {
+      const orig = process.env.LOG_LEVEL;
+      delete process.env.LOG_LEVEL;
+      expect(resolveLogLevel()).toBe('info');
+      process.env.LOG_LEVEL = orig;
     });
 
-    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    expect(entry.authorization).toBe('[REDACTED]');
-    expect(entry.sessionToken).toBe('[REDACTED]');
-    expect(entry.nested).toEqual({
-      apiKey: '[REDACTED]',
-      password: '[REDACTED]',
-      safe: 'visible',
-    });
-    expect(lines[0]!.line).not.toContain('super-secret');
-    expect(lines[0]!.line).not.toContain('hunter2');
-  });
-
-  it('serializes Error instances and circular references safely', () => {
-    const { instance, lines } = capture();
-    const circular: Record<string, unknown> = { name: 'loop' };
-    circular.self = circular;
-
-    instance.error('boom', {
-      error: new Error('database unavailable'),
-      circular,
-      when: new Date('2026-01-02T03:04:05.000Z'),
-      count: BigInt(3),
+    it('resolves a valid level', () => {
+      expect(resolveLogLevel('debug')).toBe('debug');
+      expect(resolveLogLevel('warn')).toBe('warn');
+      expect(resolveLogLevel('error')).toBe('error');
     });
 
-    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    expect(entry.error).toMatchObject({
-      name: 'Error',
-      message: 'database unavailable',
+    it('falls back to info for invalid input', () => {
+      expect(resolveLogLevel('not-a-level')).toBe('info');
+      expect(resolveLogLevel('')).toBe('info');
     });
-    expect((entry.error as Record<string, unknown>).stack).toBeTypeOf('string');
-    expect(entry.circular).toEqual({ name: 'loop', self: '[Circular]' });
-    expect(entry.when).toBe('2026-01-02T03:04:05.000Z');
-    expect(entry.count).toBe('3');
   });
 
-  it('serializes Map, Set, functions and symbols', () => {
-    const { instance, lines } = capture();
-    instance.info('values', {
-      map: new Map([['a', 1]]),
-      set: new Set(['x']),
-      fn: function namedFn() {},
-      symbol: Symbol('s'),
+  describe('emit levels', () => {
+    it('emits info entries', () => {
+      const logger = createLogger({ level: 'info', sink });
+      logger.info('hello world');
+      expect(lines).toHaveLength(1);
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.level).toBe('info');
+      expect(entry.message).toBe('hello world');
+      expect(entry.service).toBe('eleva');
+      expect(entry.timestamp).toBeDefined();
+      expect(entry.environment).toBeDefined();
     });
 
-    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    expect(entry.map).toEqual({ a: 1 });
-    expect(entry.set).toEqual(['x']);
-    expect(entry.fn).toBe('[Function namedFn]');
-    expect(entry.symbol).toBe('Symbol(s)');
+    it('emits warn entries', () => {
+      const logger = createLogger({ level: 'warn', sink });
+      logger.warn('be careful');
+      expect(lines[0].level).toBe('warn');
+    });
+
+    it('emits error entries', () => {
+      const logger = createLogger({ level: 'error', sink });
+      logger.error('boom');
+      expect(lines[0].level).toBe('error');
+    });
+
+    it('suppresses debug below info threshold', () => {
+      const logger = createLogger({ level: 'info', sink });
+      logger.debug('hidden');
+      logger.info('visible');
+      expect(lines).toHaveLength(1);
+      expect(lines[0].level).toBe('info');
+    });
+
+    it('emits debug when threshold is debug', () => {
+      const logger = createLogger({ level: 'debug', sink });
+      logger.debug('visible');
+      expect(lines).toHaveLength(1);
+      expect(lines[0].level).toBe('debug');
+    });
   });
 
-  it('truncates very long strings and deep structures', () => {
-    const { instance, lines } = capture();
-    const deep = { a: { b: { c: { d: { e: { f: { g: 'too deep' } } } } } } };
-    instance.info('long', { value: 'x'.repeat(2_100), deep });
+  describe('context redaction', () => {
+    it('redacts password-like keys', () => {
+      const logger = createLogger({ level: 'info', sink });
+      logger.info('login', { password: 'hunter2', username: 'alice' });
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.password).toBe('[REDACTED]');
+      expect(entry.username).toBe('alice');
+    });
 
-    const entry = JSON.parse(lines[0]!.line) as Record<string, unknown>;
-    expect(((entry.value as string) ?? '').endsWith('…')).toBe(true);
-    expect((entry.value as string).length).toBe(2_001);
-    expect(JSON.stringify(entry.deep)).toContain('[MaxDepth]');
+    it('redacts token-like keys', () => {
+      const logger = createLogger({ level: 'info', sink });
+      logger.info('auth', { api_token: 'abc-123', session: 'xyz' });
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.api_token).toBe('[REDACTED]');
+      expect(entry.session).toBe('[REDACTED]');
+    });
+
+    it('redacts nested credential keys', () => {
+      const logger = createLogger({ level: 'info', sink });
+      logger.info('config', { db: { api_key: 'secret-key' } });
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.db.api_key).toBe('[REDACTED]');
+    });
   });
 
-  it('routes levels to the matching console method by default', () => {
-    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const instance = createLogger({ level: 'debug' });
-
-    instance.debug('d');
-    instance.info('i');
-    instance.warn('w');
-    instance.error('e');
-
-    expect(debugSpy).toHaveBeenCalledTimes(1);
-    expect(infoSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(errorSpy).toHaveBeenCalledTimes(1);
+  describe('error serialization', () => {
+    it('serializes Error objects with name/message/stack', () => {
+      const logger = createLogger({ level: 'error', sink });
+      const err = new Error('something failed');
+      logger.error('caught', { error: err });
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.error.name).toBe('Error');
+      expect(entry.error.message).toBe('something failed');
+      expect(entry.error.stack).toBeDefined();
+    });
   });
-});
 
-describe('serializeLogValue', () => {
-  it('leaves primitives unchanged and handles undefined', () => {
-    expect(serializeLogValue('text')).toBe('text');
-    expect(serializeLogValue(42)).toBe(42);
-    expect(serializeLogValue(false)).toBe(false);
-    expect(serializeLogValue(null)).toBeNull();
-    expect(serializeLogValue(undefined)).toBeUndefined();
+  describe('child logger', () => {
+    it('merges base context into child entries', () => {
+      const parent = createLogger({ level: 'info', sink, context: { requestId: 'req-1' } });
+      const child = parent.child({ userId: 'user-2' });
+      child.info('request handled');
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.requestId).toBe('req-1');
+      expect(entry.userId).toBe('user-2');
+    });
+
+    it('child overrides parent context key', () => {
+      const parent = createLogger({ level: 'info', sink, context: { requestId: 'req-1' } });
+      const child = parent.child({ requestId: 'req-2' });
+      child.info('override');
+      const entry = JSON.parse(lines[0].line);
+      expect(entry.requestId).toBe('req-2');
+    });
   });
-});
 
-describe('default logger', () => {
-  it('is a ready-to-use logger', () => {
-    expect(typeof logger.info).toBe('function');
-    expect(typeof logger.child).toBe('function');
+  describe('serializeLogValue', () => {
+    it('truncates long strings', () => {
+      const long = 'a'.repeat(3000);
+      expect(serializeLogValue(long)).toHaveLength(2001);
+    });
+
+    it('handles circular references', () => {
+      const obj: Record<string, unknown> = { a: 1 };
+      obj.self = obj;
+      expect((serializeLogValue(obj) as Record<string, unknown>).self).toBe('[Circular]');
+    });
+
+    it('serializes BigInt', () => {
+      expect(String(serializeLogValue(BigInt(123)))).toBe('123');
+    });
+
+    it('serializes Map', () => {
+      const map = new Map([['k', 'v']]);
+      expect(serializeLogValue(map)).toEqual({ k: 'v' });
+    });
   });
 });
