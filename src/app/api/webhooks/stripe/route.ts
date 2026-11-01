@@ -12,7 +12,7 @@ import type { Subscription } from '@/lib/types'
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error('STRIPE_SECRET_KEY is not configured');
-  return new Stripe(key, { apiVersion: '2025-04-30.basil' });
+  return new Stripe(key, { apiVersion: '2025-08-27.basil' });
 }
 
 function getWebhookSecret() {

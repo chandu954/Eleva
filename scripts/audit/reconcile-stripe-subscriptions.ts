@@ -209,7 +209,7 @@ async function main(): Promise<void> {
       ? Promise.resolve(readStripeSnapshot(stripeSnapshotPath))
       : fetchStripeSubscriptions(
           new Stripe(env.STRIPE_SECRET_KEY!, {
-            apiVersion: "2025-04-30.basil",
+            apiVersion: "2025-08-27.basil",
           })
         ),
     fetchSupabaseSubscriptions(env as ReturnType<typeof getEnv>),

@@ -16,7 +16,7 @@ import { Stripe } from "stripe";
  * subscription events; there is no safe stub for that.
  */
 
-export const STRIPE_API_VERSION = "2025-04-30.basil" as const;
+export const STRIPE_API_VERSION = "2025-08-27.basil" as const;
 
 /** Pure decision, exported so the production guard is testable. */
 export function isStripeStubMode(env: Record<string, string | undefined> = process.env): boolean {
