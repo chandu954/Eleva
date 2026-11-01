@@ -1,0 +1,4 @@
+# .mailmap - unifies multiple git identities for the same person
+# Canonical identity first, then aliases to collapse
+
+Ashish Chandan <ashishchandan669@gmail.com> Ashish chandan <165631395+chandu954@users.noreply.github.com>
