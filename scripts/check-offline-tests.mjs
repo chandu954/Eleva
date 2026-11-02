@@ -11,7 +11,7 @@ import { execSync } from "node:child_process";
  * Exits 1 if any auth-gated tests are silently skipped.
  */
 
-const skippedPattern = /skipped/i;
+const skippedPattern = /\b(\d+)\s+skipped\b/gi;
 
 function runOfflineTests() {
   console.log("Running E2E suite with no credentials (offline mode)...\n");
@@ -30,33 +30,37 @@ function runOfflineTests() {
   };
 
   let output = "";
+  let testExitCode = 0;
   try {
-    execSync("pnpm test:e2e", {
+    output = execSync("pnpm test:e2e", {
       env,
       stdio: "pipe",
       timeout: 300_000,
       encoding: "utf8",
     });
-    output = execSync.stdout.toString();
   } catch (err) {
-    output = err.stdout ? err.stdout.toString() : "";
-    output += err.stderr ? err.stderr.toString() : "";
+    output = err.stdout?.toString() ?? "";
+    output += err.stderr?.toString() ?? "";
+    testExitCode = err.status ?? 1;
   }
 
-  // Count skipped tests
-  const skippedMatches = output.match(skippedPattern);
-  const skippedCount = skippedMatches ? skippedMatches.length : 0;
+  // Count skipped tests from Playwright's summary (for example, "2 skipped").
+  const skippedCount = [...output.matchAll(skippedPattern)].reduce(
+    (total, match) => total + Number(match[1]),
+    0
+  );
 
   console.log("\n=== Offline E2E Verification Report ===\n");
+  console.log(`Playwright exit code: ${testExitCode}`);
   console.log(`Tests skipped due to missing credentials: ${skippedCount}`);
   console.log(
-    skippedCount === 0
-      ? "PASS: Zero tests skipped due to missing credentials."
-      : "FAIL: Auth-gated tests are silently skipped when credentials are absent."
+    testExitCode === 0 && skippedCount === 0
+      ? "PASS: Playwright passed and zero tests were skipped."
+      : "FAIL: Playwright failed or tests were skipped without credentials."
   );
   console.log("\nTo fix: Ensure E2E tests run with mock credentials when E2E_* vars are unset.");
 
-  process.exit(skippedCount === 0 ? 0 : 1);
+  process.exit(testExitCode === 0 && skippedCount === 0 ? 0 : 1);
 }
 
 runOfflineTests();
