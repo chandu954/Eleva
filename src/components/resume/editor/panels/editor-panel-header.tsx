@@ -8,14 +8,14 @@ export function EditorPanelHeader() {
     <div className="flex flex-col w-full rounded-t-lg overflow-hidden">
       {/* Zone 1: Dark browser-style controls bar */}
       <div className="flex items-center gap-1.5 px-3 h-8 bg-[#2D3339]">
-        <button className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
+        <span aria-hidden="true" className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
           <ChevronLeft className="h-3.5 w-3.5 stroke-[1.5]" />
-        </button>
-        <button className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
+        </span>
+        <span aria-hidden="true" className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
           <ChevronRight className="h-3.5 w-3.5 stroke-[1.5]" />
-        </button>
+        </span>
         <div className="flex-1" />
-        <button className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
+        <span aria-hidden="true" className="p-1 rounded text-[#8F98A1] hover:text-white hover:bg-white/10 transition-colors">
           <svg
             viewBox="0 0 16 16"
             className="h-3.5 w-3.5"
@@ -28,7 +28,7 @@ export function EditorPanelHeader() {
             <path d="M13.5 8a5.5 5.5 0 1 1-1.8-4" />
             <path d="M13.5 2.5V6h-3" />
           </svg>
-        </button>
+        </span>
       </div>
 
       {/* Zone 2: Branding area */}
