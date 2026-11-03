@@ -21,6 +21,7 @@ node_modules/
 /playwright-report
 /test-results
 /blob-report
+/tmp-checkov-app-policy/
 /.stryker-tmp/
 /reports/mutation/
 

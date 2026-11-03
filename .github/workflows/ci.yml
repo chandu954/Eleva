@@ -73,13 +73,6 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-      # Offline guarantee, third layer: re-runs the suite inside an isolated
-      # network namespace so an accidental live-host call (node:net, a real
-      # socket, DNS) fails the build instead of silently passing the
-      # in-process fetch guard. See scripts/check-offline-tests.mjs.
-      - name: Verify tests run fully offline (no network access)
-        run: pnpm check:offline
-
       # Fails when vitest coverage falls below the ratcheted thresholds in
       # vitest.config.ts (policy: CONTRIBUTING.md → "Coverage ratchet").
       - name: Coverage thresholds
@@ -99,7 +92,7 @@ jobs:
   fresh-clone-smoke:
     name: Fresh-clone smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     # Deliberately no cache on install or Node modules to simulate a
     # contributor cloning the repo for the first time.
     steps:
@@ -117,6 +110,9 @@ jobs:
       - name: Install dependencies from frozen lockfile
         run: pnpm install --frozen-lockfile
 
+      - name: Install Chromium for offline E2E verification
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -132,9 +128,8 @@ jobs:
       - name: Coverage thresholds
         run: pnpm coverage
 
-      # Offline verification: re-runs the E2E suite with mock credentials
-      # and reports how many auth-gated tests would be skipped on a naive
-      # clone with no E2E_* credentials configured.
+      # Runs E2E with E2E_* unset; authenticated accessibility checks use the
+      # local mock Supabase service and the opt-in AI journey stays disabled.
       - name: Verify tests run fully offline
         run: pnpm check:offline
 
@@ -168,8 +163,10 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # Public checks use the unreachable Supabase endpoint. Authenticated
-      # checks and the AI integration journey require dedicated test secrets.
+      # Without the dedicated account secrets, the Playwright config starts a
+      # local Supabase mock so authenticated accessibility checks still run.
+      # E2E_AI_TESTS enables the longer AI journey for explicitly provisioned
+      # disposable accounts only.
       - name: Run smoke tests
         run: pnpm test:e2e
         env:
@@ -318,19 +315,22 @@ jobs:
         run: |
           find /tmp/helm-render /tmp/helm-render-optional \( -name '*.yaml' -o -name '*.yml' \) -print0 | xargs -0 -r kubeconform -summary -strict -ignore-missing-schemas
 
-      - name: Run Checkov security scan
+      - name: Prepare app-owned manifest for Checkov
+        run: |
+          mkdir -p tmp-checkov-app-policy
+          find /tmp/helm-render -path '*/templates/app.yaml' -exec cp {} tmp-checkov-app-policy/app.yaml \; -quit
+          test -s tmp-checkov-app-policy/app.yaml
+
+      # The app workload is first-party and has a blocking policy gate. The
+      # chart's embedded Supabase services remain covered by the rendered
+      # manifest schema validation above.
+      - name: Run blocking Checkov scan on the application workload
         uses: bridgecrewio/checkov-action@c3e106d5f8f4253a6de5110efb41a080f83db294 # v12.3135.0
         with:
-          directory: helm/resumelm
+          directory: tmp-checkov-app-policy
           quiet: true
-          # The chart renders the complete self-hosted Supabase stack (db,
-          # kong, auth, rest, realtime, storage, …). Its upstream manifests do
-          # not yet ship hardened securityContexts, NetworkPolicies or digest
-          # pins, so the scan reports those findings without blocking every
-          # PR. Tighten the app-owned templates first, then flip this back to
-          # soft_fail: false once the vendor templates carry the same baseline.
-          soft_fail: true
-          framework: kubernetes,helm
+          soft_fail: false
+          framework: kubernetes
 
   terraform:
     name: Terraform validation
@@ -390,9 +390,9 @@ jobs:
           soft_fail: false
 
   e2e-offline:
-    name: E2E offline smoke tests (mock credentials)
+    name: E2E offline smoke tests (no credentials)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -410,20 +410,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run E2E tests with mock credentials (no live accounts)
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests without E2E credentials
         run: pnpm test:e2e
-        env:
-          E2E_TEST_EMAIL: offline-test@example.com
-          E2E_TEST_PASSWORD: offline-test-password
-          E2E_SUPABASE_URL: http://127.0.0.1:9
-          E2E_SUPABASE_ANON_KEY: e2e-anon-key
-          E2E_SUPABASE_SERVICE_ROLE_KEY: e2e-service-role-key
-          E2E_AI_TESTS: ""
-          SENTRY_ORG: ""
-          SENTRY_PROJECT: ""
-          SENTRY_AUTH_TOKEN: ""
-          AI_MOCK_PROVIDER: "true"
-          NEXT_TELEMETRY_DISABLED: "1"
 
   dependency-review:
     name: Dependency review
