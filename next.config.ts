@@ -28,6 +28,11 @@ const nextConfig: NextConfig = {
   // infer the workspace root as the home directory, which relocated the
   // standalone output folder (breaking the build script's `cp` steps).
   outputFileTracingRoot: path.join(__dirname),
+  // PDFKit resolves its built-in font modules dynamically; include them in
+  // standalone output so PDF rendering works after deployment.
+  outputFileTracingIncludes: {
+    "/*": ["node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/standard-fonts/**/*"],
+  },
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   images: {
     loader: "custom",

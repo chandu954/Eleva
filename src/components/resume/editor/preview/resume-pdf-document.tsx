@@ -1,15 +1,15 @@
 import { Resume } from "@/lib/types";
 import { Document as PDFDocument, Page as PDFPage, Text, View, Link, Image } from '@react-pdf/renderer';
 import { createResumeStyles } from './resume-pdf-styles';
-import { memo, useMemo, useCallback } from 'react';
+import { memo } from 'react';
 import type { ReactNode } from 'react';
 
 // Create a cache outside of components to persist between renders
 const textProcessingCache = new Map<string, ReactNode[]>();
 
 // Memoized text processing function
-function useTextProcessor() {
-  const processText = useCallback((text: string, ignoreMarkdown = false) => {
+function createTextProcessor() {
+  const processText = (text: string, ignoreMarkdown = false) => {
     // Check cache first
     const cacheKey = `${text}-${ignoreMarkdown}`;
     if (textProcessingCache.has(cacheKey)) {
@@ -36,7 +36,7 @@ function useTextProcessor() {
     // Store in cache
     textProcessingCache.set(cacheKey, processed);
     return processed;
-  }, []);
+  };
 
   return processText;
 }
@@ -136,7 +136,7 @@ const ExperienceSection = memo(function ExperienceSection({
   experiences: Resume['work_experience']; 
   styles: ReturnType<typeof createResumeStyles>;
 }) {
-  const processText = useTextProcessor();
+  const processText = createTextProcessor();
   if (!experiences?.length) return null;
 
   return (
@@ -182,7 +182,7 @@ const ProjectsSection = memo(function ProjectsSection({
   projects: Resume['projects']; 
   styles: ReturnType<typeof createResumeStyles>;
 }) {
-  const processText = useTextProcessor();
+  const processText = createTextProcessor();
   if (!projects?.length) return null;
 
   return (
@@ -242,7 +242,7 @@ const EducationSection = memo(function EducationSection({
   education: Resume['education']; 
   styles: ReturnType<typeof createResumeStyles>;
 }) {
-  const processText = useTextProcessor();
+  const processText = createTextProcessor();
   if (!education?.length) return null;
 
   return (
@@ -277,8 +277,7 @@ interface ResumePDFDocumentProps {
 }
 
 export const ResumePDFDocument = memo(function ResumePDFDocument({ resume }: ResumePDFDocumentProps) {
-  // Memoize styles based on document settings
-  const styles = useMemo(() => createResumeStyles(resume.document_settings), [resume.document_settings]);
+  const styles = createResumeStyles(resume.document_settings);
 
   return (
     <PDFDocument>
