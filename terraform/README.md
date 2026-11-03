@@ -12,7 +12,8 @@ terraform/
 │   ├── vercel-project/   # Vercel project, git link, env vars, custom domain
 │   └── upstash-redis/    # Upstash Redis database + TLS endpoint
 └── envs/
-    └── production/       # Shared composition + isolated staging/prod state
+    ├── staging/          # Staging composition, state, lockfile, example tfvars
+    └── production/       # Production composition, state, lockfile, example tfvars
 ```
 
 ## Remote state bootstrap
@@ -57,8 +58,7 @@ never applies changes. Do not use `-lock=false` for an apply.
 - `terraform fmt -check -recursive`
 - `terraform init -backend=false`
 - `terraform validate`
-- `terraform plan -input=false` with dummy vars (plan gate; no real credentials)
-- `terraform test` (mocked plan with mock providers; behaviour assertions)
+- `terraform test` (mocked production plan with mock providers; behaviour assertions)
 - `tflint` with the recommended ruleset
 - Checkov policy scan (`framework: terraform`)
 
@@ -77,5 +77,8 @@ variables and secrets listed in [the operations runbook](../docs/operations/runb
 Both modules use local path sources, so callers do not pass a module `version`.
 Each module still pins its provider constraint in its own `required_providers`
 block (`~> 1.5` for Upstash, `~> 4.0` for Vercel). The production composition
-repeats the same constraints in `envs/production/versions.tf`, and
-`envs/production/.terraform.lock.hcl` pins the exact resolved provider versions.
+declares those same constraints in `envs/production/versions.tf`, while staging
+declares them in `envs/staging/versions.tf`. Each environment lockfile pins the
+exact resolved provider versions. See
+[`MODULES.md`](MODULES.md) for the reuse map and the intentional duplication
+between environment roots.
