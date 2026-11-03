@@ -34,6 +34,14 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `perf:` — performance improvement
 - `security:` — security fix
 
+Keep commits focused. Prefer one logical change per commit and include the
+matching test file in the same commit as the behavior change (for example,
+`src/app/eleva/editor/_lib/use-resume-editor.ts` with
+`use-resume-editor.test.ts`). A behavior change without a test needs a short
+justification in the PR description so reviewers can see the gap deliberately.
+Avoid batching unrelated modules or mechanical formatting into a feature commit;
+small commits make the history reviewable and let CI failures map to one change.
+
 ### Pull Request Process
 
 1. Create a feature branch from `main`
@@ -55,10 +63,11 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Repository administrators must enforce this policy in GitHub branch protection
 for `main`. Require pull requests, at least one approval, and these CI status
-checks: `Lint, typecheck, test`, `Playwright smoke tests`, `Dependency audit`,
-`Infrastructure validation`, and `Terraform validation`. The CODEOWNERS file
-maps ownership and requests reviews; it does not enable branch protection by
-itself.
+checks: `Lint, typecheck, test`, `Playwright smoke tests`,
+`E2E offline smoke tests (no credentials)`, `Dependency audit`,
+`Infrastructure validation`, `Terraform validation`, and
+`Analyze JavaScript/TypeScript`. The CODEOWNERS file maps ownership and
+requests reviews; it does not enable branch protection by itself.
 
 ### Testing & Coverage Ratchet
 
