@@ -10,6 +10,7 @@ import { generate } from "@/utils/actions/cover-letter/actions";
 import { useResumeContext } from "../resume-editor-context";
 import { ApiErrorDialog } from "@/components/ui/api-error-dialog";
 import { CreateTailoredResumeDialog } from "@/components/resume/management/dialogs/create-tailored-resume-dialog";
+import { readStoredAIConfig } from "@/lib/ai/client-config";
 
 
 interface CoverLetterPanelProps {
@@ -43,19 +44,7 @@ export function CoverLetterPanel({
     setIsGenerating(true);
     
     try {
-      // Get model and API key from local storage
-      const MODEL_STORAGE_KEY = 'eleva-default-model';
-      const LOCAL_STORAGE_KEY = 'eleva-api-keys';
-
-      const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-      const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let apiKeys = [];
-
-      try {
-        apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
-      } catch (error) {
-        console.error('Error parsing API keys:', error);
-      }
+      const { model, apiKeys } = readStoredAIConfig();
 
       // Prompt
       const prompt = `Write a professional cover letter for the following job using my resume information:
@@ -78,8 +67,8 @@ export function CoverLetterPanel({
       // Call The Model
       const { output } = await generate(prompt, {
         ...aiConfig,
-        model: selectedModel || '',
-        apiKeys
+        model,
+        apiKeys,
       });
 
       // Generated Content
