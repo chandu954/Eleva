@@ -83,7 +83,7 @@ test.describe('accessibility and visual regression', () => {
   test('landing and auth pages have no serious axe violations; landing snapshot is stable', async ({ page }) => {
     await page.goto('/eleva');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page).toHaveScreenshot('landing.png');
+    await expect(page).toHaveScreenshot(`landing-${process.platform}.png`);
     await expectNoSeriousA11yIssues(page);
 
     await page.goto('/eleva/auth/login');
@@ -94,7 +94,7 @@ test.describe('accessibility and visual regression', () => {
   test('dashboard has no serious axe violations for the authenticated test user', async ({ page }) => {
     await signIn(page);
     await page.goto('/eleva/dashboard');
-    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('main').first()).toBeVisible();
     await expectNoSeriousA11yIssues(page);
   });
 

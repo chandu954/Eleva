@@ -22,9 +22,18 @@ when those account settings are present and `E2E_AI_TESTS=true`. Keep that
 account disposable and configure app AI access; tests create a resume and
 delete it after the journey.
 
-The landing screenshot reference is `src/e2e/__screenshots__/landing.png` and
-is checked on every run. Update it intentionally with:
+The landing screenshot reference is platform-specific:
+`src/e2e/__screenshots__/landing-<platform>.png` (currently `landing-darwin.png`
+for macOS and `landing-linux.png` for CI). Chromium font antialiasing differs
+between operating systems, so the suite selects the file with
+`process.platform` instead of using a broad pixel tolerance. Update the
+snapshot for your platform intentionally with:
 
 ```bash
 pnpm exec playwright test src/e2e/accessibility-visual.e2e.test.ts --update-snapshots
 ```
+
+When the page changes, regenerate both files: run the command above on macOS,
+then download the Linux actual from the Playwright report artifact on a failing
+CI run (or run the suite in the Linux container) and commit both snapshots
+together.
