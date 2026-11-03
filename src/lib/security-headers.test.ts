@@ -38,6 +38,19 @@ describe("buildContentSecurityPolicy", () => {
     expect(directive(csp, "worker-src")).toBe("worker-src 'self' blob:");
   });
 
+  it("allows only the configured Supabase origin and matching socket in production", () => {
+    const connect = directive(buildContentSecurityPolicy({
+      isProduction: true,
+      supabaseUrl: "http://127.0.0.1:54329",
+    }), "connect-src");
+
+    const sources = connect.split(" ");
+    expect(sources).toContain("http://127.0.0.1:54329");
+    expect(sources).toContain("ws://127.0.0.1:54329");
+    expect(sources).not.toContain("http:");
+    expect(sources).not.toContain("ws:");
+  });
+
   it("adds production-only protections and omits development escape hatches", () => {
     const csp = buildContentSecurityPolicy({ isProduction: true });
 

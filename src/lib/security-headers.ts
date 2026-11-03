@@ -17,6 +17,8 @@
 export interface SecurityHeaderOptions {
   /** Defaults to NODE_ENV === "production". */
   isProduction?: boolean;
+  /** Supabase origin, including a local mock when running isolated E2E tests. */
+  supabaseUrl?: string;
 }
 
 const HSTS_VALUE = "max-age=63072000; includeSubDomains; preload";
@@ -38,7 +40,10 @@ const SENTRY_ORIGINS = ["https://*.sentry.io", "https://*.ingest.sentry.io"];
 const BUY_ME_A_COFFEE_ORIGINS = ["https://*.buymeacoffee.com", "https://cdnjs.buymeacoffee.com"];
 
 export function buildContentSecurityPolicy(
-  { isProduction = process.env.NODE_ENV === "production" }: SecurityHeaderOptions = {},
+  {
+    isProduction = process.env.NODE_ENV === "production",
+    supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL,
+  }: SecurityHeaderOptions = {},
 ): string {
   const scriptSrc = [
     "'self'",
@@ -58,6 +63,16 @@ export function buildContentSecurityPolicy(
     ...SENTRY_ORIGINS,
     ...BUY_ME_A_COFFEE_ORIGINS,
   ];
+
+  if (supabaseUrl) {
+    try {
+      const endpoint = new URL(supabaseUrl);
+      const socketScheme = endpoint.protocol === "https:" ? "wss:" : "ws:";
+      connectSrc.push(endpoint.origin, `${socketScheme}//${endpoint.host}`);
+    } catch {
+      // Invalid service URLs are rejected by Supabase configuration validation.
+    }
+  }
 
   if (!isProduction) {
     // next dev/Turbopack evaluates modules at runtime and uses HMR sockets.
