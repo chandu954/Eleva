@@ -6,7 +6,7 @@
 # ==========================================
 # Pin the multi-platform Node image index digest. Dependabot's Docker updates
 # are reviewed monthly so security fixes can advance this immutable base.
-FROM node:22.23.4-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS build-base
+FROM node:26.13.0-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS build-base
 
 # Install build dependencies for node-gyp and canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -110,7 +110,7 @@ RUN USE_LOCAL_REDIS=true REDIS_URL="redis://localhost:6379" STRIPE_SECRET_KEY="s
 # ==========================================
 # Production stage - minimal runtime image
 # ==========================================
-FROM node:22.23.4-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS production
+FROM node:26.13.0-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS production
 
 # OCI labels for container metadata
 LABEL org.opencontainers.image.title="Eleva" \
