@@ -97,7 +97,7 @@
     "react-pdftotext": "^1.4.0",
     "react-resizable-panels": "^2.1.9",
     "remark-gfm": "^4.0.1",
-    "replace-special-characters": "^1.2.7",
+    "replace-special-characters": "^2.0.1",
     "sonner": "^1.7.4",
     "stripe": "^18.5.0",
     "tailwind-merge": "^2.6.1",
