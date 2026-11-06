@@ -421,7 +421,11 @@ jobs:
   dependency-review:
     name: Dependency review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Dependency review needs the dependency graph plus GitHub Advanced
+    # Security, which private repositories without GHAS do not have. Keep the
+    # job for public mirrors; this repository relies on `pnpm audit` and the
+    # weekly dependency-freshness report instead.
+    if: github.event_name == 'pull_request' && !github.event.repository.private
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

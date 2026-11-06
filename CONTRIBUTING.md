@@ -69,6 +69,32 @@ checks: `Lint, typecheck, test`, `Playwright smoke tests`,
 `Analyze JavaScript/TypeScript`. The CODEOWNERS file maps ownership and
 requests reviews; it does not enable branch protection by itself.
 
+### Enforcing CI gates
+
+The `Lint, typecheck, test` job runs `pnpm lint` and `pnpm typecheck` as
+unconditional steps — neither has `continue-on-error: true`, and neither is
+gated behind a conditional that can be skipped on PRs. To confirm the gate is
+real, open a PR with an intentionally failing lint rule; CI must block the
+merge. After confirming, revert the change. The same applies to the
+`Dependency audit` job (`pnpm audit --audit-level=high`) and the coverage
+ratchet (`pnpm coverage`).
+
+To verify locally that a fresh clone cannot pass without the right
+environment:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm coverage
+pnpm build
+```
+
+All five must pass. The `pnpm build` step additionally exercises the
+production bundle and the standalone server output, so it catches
+environment-variable gaps that `pnpm typecheck` alone cannot.
+
 ### Testing & Coverage Ratchet
 
 Unit tests run through Vitest (`pnpm test`); `pnpm coverage` additionally

@@ -66,6 +66,42 @@ The remote workflows use separate GitHub Environments named `staging`,
 `production`, `staging-plan`, and `production-plan`. Configure the Terraform
 variables and secrets listed in [the operations runbook](../docs/operations/runbook.md).
 
+## Offline plan verification (no cloud account needed)
+
+The production composition uses an S3 backend, so a real `terraform plan`
+requires live AWS credentials. To verify the composition is sound without
+leaving your machine, use the local backend and the mocked test path:
+
+```bash
+cd terraform/envs/production
+
+# 1. Format check (no backend needed)
+terraform fmt -check -recursive
+
+# 2. Initialise against the local backend (creates ./.terraform)
+terraform init -backend=false -input=false
+
+# 3. Validate the composition (no credentials needed)
+terraform validate
+
+# 4. Run the mocked production plan (asserts behaviour with mock providers)
+terraform test -no-color
+```
+
+The mocked `terraform test` run in `plan.tftest.hcl` is the plan gate on every
+PR. It does not require credentials and does not create infrastructure. For a
+dry-run that exercises the real provider logic against a local state file, set
+`TF_STATE_BUCKET` to a local path and run:
+
+```bash
+export TF_STATE_BUCKET=./local-state
+export TF_STATE_REGION=us-east-1
+terraform plan -input=false -detailed-exitcode
+```
+
+This produces a plan against a local directory backend without touching AWS.
+It is informational only — never `terraform apply` from this path.
+
 ## Modules
 
 - `vercel-project` — creates a Vercel project, links the GitHub repository,
