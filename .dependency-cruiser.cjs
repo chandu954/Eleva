@@ -25,9 +25,10 @@ module.exports = {
     },
     {
       name: 'utils-does-not-import-upward',
+      comment: 'Utils may reuse shared lib code, but must not reach up into the app or components layers.',
       severity: 'error',
       from: { path: '^src/utils/' },
-      to: { path: '^src/(app|components|lib)/' },
+      to: { path: '^src/(app|components)/' },
     },
   ],
   options: {
