@@ -17,6 +17,21 @@ function getStripe(): Stripe {
   return getStripeClient();
 }
 
+type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+async function readSubscription(supabase: SupabaseClient, userId: string) {
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('subscription_plan, subscription_status, stripe_subscription_id, current_period_end, trial_end')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const subscriptionState = getSubscriptionAccessState(data);
+  const effectivePlan = data ? subscriptionState.effectivePlan : '';
+
+  return { data, subscriptionState, effectivePlan };
+}
+
 // Create or retrieve a Stripe customer
 export async function createOrRetrieveCustomer({
   uuid,
@@ -329,14 +344,7 @@ export async function checkSubscriptionPlan() {
     };
   }
 
-  const { data } = await supabase
-    .from('subscriptions')
-    .select('subscription_plan, subscription_status, stripe_subscription_id, current_period_end, trial_end')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  const subscriptionState = getSubscriptionAccessState(data);
-  const effectivePlan = data ? subscriptionState.effectivePlan : '';
+  const { data, subscriptionState, effectivePlan } = await readSubscription(supabase, user.id);
 
   return {
     plan: effectivePlan,
@@ -377,14 +385,7 @@ export async function getSubscriptionPlan(returnId?: boolean) {
     return '';
   }
 
-  const { data } = await supabase
-    .from('subscriptions')
-    .select('subscription_plan, subscription_status, stripe_subscription_id, current_period_end, trial_end')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  const subscriptionState = getSubscriptionAccessState(data);
-  const effectivePlan = data ? subscriptionState.effectivePlan : '';
+  const { effectivePlan } = await readSubscription(supabase, user.id);
 
   if (returnId) {
     return {

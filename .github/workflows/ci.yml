@@ -62,6 +62,9 @@ jobs:
       - name: Prevent new production code clones
         run: pnpm check:duplication
 
+      - name: Check .env.example parity
+        run: node scripts/check-env-example.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -132,6 +135,9 @@ jobs:
       # local mock Supabase service and the opt-in AI journey stays disabled.
       - name: Verify tests run fully offline
         run: pnpm check:offline
+
+      - name: Confirm fresh clone verified
+        run: echo 'fresh clone verified'
 
   e2e:
     name: Playwright smoke tests

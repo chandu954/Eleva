@@ -1,6 +1,6 @@
 'use server';
 
-import { generateObject, LanguageModelUsage, LanguageModelV1, type TelemetrySettings } from 'ai';
+import { generateObject, type LanguageModelV1 } from 'ai';
 import { z } from 'zod';
 import { 
   simplifiedJobSchema, 
@@ -10,40 +10,7 @@ import { Job, Resume } from "@/lib/types";
 import { AIConfig } from '@/utils/ai-tools';
 import { getSubscriptionPlan } from '../stripe/actions';
 import { dedupeAIConfigs, withTaskModel, type AITaskModel } from '@/lib/ai/task-models';
-import {
-  finishAIUsageRequest,
-  startAIUsageRequest,
-} from '@/lib/ai/usage-ledger';
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-    useThinking?: boolean;
-  },
-  task: (model: LanguageModelV1, telemetry: TelemetrySettings) => Promise<T>
-) {
-  const { model, usageEventId, telemetry } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model, telemetry);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
+import { runTrackedAIRequest } from '@/lib/ai/run-tracked-ai-request';
 
 function getFallbackConfig(config: AIConfig | undefined, model: string): AIConfig {
   return {
