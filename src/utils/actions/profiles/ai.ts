@@ -1,44 +1,12 @@
 'use server';
-import { generateObject, LanguageModelUsage, LanguageModelV1, type TelemetrySettings } from 'ai';
+import { generateObject, type LanguageModelV1 } from 'ai';
 import { z } from 'zod';
 import { RESUME_FORMATTER_SYSTEM_MESSAGE } from "@/lib/prompts";
 import { type AIConfig } from '@/utils/ai-tools';
 import { getSubscriptionPlan } from '@/utils/actions/stripe/actions';
 import { sanitizeUnknownStrings } from '@/lib/utils';
 import { withTaskModel } from '@/lib/ai/task-models';
-import {
-  finishAIUsageRequest,
-  startAIUsageRequest,
-} from '@/lib/ai/usage-ledger';
-
-async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-  },
-  task: (model: LanguageModelV1, telemetry: TelemetrySettings) => Promise<T>
-) {
-  const { model, usageEventId, telemetry } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model, telemetry);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
+import { runTrackedAIRequest } from '@/lib/ai/run-tracked-ai-request';
 
 // TEXT RESUME -> PROFILE
 export async function formatProfileWithAI(

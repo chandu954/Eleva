@@ -20,7 +20,17 @@ export async function register() {
   });
 
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    reportEnvValidation(validateEnv());
+    const envResult = validateEnv();
+    reportEnvValidation(envResult);
+
+    // Fail fast in production if required env vars are missing.
+    // Empty fallbacks allow build/test but must not silently boot production.
+    if (process.env.NODE_ENV === 'production' && envResult.missingRequired.length > 0) {
+      throw new Error(
+        `Missing required env vars: ${envResult.missingRequired.join(', ')}`
+      );
+    }
+
     await import('./instrumentation.node');
   }
 }

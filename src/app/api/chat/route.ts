@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     // Rate limit: 60 requests per minute per IP.
     const ip = req.headers.get('x-forwarded-for') ?? 'anonymous';
-    const { success, remaining, reset } = await chatRateLimiter.limit(ip);
+    const { success, reset } = await chatRateLimiter.limit(ip);
     if (!success) {
       return new Response(
         JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),

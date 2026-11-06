@@ -27,8 +27,8 @@ updates:
   - package-ecosystem: "terraform"
     directory: "/terraform/envs/production"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"

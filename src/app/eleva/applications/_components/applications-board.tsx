@@ -9,7 +9,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
 import type { LucideIcon } from 'lucide-react';
-import { COLUMNS, type Status, type Application } from '../applications-client';
+import { COLUMNS, type Status, type Application } from '../application-types';
 
 function statusColor(status: Status) {
   return COLUMNS.find((c) => c.id === status)?.color ?? 'rgb(var(--eleva-muted-fg))';

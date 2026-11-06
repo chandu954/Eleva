@@ -93,7 +93,9 @@ pnpm lint       # ESLint
 pnpm typecheck  # tsc --noEmit (strict mode)
 pnpm test       # Vitest unit/component suite (jsdom, Testing Library)
 pnpm coverage   # Tests + enforced coverage thresholds (ratchet policy)
-pnpm test:e2e   # Playwright smoke tests (Chromium)
+pnpm exec playwright install chromium # once before local Playwright runs
+pnpm test:e2e   # Playwright public + authenticated accessibility checks (Chromium)
+pnpm check:offline # Run E2E with E2E credentials unset
 pnpm test:mutation # Manual Stryker run for pipeline/cache and rate-limit code
 pnpm build      # Next.js production build
 pnpm check:source-loc  # Enforce the 500 LOC production TypeScript file limit
@@ -120,18 +122,29 @@ The unit suite uses the deterministic mock AI provider and stubs
 Supabase/PostgREST under `src/test/`. Vitest blocks unmocked global `fetch`
 calls; use the documented macOS sandbox command for process-wide network
 isolation. The Playwright suite also runs without secrets —
-`playwright.config.ts` points
-Supabase at a closed local port and forces the mock AI provider, so the smoke
-tests only exercise public routing, login redirects, and the health endpoint.
+`playwright.config.ts` starts a local in-memory Supabase mock and forces the
+app test server to use it, so authenticated dashboard and editor accessibility
+checks run without an external account. The longer AI integration journey is
+opt-in and needs a disposable E2E Supabase account, configured AI access, and
+`E2E_AI_TESTS=true`.
 
-CI (`.github/workflows/ci.yml`) runs five jobs on every PR and push to `main`:
+| Command | External account required? | What runs |
+| --- | --- | --- |
+| `pnpm test`, `pnpm coverage` | No | Unit and component tests using local stubs |
+| `pnpm test:e2e` | No | Public smoke tests and authenticated dashboard/editor checks against the local mock |
+| `pnpm test:e2e` with E2E account settings | Yes | Authenticated checks against the configured disposable Supabase project |
+| `E2E_AI_TESTS=true pnpm test:e2e` | Yes | The optional studio, cover-letter, and export integration journey (also needs AI access) |
+
+CI (`.github/workflows/ci.yml`) runs quality, fresh-clone, browser, audit,
+infrastructure, and Terraform jobs on PRs and pushes to `main`:
 **quality** (lint, typecheck, unit tests, coverage thresholds), **e2e**
-(Playwright smoke suite), **audit** (`pnpm audit --audit-level=high` with
+(Playwright suite), **audit** (`pnpm audit --audit-level=high` with
 documented exemptions), **infrastructure** (Helm lint, rendered-manifest
-validation, Hadolint, and advisory Checkov findings), and **terraform** (fmt,
-validate, TFLint, and blocking Checkov). E2E also checks axe violations on
-public pages and authenticated dashboard/editor pages when credentials are
-configured, with landing and editor visual snapshots. Lighthouse budgets
+validation, Hadolint, and a blocking Checkov scan for the app workload), and
+**terraform** (format, validate, TFLint, and blocking Checkov). E2E also checks axe violations on
+public pages and authenticated dashboard/editor pages using a local Supabase
+mock by default. The landing page has a checked-in visual snapshot. Lighthouse
+budgets
 (performance ≥90, LCP <2.5s, CLS <0.1), and compressed first-load bundles
 (500 KiB for `/resumes/[id]`, 400 KiB for `/home` and `/eleva/resumes`).
 

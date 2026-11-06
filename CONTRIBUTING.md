@@ -34,6 +34,14 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `perf:` — performance improvement
 - `security:` — security fix
 
+Keep commits focused. Prefer one logical change per commit and include the
+matching test file in the same commit as the behavior change (for example,
+`src/app/eleva/editor/_lib/use-resume-editor.ts` with
+`use-resume-editor.test.ts`). A behavior change without a test needs a short
+justification in the PR description so reviewers can see the gap deliberately.
+Avoid batching unrelated modules or mechanical formatting into a feature commit;
+small commits make the history reviewable and let CI failures map to one change.
+
 ### Pull Request Process
 
 1. Create a feature branch from `main`
@@ -55,10 +63,37 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Repository administrators must enforce this policy in GitHub branch protection
 for `main`. Require pull requests, at least one approval, and these CI status
-checks: `Lint, typecheck, test`, `Playwright smoke tests`, `Dependency audit`,
-`Infrastructure validation`, and `Terraform validation`. The CODEOWNERS file
-maps ownership and requests reviews; it does not enable branch protection by
-itself.
+checks: `Lint, typecheck, test`, `Playwright smoke tests`,
+`E2E offline smoke tests (no credentials)`, `Dependency audit`,
+`Infrastructure validation`, `Terraform validation`, and
+`Analyze JavaScript/TypeScript`. The CODEOWNERS file maps ownership and
+requests reviews; it does not enable branch protection by itself.
+
+### Enforcing CI gates
+
+The `Lint, typecheck, test` job runs `pnpm lint` and `pnpm typecheck` as
+unconditional steps — neither has `continue-on-error: true`, and neither is
+gated behind a conditional that can be skipped on PRs. To confirm the gate is
+real, open a PR with an intentionally failing lint rule; CI must block the
+merge. After confirming, revert the change. The same applies to the
+`Dependency audit` job (`pnpm audit --audit-level=high`) and the coverage
+ratchet (`pnpm coverage`).
+
+To verify locally that a fresh clone cannot pass without the right
+environment:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm coverage
+pnpm build
+```
+
+All five must pass. The `pnpm build` step additionally exercises the
+production bundle and the standalone server output, so it catches
+environment-variable gaps that `pnpm typecheck` alone cannot.
 
 ### Testing & Coverage Ratchet
 
@@ -117,6 +152,23 @@ pnpm test:e2e
 routing, signed-out redirects, login rendering, and the health endpoint. Do not
 add specs that require live Supabase, Stripe, Redis, or LLM accounts; mock the
 boundary or keep the assertion at the public-contract level.
+
+##### Offline skip baseline
+
+`scripts/check-offline-tests.mjs` runs `pnpm test:e2e` with every E2E_*
+credential unset and reports how many tests were skipped. It fails the run if
+the skip count exceeds the documented offline baseline, which is currently
+**zero**. The only legitimately skipped tests are the opt-in AI integration
+journey, which stays disabled unless `E2E_AI_TESTS=true` is explicitly set.
+
+- The baseline is a **ratchet**: it must only go **up** when a new
+  auth-gated test lands, and the justification goes in the same commit.
+- Never lower the baseline to make a red suite green — remove or mock the
+  gating dependency instead.
+- To verify locally: `pnpm check:offline` (requires Chromium installed).
+
+CI runs this check in the `fresh-clone-smoke` job, so a naive clone must pass
+the full E2E suite with zero auth-gated skips.
 
 #### Performance budgets
 

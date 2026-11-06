@@ -12,11 +12,11 @@ import { TailoredJobAccordion } from "../../management/cards/tailored-job-card";
 import { BasicInfoForm } from "../forms/basic-info-form";
 const ChatBot = dynamic(() => import("../../assistant/chatbot"), {
   ssr: false,
-  loading: () => <div className="h-12 animate-pulse rounded-md bg-muted" aria-label="Loading assistant" />,
+  loading: () => <div role="status" className="h-12 animate-pulse rounded-md bg-muted" aria-label="Loading assistant" />,
 });
 const CoverLetterPanel = dynamic(
   () => import("./cover-letter-panel").then((module) => module.CoverLetterPanel),
-  { ssr: false, loading: () => <div className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading cover letter tools" /> },
+  { ssr: false, loading: () => <div role="status" className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading cover letter tools" /> },
 );
 import {
   WorkExperienceForm,
@@ -28,7 +28,7 @@ import {
 import { ResumeEditorTabs } from "../header/resume-editor-tabs";
 const ResumeScorePanel = dynamic(() => import("./resume-score-panel"), {
   ssr: false,
-  loading: () => <div className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading resume score" />,
+  loading: () => <div role="status" className="h-40 animate-pulse rounded-md bg-muted" aria-label="Loading resume score" />,
 });
 import { EditorPanelHeader } from "./editor-panel-header";
 

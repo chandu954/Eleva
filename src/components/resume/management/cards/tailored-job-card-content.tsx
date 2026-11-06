@@ -2,17 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { MapPin, Clock, DollarSign, Briefcase, Loader2, Plus, AlertCircle } from "lucide-react";
+import { Plus, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Job } from "@/lib/types";
 import { createClient } from "@/utils/supabase/client";
-import { updateResume } from "@/utils/actions/resumes/actions";
-import { createJob } from "@/utils/actions/jobs/actions";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useResumeContext } from "../../editor/resume-editor-context";
 import { CreateJobDialog } from "./create-job-dialog";
 import { JobDetailsGrid } from "./job-details-grid";
 
@@ -27,9 +24,6 @@ export function TailoredJobCard({
   job: externalJob,
   isLoading: externalIsLoading
 }: TailoredJobCardProps) {
-  const router = useRouter();
-  const { state, dispatch } = useResumeContext();
-
   // Only use internal state if external job is not provided
   const [internalJob, setInternalJob] = useState<Job | null>(null);
   const [internalIsLoading, setInternalIsLoading] = useState(true);

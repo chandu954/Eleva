@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { ExtractSchema, ScoreSchema } from '@/app/eleva/api/studio/pipeline/cache';
+import { ExtractSchema, ScoreSchema } from '@/lib/ai/pipeline-schemas';
 
 import type { StreamTextParams } from '../types';
 import { getProvider, isProviderAvailable } from '../factory';

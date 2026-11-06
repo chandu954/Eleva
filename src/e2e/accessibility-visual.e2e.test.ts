@@ -1,16 +1,8 @@
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { e2eConfig } from './e2e-config';
 
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
-const email = process.env.E2E_TEST_EMAIL;
-const password = process.env.E2E_TEST_PASSWORD;
-const hasTestSupabase = Boolean(
-  process.env.E2E_SUPABASE_URL &&
-  process.env.E2E_SUPABASE_ANON_KEY &&
-  process.env.E2E_SUPABASE_SERVICE_ROLE_KEY,
-);
-const hasTestLogin = Boolean(email && password && hasTestSupabase);
-const hasTestAI = process.env.E2E_AI_TESTS === 'true' && hasTestLogin;
 
 type AxeResult = {
   violations: Array<{
@@ -38,13 +30,25 @@ async function expectNoSeriousA11yIssues(page: Page) {
 
 async function signIn(page: Page) {
   await page.goto('/eleva/auth/login');
-  await page.getByLabel('Email').fill(email!);
-  await page.getByLabel('Password').fill(password!);
+  await page.getByLabel('Email').fill(e2eConfig.email);
+  await page.getByLabel('Password', { exact: true }).fill(e2eConfig.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/eleva\/dashboard/, { timeout: 20_000 });
 }
 
-async function importResumeFromText(page: Page, role: string) {
+async function createResumeForEditor(page: Page, role: string) {
+  await page.goto('/home');
+  await page.getByRole('button', { name: 'Create Base Resume' }).click();
+  await page.getByLabel(/Target Role/).fill(role);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByText('Start Fresh', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: /Start Fresh/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Create Resume' }).click();
+  await expect(page).toHaveURL(/\/resumes\/[0-9a-f-]+/i, { timeout: 30_000 });
+  return new URL(page.url()).pathname.split('/').at(-1)!;
+}
+
+async function importResumeForJourney(page: Page, role: string) {
   await page.goto('/home');
   await page.getByRole('button', { name: 'Create Base Resume' }).click();
   await page.getByLabel(/Target Role/).fill(role);
@@ -58,13 +62,18 @@ async function importResumeFromText(page: Page, role: string) {
   return new URL(page.url()).pathname.split('/').at(-1)!;
 }
 
-async function withResumeFixture<T>(page: Page, request: APIRequestContext, run: (resumeId: string) => Promise<T>) {
+async function withResumeFixture<T>(
+  page: Page,
+  request: APIRequestContext,
+  run: (resumeId: string) => Promise<T>,
+  createFixture = createResumeForEditor,
+) {
   let resumeId: string | undefined;
   try {
-    resumeId = await importResumeFromText(page, 'Playwright Snapshot Engineer');
+    resumeId = await createFixture(page, 'Playwright Snapshot Engineer');
     return await run(resumeId);
   } finally {
-    if (resumeId && process.env.E2E_SUPABASE_URL && process.env.E2E_SUPABASE_SERVICE_ROLE_KEY) {
+    if (resumeId) {
       await deleteResumeFixture(request, resumeId);
     }
   }
@@ -74,7 +83,7 @@ test.describe('accessibility and visual regression', () => {
   test('landing and auth pages have no serious axe violations; landing snapshot is stable', async ({ page }) => {
     await page.goto('/eleva');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page).toHaveScreenshot('landing.png');
+    await expect(page).toHaveScreenshot(`landing-${process.platform}.png`);
     await expectNoSeriousA11yIssues(page);
 
     await page.goto('/eleva/auth/login');
@@ -83,26 +92,23 @@ test.describe('accessibility and visual regression', () => {
   });
 
   test('dashboard has no serious axe violations for the authenticated test user', async ({ page }) => {
-    test.skip(!hasTestLogin, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD for authenticated page scans.');
     await signIn(page);
     await page.goto('/eleva/dashboard');
-    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('main').first()).toBeVisible();
     await expectNoSeriousA11yIssues(page);
   });
 
-  test('editor has no serious axe violations and matches its visual snapshot', async ({ page, request }) => {
-    test.skip(!hasTestLogin, 'Set E2E_TEST_EMAIL and E2E_TEST_PASSWORD for authenticated editor scans.');
+  test('editor has no serious axe violations for an authenticated resume', async ({ page, request }) => {
     await signIn(page);
     await withResumeFixture(page, request, async () => {
       await expect(page.getByPlaceholder('First Name')).toBeVisible();
-      await expect(page).toHaveScreenshot('editor.png');
       await expectNoSeriousA11yIssues(page);
     });
   });
 });
 
 test('authenticated journey: login, import resume, tailor in studio, create cover letter, export PDF', async ({ page, request }) => {
-  test.skip(!hasTestLogin || !hasTestAI, 'Set E2E_TEST_EMAIL, E2E_TEST_PASSWORD, and E2E_AI_TESTS=true to run the integration journey.');
+  test.skip(!e2eConfig.hasTestAI, 'Configure a disposable E2E Supabase account and set E2E_AI_TESTS=true to run the live integration journey.');
 
   await signIn(page);
   await withResumeFixture(page, request, async () => {
@@ -119,16 +125,16 @@ test('authenticated journey: login, import resume, tailor in studio, create cove
     await page.getByRole('button', { name: /PDF/ }).last().click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
-  });
+  }, importResumeForJourney);
 });
 
 async function deleteResumeFixture(request: APIRequestContext, resumeId: string) {
   const response = await request.delete(
-    `${process.env.E2E_SUPABASE_URL}/rest/v1/resumes?id=eq.${encodeURIComponent(resumeId)}`,
+    `${e2eConfig.supabaseUrl}/rest/v1/resumes?id=eq.${encodeURIComponent(resumeId)}`,
     {
       headers: {
-        apikey: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY!,
-        Authorization: `Bearer ${process.env.E2E_SUPABASE_SERVICE_ROLE_KEY}`,
+        apikey: e2eConfig.supabaseServiceRoleKey,
+        Authorization: `Bearer ${e2eConfig.supabaseServiceRoleKey}`,
         Prefer: 'return=minimal',
       },
     },

@@ -31,13 +31,30 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3
+        uses: github/codeql-action/init@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           languages: javascript-typescript
           queries: security-and-quality
 
       # JavaScript/TypeScript is interpreted, so CodeQL does not need a build.
+      # This repository is private and does not have GitHub Advanced Security,
+      # so the code scanning upload endpoint returns 403. Running the analysis
+      # with `upload: never` still executes the security-and-quality queries on
+      # every PR; the SARIF report is attached as a workflow artifact below for
+      # review. Switch to `upload: always` after enabling code scanning.
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3
+        id: codeql
+        uses: github/codeql-action/analyze@1fc58d04a4d4374f921bdac573c3811c240f9c26 # v4
         with:
           category: "/language:javascript-typescript"
+          upload: never
+          output: codeql-results
+
+      - name: Upload CodeQL SARIF report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codeql-sarif
+          path: codeql-results/*.sarif
+          if-no-files-found: ignore
+          retention-days: 14

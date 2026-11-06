@@ -11,7 +11,9 @@ import { describe, expect, it } from 'vitest';
  * usage cannot land silently. This is the test counterpart of the promise
  * made in README/CONTRIBUTING.
  *
- * Scope: src/ (production code; test files excluded) and next.config.ts.
+ * Scope: src/ and scripts/ (production code; test files excluded), plus
+ * next.config.ts. Script variables such as GITHUB_STEP_SUMMARY are included
+ * because CI utilities also consume documented environment settings.
  * The health route also enumerates env names inside REQUIRED_ENV_VARS /
  * OPTIONAL_ENV_VARS bracket lookups, but every one of those names is also
  * referenced via process.env.X somewhere in src, so direct-ref scanning
@@ -53,7 +55,11 @@ function extractEnvNames(content: string): Set<string> {
 describe('env documentation guard', () => {
   it('documents every process.env.* referenced from application source in .env.example', () => {
     const used = new Map<string, string[]>();
-    const sourceRoots = [join(REPO_ROOT, 'src'), join(REPO_ROOT, 'next.config.ts')];
+    const sourceRoots = [
+      join(REPO_ROOT, 'src'),
+      join(REPO_ROOT, 'scripts'),
+      join(REPO_ROOT, 'next.config.ts'),
+    ];
     for (const root of sourceRoots) {
       const stat = statSync(root);
       const files = stat.isDirectory() ? collectSourceFiles(root) : [root];

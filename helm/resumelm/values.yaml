@@ -400,10 +400,12 @@ app:
     enabled: false
     minAvailable: 1
   networkPolicy:
-    enabled: false
-    # Add namespaceSelector or podSelector entries for the ingress controller
-    # and other callers. An enabled policy with no entries denies all ingress.
-    ingressFrom: []
+    enabled: true
+    # Allow ingress from the ingress controller and other in-cluster callers.
+    # An empty namespaceSelector selects every namespace; tighten this to the
+    # ingress controller's namespace in clusters that do not need broad access.
+    ingressFrom:
+      - namespaceSelector: {}
   podSecurityContext:
     seccompProfile:
       type: RuntimeDefault
@@ -418,7 +420,10 @@ app:
     repository: ghcr.io/chandu954/eleva
     # Pin to a published immutable commit tag; update with each application release.
     tag: "ed8d638"
-    pullPolicy: IfNotPresent
+    # Digest of the multi-arch index for the tag above. Tags are mutable, so
+    # the digest is the deployable identity that cosign/policy checks verify.
+    digest: "sha256:514bf20f64a1be30cfc7ffe9ca4626438b0c1e8aa9ab85bbe156c7c29303d605"
+    pullPolicy: Always
   resources:
     limits:
       cpu: "2"

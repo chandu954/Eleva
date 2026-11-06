@@ -89,6 +89,7 @@ export default function ChatInput({
         <Button 
           type={isLoading ? "button" : "submit"}
           onClick={isLoading ? onStop : undefined}
+          aria-label={isLoading ? "Stop generating response" : "Send message"}
           size="sm"
           className={cn(
             isLoading ? [

@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import redis, { InMemoryRedis, redisMode } from './redis';
 
 describe('redisMode', () => {
+  it('uses the in-memory store when explicitly requested by offline E2E', () => {
+    expect(redisMode({ NODE_ENV: 'production', E2E_REDIS_IN_MEMORY: 'true' })).toBe('stub');
+  });
+
   it('prefers the local Redis server when USE_LOCAL_REDIS=true and REDIS_URL are set', () => {
     expect(redisMode({ USE_LOCAL_REDIS: 'true', REDIS_URL: 'redis://localhost:6379' })).toBe('local');
   });

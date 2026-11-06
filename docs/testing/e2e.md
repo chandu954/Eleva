@@ -1,13 +1,15 @@
 # End to end test setup
 
-The Playwright suite runs its public smoke and accessibility checks against a
-local production build. Without Supabase credentials, it uses the unreachable
-local endpoint so those tests stay offline.
+The Playwright suite runs against a local production build. With no E2E account
+credentials, Playwright starts the in-memory Supabase service in
+`scripts/e2e/mock-supabase.mjs` and uses an in-memory Redis stub. The mock
+supports sign-in, the dashboard's
+empty data state, and creation of a temporary blank resume for the editor
+accessibility scan. The test deletes the resume afterward. No external account
+or database is needed for `pnpm test:e2e` or `pnpm check:offline`.
 
-The dashboard axe scan and authenticated resume workflow require a dedicated
-test Supabase project and disposable test user. The user must have a profile
-row and permission to create resumes. Configure these variables in the local
-environment or as CI secrets:
+To run the authenticated checks against a real disposable Supabase project,
+configure all of these values in the local environment or as CI secrets:
 
 - `E2E_SUPABASE_URL`
 - `E2E_SUPABASE_ANON_KEY`
@@ -15,13 +17,23 @@ environment or as CI secrets:
 - `E2E_TEST_EMAIL`
 - `E2E_TEST_PASSWORD`
 
-The import, studio tailoring, cover letter, and PDF export journey is opt-in:
-set `E2E_AI_TESTS=true` only when the test deployment has a configured AI
-provider and is safe to use for generated test content. The created resume is
-deleted using the test project's service role key after the journey.
+The optional studio tailoring, cover letter, and PDF export journey runs only
+when those account settings are present and `E2E_AI_TESTS=true`. Keep that
+account disposable and configure app AI access; tests create a resume and
+delete it after the journey.
 
-Visual screenshot references live in `src/e2e/__screenshots__`. Update them
-intentionally with `pnpm exec playwright test src/e2e/accessibility-visual.e2e.test.ts --update-snapshots`.
-The editor snapshot is captured only when the authenticated test account is
-configured; set the E2E variables above before generating that reference. The
-landing reference is checked on every run, including offline runs.
+The landing screenshot reference is platform-specific:
+`src/e2e/__screenshots__/landing-<platform>.png` (currently `landing-darwin.png`
+for macOS and `landing-linux.png` for CI). Chromium font antialiasing differs
+between operating systems, so the suite selects the file with
+`process.platform` instead of using a broad pixel tolerance. Update the
+snapshot for your platform intentionally with:
+
+```bash
+pnpm exec playwright test src/e2e/accessibility-visual.e2e.test.ts --update-snapshots
+```
+
+When the page changes, regenerate both files: run the command above on macOS,
+then download the Linux actual from the Playwright report artifact on a failing
+CI run (or run the suite in the Linux container) and commit both snapshots
+together.

@@ -24,6 +24,7 @@ export type RedisMode = "local" | "upstash" | "stub" | "unconfigured";
  * then Upstash REST, then the dev/test stub.
  */
 export function redisMode(env: Record<string, string | undefined> = process.env): RedisMode {
+  if (env.E2E_REDIS_IN_MEMORY === "true") return "stub";
   if (env.USE_LOCAL_REDIS === "true" && env.REDIS_URL) return "local";
   if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) return "upstash";
   // `next build` imports route modules to collect page data with

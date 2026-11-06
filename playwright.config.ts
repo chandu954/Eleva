@@ -1,7 +1,46 @@
 import { defineConfig, devices } from "@playwright/test";
+import { e2eConfig } from './src/e2e/e2e-config';
 
 const PORT = process.env.PORT || 4000;
 const BASE_URL = `http://localhost:${PORT}`;
+const MOCK_SUPABASE_URL = e2eConfig.supabaseUrl;
+const webServers = [];
+
+if (e2eConfig.useMockSupabase) {
+  webServers.push({
+    command: 'node scripts/e2e/mock-supabase.mjs',
+    url: `${MOCK_SUPABASE_URL}/health`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 10_000,
+  });
+}
+
+webServers.push({
+  // E2E runs against the production standalone server, which keeps the suite
+  // fast and ensures the production build works before browser tests run.
+  command: `./node_modules/.bin/next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/static/ && node .next/standalone/server.js`,
+  url: BASE_URL,
+  reuseExistingServer: !process.env.CI,
+  timeout: 600_000,
+  env: {
+    PORT: String(PORT),
+    E2E_TEST_EMAIL: e2eConfig.email,
+    E2E_TEST_PASSWORD: e2eConfig.password,
+    E2E_AI_TESTS: process.env.E2E_AI_TESTS || '',
+    E2E_SUPABASE_URL: MOCK_SUPABASE_URL,
+    E2E_SUPABASE_ANON_KEY: e2eConfig.supabaseAnonKey,
+    E2E_SUPABASE_SERVICE_ROLE_KEY: e2eConfig.supabaseServiceRoleKey,
+    E2E_REDIS_IN_MEMORY: 'true',
+    SENTRY_ORG: process.env.SENTRY_ORG || '',
+    SENTRY_PROJECT: process.env.SENTRY_PROJECT || '',
+    SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN || '',
+    NEXT_PUBLIC_SUPABASE_URL: MOCK_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: e2eConfig.supabaseAnonKey,
+    SUPABASE_SERVICE_ROLE_KEY: e2eConfig.supabaseServiceRoleKey,
+    AI_MOCK_PROVIDER: 'true',
+    NEXT_TELEMETRY_DISABLED: '1',
+  },
+});
 
 export default defineConfig({
   testDir: "./src",
@@ -26,31 +65,5 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: {
-    // E2E runs against the production standalone server, which keeps the suite
-    // fast and ensures the production build works before browser tests run.
-    command: `./node_modules/.bin/next build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/static/ && node .next/standalone/server.js`,
-    url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 600_000,
-    // Public smoke tests run fully offline with an unreachable Supabase URL.
-    // Authenticated checks use only the dedicated disposable E2E project; the
-    // AI journey is separately opt-in because production builds use real providers.
-    env: {
-      PORT: String(PORT),
-      E2E_TEST_EMAIL: process.env.E2E_TEST_EMAIL || "offline-test@example.com",
-      E2E_TEST_PASSWORD: process.env.E2E_TEST_PASSWORD || "offline-test-password",
-      E2E_AI_TESTS: process.env.E2E_AI_TESTS || "",
-      E2E_SUPABASE_URL: process.env.E2E_SUPABASE_URL || "http://127.0.0.1:9",
-      E2E_SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || "",
-      SENTRY_ORG: process.env.SENTRY_ORG || "",
-      SENTRY_PROJECT: process.env.SENTRY_PROJECT || "",
-      SENTRY_AUTH_TOKEN: process.env.SENTRY_AUTH_TOKEN || "",
-      NEXT_PUBLIC_SUPABASE_URL: process.env.E2E_SUPABASE_URL || "http://127.0.0.1:9",
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY || "e2e-anon-key",
-      SUPABASE_SERVICE_ROLE_KEY: process.env.E2E_SUPABASE_SERVICE_ROLE_KEY || "e2e-service-role-key",
-      AI_MOCK_PROVIDER: "true",
-      NEXT_TELEMETRY_DISABLED: "1",
-    },
-  },
+  webServer: webServers,
 });

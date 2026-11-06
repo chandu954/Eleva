@@ -1,8 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
-import type { AIConfig } from '@/utils/ai-tools';
-import type { LanguageModelUsage, LanguageModelV1, TelemetrySettings } from 'ai';
 import { getSubscriptionAccessState } from '@/lib/subscription-access';
-import { finishAIUsageRequest, startAIUsageRequest } from '@/lib/ai/usage-ledger';
+import { runTrackedAIRequest } from '@/lib/ai/run-tracked-ai-request';
 import { FREE_PLAN_RESUME_LIMITS, getResumeLimitExceededMessage, type ResumeLimitType } from '@/lib/resume-limits';
 
 export async function assertResumeQuota(
@@ -42,31 +40,4 @@ export async function assertResumeQuota(
   }
 }
 
-export async function runTrackedAIRequest<T extends { usage?: LanguageModelUsage }>(
-  input: {
-    route: string;
-    userId: string;
-    isPro: boolean;
-    config?: AIConfig;
-  },
-  task: (model: LanguageModelV1, telemetry: TelemetrySettings) => Promise<T>
-) {
-  const { model, usageEventId, telemetry } = await startAIUsageRequest(input);
-
-  try {
-    const result = await task(model, telemetry);
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'succeeded',
-      usage: result.usage,
-    });
-    return result;
-  } catch (error) {
-    await finishAIUsageRequest({
-      usageEventId,
-      status: 'failed',
-      errorCode: error instanceof Error ? error.message : 'ai_request_failed',
-    });
-    throw error;
-  }
-}
+export { runTrackedAIRequest };

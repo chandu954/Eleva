@@ -30,6 +30,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
               href="https://x.com/alexanfromvan"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Eleva on X"
               className="text-muted-foreground hover:text-foreground transition-colors p-1"
             >
               <Twitter className="h-5 w-5 md:h-4 md:w-4" />
@@ -38,6 +39,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
               href="https://linkedin.com/in/olyaiy"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Eleva on LinkedIn"
               className="text-muted-foreground hover:text-foreground transition-colors p-1"
             >
               <Linkedin className="h-5 w-5 md:h-4 md:w-4" />
@@ -46,6 +48,7 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
               href="https://github.com/olyaiy"
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Eleva on GitHub"
               className="text-muted-foreground hover:text-foreground transition-colors p-1"
             >
               <Github className="h-5 w-5 md:h-4 md:w-4" />
@@ -55,4 +58,4 @@ export function Footer({ variant = 'fixed' }: FooterProps) {
       </div>
     </footer>
   );
-} 
+}

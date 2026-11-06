@@ -12,7 +12,8 @@ terraform/
 │   ├── vercel-project/   # Vercel project, git link, env vars, custom domain
 │   └── upstash-redis/    # Upstash Redis database + TLS endpoint
 └── envs/
-    └── production/       # Shared composition + isolated staging/prod state
+    ├── staging/          # Staging composition, state, lockfile, example tfvars
+    └── production/       # Production composition, state, lockfile, example tfvars
 ```
 
 ## Remote state bootstrap
@@ -57,14 +58,49 @@ never applies changes. Do not use `-lock=false` for an apply.
 - `terraform fmt -check -recursive`
 - `terraform init -backend=false`
 - `terraform validate`
-- `terraform plan -input=false` with dummy vars (plan gate; no real credentials)
-- `terraform test` (mocked plan with mock providers; behaviour assertions)
+- `terraform test` (mocked production plan with mock providers; behaviour assertions)
 - `tflint` with the recommended ruleset
 - Checkov policy scan (`framework: terraform`)
 
 The remote workflows use separate GitHub Environments named `staging`,
 `production`, `staging-plan`, and `production-plan`. Configure the Terraform
 variables and secrets listed in [the operations runbook](../docs/operations/runbook.md).
+
+## Offline plan verification (no cloud account needed)
+
+The production composition uses an S3 backend, so a real `terraform plan`
+requires live AWS credentials. To verify the composition is sound without
+leaving your machine, use the local backend and the mocked test path:
+
+```bash
+cd terraform/envs/production
+
+# 1. Format check (no backend needed)
+terraform fmt -check -recursive
+
+# 2. Initialise against the local backend (creates ./.terraform)
+terraform init -backend=false -input=false
+
+# 3. Validate the composition (no credentials needed)
+terraform validate
+
+# 4. Run the mocked production plan (asserts behaviour with mock providers)
+terraform test -no-color
+```
+
+The mocked `terraform test` run in `plan.tftest.hcl` is the plan gate on every
+PR. It does not require credentials and does not create infrastructure. For a
+dry-run that exercises the real provider logic against a local state file, set
+`TF_STATE_BUCKET` to a local path and run:
+
+```bash
+export TF_STATE_BUCKET=./local-state
+export TF_STATE_REGION=us-east-1
+terraform plan -input=false -detailed-exitcode
+```
+
+This produces a plan against a local directory backend without touching AWS.
+It is informational only — never `terraform apply` from this path.
 
 ## Modules
 
@@ -77,5 +113,8 @@ variables and secrets listed in [the operations runbook](../docs/operations/runb
 Both modules use local path sources, so callers do not pass a module `version`.
 Each module still pins its provider constraint in its own `required_providers`
 block (`~> 1.5` for Upstash, `~> 4.0` for Vercel). The production composition
-repeats the same constraints in `envs/production/versions.tf`, and
-`envs/production/.terraform.lock.hcl` pins the exact resolved provider versions.
+declares those same constraints in `envs/production/versions.tf`, while staging
+declares them in `envs/staging/versions.tf`. Each environment lockfile pins the
+exact resolved provider versions. See
+[`MODULES.md`](MODULES.md) for the reuse map and the intentional duplication
+between environment roots.

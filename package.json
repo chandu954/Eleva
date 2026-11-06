@@ -20,7 +20,7 @@
     "check:bundles": "node scripts/check-route-bundles.mjs",
     "check:dead-code": "knip --production --include files,dependencies --max-issues 80 --no-progress --no-config-hints",
     "check:duplication": "jscpd src --config .jscpd.json --baseline .jscpd-baseline.json --fail-on-new-clones 0",
-    "check:architecture": "pnpm dlx dependency-cruiser@18.7.0 --config .dependency-cruiser.cjs src",
+    "check:architecture": "NODE_PATH=./node_modules pnpm dlx dependency-cruiser@18.7.2 --config .dependency-cruiser.cjs src",
     "typecheck": "tsc --noEmit --pretty false",
     "check:source-loc": "node scripts/check-source-loc.mjs",
     "check:offline": "node scripts/check-offline-tests.mjs",

@@ -11,7 +11,7 @@
   --eleva-secondary: 124 58 237;
   --eleva-accent: 14 165 233;
   --eleva-indigo: 79 70 229;
-  --eleva-success: 34 197 94;
+  --eleva-success: 21 128 61;
   --eleva-warning: 245 158 11;
   --eleva-danger: 220 38 38;
   --eleva-ring: 37 99 235;
@@ -34,6 +34,7 @@
   --eleva-secondary: 139 92 246;
   --eleva-accent: 34 211 238;
   --eleva-ring: 59 130 246;
+  --eleva-success: 74 222 128;
 }
 
 .eleva-root h1,

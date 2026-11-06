@@ -13,6 +13,7 @@ import { createJob } from "@/utils/actions/jobs/actions";
 import { updateResume } from "@/utils/actions/resumes/actions";
 import { useResumeContext } from "../../editor/resume-editor-context";
 import { formatJobListing } from "@/utils/actions/jobs/ai";
+import { readStoredAIConfig } from "@/lib/ai/client-config";
 import { useRouter } from "next/navigation";
 
 interface CreateJobDialogProps {
@@ -61,22 +62,11 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
     try {
       setIsFormatting(true);
 
-      const MODEL_STORAGE_KEY = 'eleva-default-model';
-      const LOCAL_STORAGE_KEY = 'eleva-api-keys';
-
-      const selectedModel = localStorage.getItem(MODEL_STORAGE_KEY);
-      const storedKeys = localStorage.getItem(LOCAL_STORAGE_KEY);
-      let apiKeys = [];
-
-      try {
-        apiKeys = storedKeys ? JSON.parse(storedKeys) : [];
-      } catch (error) {
-        console.error('Error parsing API keys:', error);
-      }
+      const { model, apiKeys } = readStoredAIConfig();
 
       const formattedJob = await formatJobListing(jobDescription, {
-        model: selectedModel || '',
-        apiKeys
+        model,
+        apiKeys,
       });
 
       setIsFormatting(false);
