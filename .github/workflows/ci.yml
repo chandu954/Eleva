@@ -216,9 +216,9 @@ jobs:
       # Secret-exposure guard shared by both jobs.
       - name: Check for exposed credentials in tracked files
         run: |
-          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})'
+          pattern='(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{24,}|whsec_[A-Za-z0-9]{24,})'
           ! git grep -nE "$pattern" -- . ':!*.md' || {
-            echo "::error::Potential GitHub access token detected in tracked files"; exit 1; }
+            echo "::error::Potential secret token detected in tracked files"; exit 1; }
 
       - name: Set up pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4

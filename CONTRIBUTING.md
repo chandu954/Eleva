@@ -153,6 +153,23 @@ routing, signed-out redirects, login rendering, and the health endpoint. Do not
 add specs that require live Supabase, Stripe, Redis, or LLM accounts; mock the
 boundary or keep the assertion at the public-contract level.
 
+##### Offline skip baseline
+
+`scripts/check-offline-tests.mjs` runs `pnpm test:e2e` with every E2E_*
+credential unset and reports how many tests were skipped. It fails the run if
+the skip count exceeds the documented offline baseline, which is currently
+**zero**. The only legitimately skipped tests are the opt-in AI integration
+journey, which stays disabled unless `E2E_AI_TESTS=true` is explicitly set.
+
+- The baseline is a **ratchet**: it must only go **up** when a new
+  auth-gated test lands, and the justification goes in the same commit.
+- Never lower the baseline to make a red suite green — remove or mock the
+  gating dependency instead.
+- To verify locally: `pnpm check:offline` (requires Chromium installed).
+
+CI runs this check in the `fresh-clone-smoke` job, so a naive clone must pass
+the full E2E suite with zero auth-gated skips.
+
 #### Performance budgets
 
 CI runs Lighthouse against the public Eleva entry page and login page with a
