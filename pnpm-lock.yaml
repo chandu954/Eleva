@@ -260,8 +260,8 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1(supports-color@7.2.0)
       replace-special-characters:
-        specifier: ^1.2.7
-        version: 1.2.7
+        specifier: ^2.0.1
+        version: 2.0.1
       sonner:
         specifier: ^1.7.4
         version: 1.7.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -6541,8 +6541,9 @@ packages:
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
 
-  replace-special-characters@1.2.7:
-    resolution: {integrity: sha512-LI6wLSQIAaajYAKpsb5bz5QyttOSRd3Dy41BvBFAuZKkH9VjFVit0Rr3i63+Jw5TkMCJv+4bkGwZdJ/CXjKpqg==}
+  replace-special-characters@2.0.1:
+    resolution: {integrity: sha512-pluICxuomv6F/j2Mr+Y76y2yg3OpESwsN9SMkSzUu/mnEF7AujFrbBqfrEzap9gIXFBNMlycsHmZim5Z+dLROg==}
+    engines: {node: '>=12'}
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
@@ -14252,7 +14253,7 @@ snapshots:
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
 
-  replace-special-characters@1.2.7: {}
+  replace-special-characters@2.0.1: {}
 
   require-directory@2.1.1: {}
 
