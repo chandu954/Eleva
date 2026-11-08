@@ -72,7 +72,7 @@
     "@tiptap/extension-underline": "^2.27.3",
     "@tiptap/pm": "^2.27.3",
     "@tiptap/react": "^2.27.3",
-    "@tiptap/starter-kit": "^2.27.3",
+    "@tiptap/starter-kit": "^3.32.2",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.40.0",
     "ai": "^4.3.19",
